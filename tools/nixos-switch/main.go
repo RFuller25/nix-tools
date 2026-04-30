@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -16,7 +17,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		if m.state != stateConfig {
 			m.viewport = viewport.New(msg.Width, msg.Height-6)
-			m.viewport.SetContent(joinLines(m.lines))
+			m.viewport.SetContent(strings.Join(m.lines, "\n"))
 			m.viewport.GotoBottom()
 		}
 		return m, nil
@@ -57,13 +58,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case cmdStartedMsg:
 		m.reader = msg.reader
-		return m, readNextLine(m.reader)
+		m.pr = msg.pr
+		m.exitCh = msg.exitCh
+		return m, readNextLine(m.reader, m.pr, m.exitCh)
 
 	case lineMsg:
 		m.appendLine(string(msg))
-		return m, readNextLine(m.reader)
+		return m, readNextLine(m.reader, m.pr, m.exitCh)
 
 	case cmdDoneMsg:
+		if msg.lastLine != "" {
+			m.appendLine(msg.lastLine)
+		}
 		if msg.exitCode == 0 {
 			m.state = stateDone
 		} else {
@@ -95,17 +101,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
-}
-
-func joinLines(lines []string) string {
-	result := ""
-	for i, l := range lines {
-		if i > 0 {
-			result += "\n"
-		}
-		result += l
-	}
-	return result
 }
 
 func main() {

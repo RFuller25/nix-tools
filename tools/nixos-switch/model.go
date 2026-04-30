@@ -29,15 +29,19 @@ type model struct {
 	viewport     viewport.Model
 	lines        []string
 	reader       *bufio.Reader
+	pr           *io.PipeReader
+	exitCh       chan int
 	exitCode     int
 	err          error
 	width        int
 	height       int
 }
 
-type cmdStartedMsg struct{ reader *bufio.Reader }
 type lineMsg string
-type cmdDoneMsg struct{ exitCode int }
+type cmdDoneMsg struct {
+	exitCode int
+	lastLine string
+}
 type errMsg struct{ err error }
 
 func (e errMsg) Error() string { return e.err.Error() }
@@ -140,15 +144,14 @@ func (m *model) appendLine(line string) {
 	m.viewport.GotoBottom()
 }
 
-func readNextLine(r *bufio.Reader) tea.Cmd {
+func readNextLine(r *bufio.Reader, pr *io.PipeReader, exitCh chan int) tea.Cmd {
 	return func() tea.Msg {
 		line, err := r.ReadString('\n')
 		line = strings.TrimRight(line, "\n\r")
 		if err == io.EOF {
-			if line != "" {
-				return lineMsg(line)
-			}
-			return cmdDoneMsg{exitCode: 0}
+			exitCode := <-exitCh
+			pr.Close()
+			return cmdDoneMsg{exitCode: exitCode, lastLine: line}
 		}
 		if err != nil {
 			return errMsg{err}
