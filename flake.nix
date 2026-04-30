@@ -16,7 +16,7 @@
             pname = "nixos-switch";
             version = "0.1.0";
             src = ./tools/nixos-switch;
-            vendorHash = null;
+            vendorHash = "sha256-P3iFBhlDRS+bTfGRwy2bTPmi83HgIOMPKI364SRUouI=";
           };
 
           qalc = pkgs.buildGoModule {
