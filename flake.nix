@@ -30,7 +30,7 @@
             pname = "pkg-browser";
             version = "0.1.0";
             src = ./tools/pkg-browser;
-            vendorHash = null;
+            vendorHash = "sha256-HsV9tFxW9vLAFHgVFrBopSqgdN/wAN1ss734rPQMbNM=";
           };
         };
 
