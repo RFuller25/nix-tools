@@ -78,16 +78,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if raw == "" {
 				return m, nil
 			}
-			expr := substituteAnswer(raw, m.lastResult)
 			m.input.SetValue("")
-			return m, evalExpr(expr)
+			return m, evalExpr(raw, m.lastResult)
 		}
 
 	case resultMsg:
-		m.lastResult = msg.result
+		m.lastResult = msg.answer
 		m.history = append(m.history, historyEntry{
-			expr:   msg.expr,
-			result: msg.result,
+			expr:   msg.displayExpr,
+			result: msg.display,
 		})
 		m.viewport.SetContent(m.renderHistory())
 		m.viewport.GotoBottom()
@@ -95,7 +94,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case calcErrMsg:
 		m.history = append(m.history, historyEntry{
-			expr:   msg.expr,
+			expr:   msg.displayExpr,
 			result: msg.err,
 			isErr:  true,
 		})
