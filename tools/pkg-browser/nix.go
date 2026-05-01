@@ -70,9 +70,14 @@ func parseSearchJSON(data []byte) ([]pkg, error) {
 		return nil, fmt.Errorf("parse nix search output: %w", err)
 	}
 	pkgs := make([]pkg, 0, len(raw))
-	for _, v := range raw {
+	for key, v := range raw {
+		name := v.Pname
+		if name == "" {
+			parts := strings.Split(key, ".")
+			name = parts[len(parts)-1]
+		}
 		pkgs = append(pkgs, pkg{
-			Name:        v.Pname,
+			Name:        name,
 			Version:     v.Version,
 			Description: v.Description,
 		})
@@ -86,9 +91,16 @@ type nixErrMsg struct{ err error }
 
 func loadInstalled() tea.Cmd {
 	return func() tea.Msg {
-		out, err := exec.Command("nix", "profile", "list").Output()
+		cmd := exec.Command("nix", "profile", "list")
+		var stderr strings.Builder
+		cmd.Stderr = &stderr
+		out, err := cmd.Output()
 		if err != nil {
-			return nixErrMsg{err}
+			msg := strings.TrimSpace(stderr.String())
+			if msg == "" {
+				msg = err.Error()
+			}
+			return nixErrMsg{fmt.Errorf("%s", msg)}
 		}
 		blocks := strings.Split(strings.TrimSpace(string(out)), "\n\n")
 		var pkgs []pkg
@@ -103,9 +115,16 @@ func loadInstalled() tea.Cmd {
 
 func searchNixpkgs(query string) tea.Cmd {
 	return func() tea.Msg {
-		out, err := exec.Command("nix", "search", "nixpkgs", query, "--json").Output()
+		cmd := exec.Command("nix", "search", "nixpkgs", query, "--json")
+		var stderr strings.Builder
+		cmd.Stderr = &stderr
+		out, err := cmd.Output()
 		if err != nil {
-			return nixErrMsg{err}
+			msg := strings.TrimSpace(stderr.String())
+			if msg == "" {
+				msg = err.Error()
+			}
+			return nixErrMsg{fmt.Errorf("%s", msg)}
 		}
 		pkgs, err := parseSearchJSON(out)
 		if err != nil {
