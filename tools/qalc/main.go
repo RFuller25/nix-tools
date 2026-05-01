@@ -123,6 +123,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.debounceID++
 			return m, evalExpr(raw, m.lastResult)
 
+		case "up", "down", "pgup", "pgdown":
+			var vpCmd tea.Cmd
+			m.viewport, vpCmd = m.viewport.Update(msg)
+			return m, vpCmd
+
 		default:
 			var inputCmd tea.Cmd
 			m.input, inputCmd = m.input.Update(msg)
