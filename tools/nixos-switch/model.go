@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type appState int
@@ -103,62 +102,6 @@ func (m model) flakePath() string {
 		p = home + p[1:]
 	}
 	return p
-}
-
-var (
-	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	labelStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	helpStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	errorBanner = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("196")).
-			Border(lipgloss.RoundedBorder()).
-			Padding(0, 1)
-	doneBanner = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("82")).
-			Border(lipgloss.RoundedBorder()).
-			Padding(0, 1)
-)
-
-func (m model) View() string {
-	switch m.state {
-	case stateConfig:
-		return m.viewConfig()
-	case stateRunning, stateDone, stateError:
-		return m.viewRunning()
-	}
-	return ""
-}
-
-func (m model) viewConfig() string {
-	var b strings.Builder
-	b.WriteString(titleStyle.Render("nixos-switch") + "\n\n")
-	b.WriteString(labelStyle.Render("Flake path:") + "\n")
-	b.WriteString(m.pathInput.View() + "\n\n")
-	b.WriteString(labelStyle.Render("Hostname:") + "\n")
-	b.WriteString(m.hostInput.View() + "\n\n")
-	b.WriteString(helpStyle.Render("tab: switch field • enter: run • ctrl+c: quit"))
-	return b.String()
-}
-
-func (m model) viewRunning() string {
-	var b strings.Builder
-	b.WriteString(titleStyle.Render("nixos-switch") + " ")
-	b.WriteString(labelStyle.Render(m.pathInput.Value()+"#"+m.hostInput.Value()) + "\n\n")
-	b.WriteString(m.viewport.View() + "\n")
-
-	switch m.state {
-	case stateDone:
-		b.WriteString("\n" + doneBanner.Render("Done") + "\n")
-		b.WriteString(helpStyle.Render("q / ctrl+c: quit"))
-	case stateError:
-		b.WriteString("\n" + errorBanner.Render("Failed — see errors above") + "\n")
-		b.WriteString(helpStyle.Render("q / ctrl+c: quit"))
-	default:
-		b.WriteString(helpStyle.Render("ctrl+c: abort"))
-	}
-	return b.String()
 }
 
 func (m *model) appendLine(line string) {
