@@ -88,11 +88,15 @@ func (m model) viewRunning() string {
 	header += labelStyle.Render(m.pathInput.Value() + "#" + m.hostInput.Value())
 	b.WriteString(header + "\n\n")
 
-	if m.viewport.Width > 0 {
-		logPane := m.viewport.View()
-		div := renderDivider(m.viewport.Height)
-		statPane := renderStats(m.stats, statsW, m.viewport.Height)
-		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, logPane, div, statPane))
+	if m.viewport.Width > 0 && m.viewport.Height > 0 {
+		if m.width >= statsW+dividerW+20 {
+			logPane := m.viewport.View()
+			div := renderDivider(m.viewport.Height)
+			statPane := renderStats(m.stats, statsW, m.viewport.Height)
+			b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, logPane, div, statPane))
+		} else {
+			b.WriteString(m.viewport.View())
+		}
 	}
 	b.WriteString("\n")
 
