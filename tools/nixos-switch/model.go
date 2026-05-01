@@ -16,25 +16,42 @@ type appState int
 
 const (
 	stateConfig appState = iota
+	statePassword
 	stateRunning
 	stateDone
 	stateError
 )
 
+type stats struct {
+	phase        string  // "evaluating" | "fetching" | "building" | "activating"
+	totalPaths   int
+	fetchedPaths int
+	totalMiB     float64
+	totalDrvs    int
+	builtDrvs    int
+	pkgsChanged  int
+	pkgsAdded    int
+	pkgsRemoved  int
+	diskDelta    string  // e.g. "+406.6MiB"
+}
+
 type model struct {
-	state        appState
-	pathInput    textinput.Model
-	hostInput    textinput.Model
-	focusedInput int
-	viewport     viewport.Model
-	lines        []string
-	reader       *bufio.Reader
-	pr           *io.PipeReader
-	exitCh       chan int
-	exitCode     int
-	err          error
-	width        int
-	height       int
+	state         appState
+	pathInput     textinput.Model
+	hostInput     textinput.Model
+	passwordInput textinput.Model
+	focusedInput  int
+	viewport      viewport.Model
+	lines         []string
+	stats         stats
+	reader        *bufio.Reader
+	pr            *io.PipeReader
+	exitCh        chan int
+	exitCode      int
+	err           error
+	sudoErr       string
+	width         int
+	height        int
 }
 
 type lineMsg string
@@ -60,11 +77,18 @@ func initialModel() model {
 	host.SetValue(hostname)
 	host.Width = 50
 
+	pw := textinput.New()
+	pw.Placeholder = "password"
+	pw.EchoMode = textinput.EchoPassword
+	pw.EchoCharacter = '•'
+	pw.Width = 30
+
 	return model{
-		state:        stateConfig,
-		pathInput:    path,
-		hostInput:    host,
-		focusedInput: 0,
+		state:         stateConfig,
+		pathInput:     path,
+		hostInput:     host,
+		passwordInput: pw,
+		focusedInput:  0,
 	}
 }
 
