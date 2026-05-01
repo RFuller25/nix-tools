@@ -53,6 +53,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, textinput.Blink
 			case "enter":
+				if m.pathInput.Value() == "" || m.hostInput.Value() == "" {
+					return m, nil
+				}
 				return m, checkSudo()
 			}
 
@@ -139,7 +142,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Forward remaining messages to focused component.
 	switch m.state {
 	case stateConfig:
 		var cmd tea.Cmd
