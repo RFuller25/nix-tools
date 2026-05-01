@@ -35,14 +35,14 @@ func authenticateSudo(password string) tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command("sudo", "-S", "-v")
 		cmd.Stdin = strings.NewReader(password + "\n")
-		if err := cmd.Run(); err != nil {
+		if out, err := cmd.CombinedOutput(); err != nil {
+			_ = out
 			return sudoFailedMsg{err: err}
 		}
 		return sudoOKMsg{}
 	}
 }
 
-// startBuild runs nh os switch -u with --diff always --no-nom, streaming output via a pipe.
 func startBuild(flakePath, hostname string) tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command("nh",
