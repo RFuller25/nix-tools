@@ -23,7 +23,7 @@
             pname = "qalc";
             version = "0.1.0";
             src = ./tools/qalc;
-            vendorHash = null;
+            vendorHash = "sha256-P3iFBhlDRS+bTfGRwy2bTPmi83HgIOMPKI364SRUouI=";
           };
 
           pkg-browser = pkgs.buildGoModule {
