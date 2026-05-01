@@ -14,7 +14,7 @@ func TestCategorizeLineBuilding(t *testing.T) {
 }
 
 func TestCategorizeLineFetching(t *testing.T) {
-	style, _ := categorizeLine("fetching path '/nix/store/abc'")
+	style, _ := categorizeLine("copying path '/nix/store/abc' from 'https://cache.nixos.org'")
 	if style != styleFetching {
 		t.Fatalf("expected styleFetching, got %v", style)
 	}

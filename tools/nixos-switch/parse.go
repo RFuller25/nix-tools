@@ -32,30 +32,24 @@ var (
 	styleSection    = &_styleSection
 )
 
-// ── ANSI stripping ────────────────────────────────────────────────────────
-
 var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 func stripANSI(s string) string {
 	return ansiRe.ReplaceAllString(s, "")
 }
 
-// ── line categorization ───────────────────────────────────────────────────
-
 func categorizeLine(line string) (*lipgloss.Style, string) {
 	switch {
-	case strings.HasPrefix(line, "[U"):
+	case strings.HasPrefix(line, "[U."):
 		return styleChanged, line
-	case strings.HasPrefix(line, "[A"):
+	case strings.HasPrefix(line, "[A."):
 		return styleAdded, line
-	case strings.HasPrefix(line, "[R"):
+	case strings.HasPrefix(line, "[R."):
 		return styleRemoved, line
 	case strings.HasPrefix(line, "> "):
 		return styleSection, line
 	case strings.HasPrefix(line, "building '"):
 		return styleBuilding, line
-	case strings.HasPrefix(line, "fetching "):
-		return styleFetching, line
 	case strings.HasPrefix(line, "copying path '"):
 		return styleFetching, line
 	case strings.HasPrefix(line, "activating "):
@@ -67,8 +61,6 @@ func categorizeLine(line string) (*lipgloss.Style, string) {
 	}
 }
 
-// ── stats extraction ──────────────────────────────────────────────────────
-
 var (
 	reFetchPaths = regexp.MustCompile(`these (\d+) paths? will be fetched \(([\d.]+) (MiB|GiB) download`)
 	reFetchDrvs  = regexp.MustCompile(`these (\d+) derivations? will be built`)
@@ -76,7 +68,6 @@ var (
 )
 
 func updateStats(line string, s *stats) {
-	// nh section headers: "> Building NixOS configuration", "> Activating", etc.
 	if strings.HasPrefix(line, "> ") {
 		lower := strings.ToLower(line[2:])
 		switch {
@@ -88,26 +79,23 @@ func updateStats(line string, s *stats) {
 		return
 	}
 
-	// nvd diff package lines
 	switch {
-	case strings.HasPrefix(line, "[U"):
+	case strings.HasPrefix(line, "[U."):
 		s.pkgsChanged++
 		return
-	case strings.HasPrefix(line, "[A"):
+	case strings.HasPrefix(line, "[A."):
 		s.pkgsAdded++
 		return
-	case strings.HasPrefix(line, "[R"):
+	case strings.HasPrefix(line, "[R."):
 		s.pkgsRemoved++
 		return
 	}
 
-	// nvd closure size summary
 	if m := reDiskUsage.FindStringSubmatch(line); m != nil {
 		s.diskDelta = strings.TrimSpace(m[1])
 		return
 	}
 
-	// nix: "these X paths will be fetched (Y MiB download, ...)"
 	if m := reFetchPaths.FindStringSubmatch(line); m != nil {
 		n, _ := strconv.Atoi(m[1])
 		mib, _ := strconv.ParseFloat(m[2], 64)
@@ -120,20 +108,17 @@ func updateStats(line string, s *stats) {
 		return
 	}
 
-	// nix: "these X derivations will be built"
 	if m := reFetchDrvs.FindStringSubmatch(line); m != nil {
 		n, _ := strconv.Atoi(m[1])
 		s.totalDrvs = n
 		return
 	}
 
-	// nix: individual path copy
 	if strings.HasPrefix(line, "copying path '") {
 		s.fetchedPaths++
 		return
 	}
 
-	// nix: individual derivation build
 	if strings.HasPrefix(line, "building '") {
 		s.builtDrvs++
 		if s.phase != "activating" {
@@ -142,7 +127,6 @@ func updateStats(line string, s *stats) {
 		return
 	}
 
-	// nix: activation line
 	if strings.HasPrefix(line, "activating ") {
 		s.phase = "activating"
 		return
