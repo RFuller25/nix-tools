@@ -41,7 +41,6 @@ func initialModel() model {
 	ti := textinput.New()
 	ti.Placeholder = "2 + 2  (type ANSWER to use last result)"
 	ti.Focus()
-	ti.Width = 60
 	ti.Prompt = promptStyle.Render("› ")
 
 	return model{input: ti}
@@ -57,10 +56,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		inputHeight := 3
-		m.viewport = viewport.New(msg.Width, msg.Height-inputHeight-3)
-		m.viewport.SetContent(m.renderHistory())
-		m.viewport.GotoBottom()
-		m.ready = true
+		vpHeight := msg.Height - inputHeight - 3
+		if !m.ready {
+			m.viewport = viewport.New(msg.Width, vpHeight)
+			m.viewport.SetContent(m.renderHistory())
+			m.viewport.GotoBottom()
+			m.ready = true
+		} else {
+			m.viewport.Width = msg.Width
+			m.viewport.Height = vpHeight
+		}
+		m.input.Width = msg.Width - 4
 		return m, nil
 
 	case tea.KeyMsg:
