@@ -15,10 +15,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if m.state != stateConfig {
-			m.viewport = viewport.New(msg.Width, msg.Height-6)
-			m.viewport.SetContent(strings.Join(m.lines, "\n"))
-			m.viewport.GotoBottom()
+		if m.state != stateConfig && m.state != statePassword {
+			logW := m.width - statsW - dividerW
+			vpH := m.height - 6
+			if logW < 1 {
+				logW = 1
+			}
+			if vpH < 1 {
+				vpH = 1
+			}
+			if m.viewport.Width == 0 {
+				m.viewport = viewport.New(logW, vpH)
+				m.viewport.SetContent(strings.Join(m.lines, "\n"))
+				m.viewport.GotoBottom()
+			} else {
+				m.viewport.Width = logW
+				m.viewport.Height = vpH
+			}
 		}
 		return m, nil
 
@@ -40,21 +53,63 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, textinput.Blink
 			case "enter":
-				m.state = stateRunning
-				m.viewport = viewport.New(m.width, m.height-6)
-				return m, startBuild(m.flakePath(), m.hostInput.Value())
+				return m, checkSudo()
 			}
+
+		case statePassword:
+			switch msg.String() {
+			case "ctrl+c":
+				return m, tea.Quit
+			case "esc":
+				m.state = stateConfig
+				m.passwordInput.SetValue("")
+				m.sudoErr = ""
+				m.pathInput.Focus()
+				return m, textinput.Blink
+			case "enter":
+				pass := m.passwordInput.Value()
+				if pass == "" {
+					return m, nil
+				}
+				return m, authenticateSudo(pass)
+			}
+
 		case stateDone, stateError:
 			switch msg.String() {
 			case "q", "ctrl+c":
 				return m, tea.Quit
 			}
+
 		case stateRunning:
-			switch msg.String() {
-			case "ctrl+c":
+			if msg.String() == "ctrl+c" {
 				return m, tea.Quit
 			}
 		}
+
+	case sudoOKMsg:
+		logW := m.width - statsW - dividerW
+		vpH := m.height - 6
+		if logW < 1 {
+			logW = 1
+		}
+		if vpH < 1 {
+			vpH = 1
+		}
+		m.viewport = viewport.New(logW, vpH)
+		m.state = stateRunning
+		m.passwordInput.SetValue("")
+		m.sudoErr = ""
+		return m, startBuild(m.flakePath(), m.hostInput.Value())
+
+	case sudoNeededMsg:
+		m.state = statePassword
+		m.passwordInput.Focus()
+		return m, textinput.Blink
+
+	case sudoFailedMsg:
+		m.sudoErr = "wrong password, try again"
+		m.passwordInput.SetValue("")
+		return m, textinput.Blink
 
 	case cmdStartedMsg:
 		m.reader = msg.reader
@@ -84,7 +139,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.state == stateConfig {
+	// Forward remaining messages to focused component.
+	switch m.state {
+	case stateConfig:
 		var cmd tea.Cmd
 		if m.focusedInput == 0 {
 			m.pathInput, cmd = m.pathInput.Update(msg)
@@ -92,9 +149,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.hostInput, cmd = m.hostInput.Update(msg)
 		}
 		return m, cmd
-	}
-
-	if m.state == stateRunning || m.state == stateDone || m.state == stateError {
+	case statePassword:
+		var cmd tea.Cmd
+		m.passwordInput, cmd = m.passwordInput.Update(msg)
+		return m, cmd
+	case stateRunning, stateDone, stateError:
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
 		return m, cmd
