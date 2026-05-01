@@ -110,7 +110,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, textinput.Blink
 
 	case sudoFailedMsg:
-		m.sudoErr = "wrong password, try again"
+		m.sudoErr = msg.err.Error()
 		m.passwordInput.SetValue("")
 		return m, textinput.Blink
 

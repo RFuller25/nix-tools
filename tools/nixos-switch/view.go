@@ -155,7 +155,7 @@ func renderStats(s stats, width, height int) string {
 
 	if s.totalDrvs > 0 {
 		add(statsLabelStyle.Render("Build"))
-		add(fmt.Sprintf(" %d / %d dervs", s.builtDrvs, s.totalDrvs))
+		add(fmt.Sprintf(" %d / %d drvs", s.builtDrvs, s.totalDrvs))
 		add("")
 	}
 

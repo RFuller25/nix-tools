@@ -35,8 +35,7 @@ func authenticateSudo(password string) tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command("sudo", "-S", "-v")
 		cmd.Stdin = strings.NewReader(password + "\n")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			_ = out
+		if _, err := cmd.CombinedOutput(); err != nil {
 			return sudoFailedMsg{err: err}
 		}
 		return sudoOKMsg{}
