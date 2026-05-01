@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os/exec"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -15,10 +16,43 @@ type cmdStartedMsg struct {
 	exitCh chan int
 }
 
-func startRebuild(flakePath, hostname string) tea.Cmd {
+type sudoOKMsg struct{}
+type sudoNeededMsg struct{}
+type sudoFailedMsg struct{ err error }
+
+// checkSudo returns sudoOKMsg if sudo credentials are cached, sudoNeededMsg if not.
+func checkSudo() tea.Cmd {
 	return func() tea.Msg {
-		cmd := exec.Command("sudo", "nixos-rebuild", "switch",
-			"--flake", flakePath+"#"+hostname)
+		if exec.Command("sudo", "-n", "true").Run() == nil {
+			return sudoOKMsg{}
+		}
+		return sudoNeededMsg{}
+	}
+}
+
+// authenticateSudo pipes password to sudo -S -v to cache credentials.
+func authenticateSudo(password string) tea.Cmd {
+	return func() tea.Msg {
+		cmd := exec.Command("sudo", "-S", "-v")
+		cmd.Stdin = strings.NewReader(password + "\n")
+		if err := cmd.Run(); err != nil {
+			return sudoFailedMsg{err: err}
+		}
+		return sudoOKMsg{}
+	}
+}
+
+// startBuild runs nh os switch -u with --diff always --no-nom, streaming output via a pipe.
+func startBuild(flakePath, hostname string) tea.Cmd {
+	return func() tea.Msg {
+		cmd := exec.Command("nh",
+			"-e", "sudo",
+			"os", "switch",
+			"--update",
+			"--diff", "always",
+			"--no-nom",
+			"--hostname", hostname,
+			flakePath)
 
 		pr, pw := io.Pipe()
 		cmd.Stdout = pw

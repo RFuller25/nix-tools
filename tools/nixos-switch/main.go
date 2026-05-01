@@ -42,7 +42,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				m.state = stateRunning
 				m.viewport = viewport.New(m.width, m.height-6)
-				return m, startRebuild(m.flakePath(), m.hostInput.Value())
+				return m, startBuild(m.flakePath(), m.hostInput.Value())
 			}
 		case stateDone, stateError:
 			switch msg.String() {
