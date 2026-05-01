@@ -162,8 +162,10 @@ func (m model) viewRunning() string {
 }
 
 func (m *model) appendLine(line string) {
-	style, _ := categorizeLine(line)
-	m.lines = append(m.lines, style.Render(line))
+	clean := stripANSI(line)
+	style, _ := categorizeLine(clean)
+	updateStats(clean, &m.stats)
+	m.lines = append(m.lines, style.Render(clean))
 	m.viewport.SetContent(strings.Join(m.lines, "\n"))
 	m.viewport.GotoBottom()
 }
