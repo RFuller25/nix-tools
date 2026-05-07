@@ -133,3 +133,38 @@ func TestRoundTrip_RemoveThenParse(t *testing.T) {
 		t.Errorf("want 2 packages after remove, got %d: %v", len(pkgs), pkgs)
 	}
 }
+
+func TestParseConfigPackages_CommentWithBracket(t *testing.T) {
+	src := []byte(`  environment.systemPackages = with pkgs; [
+    vim # [no bracket issue]
+    git
+  ];`)
+	pkgs := parseConfigPackages(src)
+	names := make(map[string]bool)
+	for _, p := range pkgs {
+		names[p.Name] = true
+	}
+	if !names["vim"] {
+		t.Error("vim not found")
+	}
+	if !names["git"] {
+		t.Error("git not found — bracket in comment corrupted depth counter")
+	}
+}
+
+func TestAddPackage_NoDuplicate(t *testing.T) {
+	src := []byte(`  environment.systemPackages = with pkgs; [
+    vim
+  ];`)
+	result := addPackage(src, "vim")
+	pkgs := parseConfigPackages(result)
+	count := 0
+	for _, p := range pkgs {
+		if p.Name == "vim" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected 1 vim, got %d", count)
+	}
+}

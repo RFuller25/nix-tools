@@ -36,9 +36,15 @@ func parseConfigPackages(src []byte) []configPkg {
 			continue
 		}
 
+		// Strip inline comment BEFORE depth counting
+		scanLine := trimmed
+		if idx := strings.Index(scanLine, " #"); idx >= 0 {
+			scanLine = scanLine[:idx]
+		}
+
 		atTopLevel := bracketDepth == 1 && parenDepth == 0
 
-		for _, ch := range trimmed {
+		for _, ch := range scanLine {
 			switch ch {
 			case '[':
 				bracketDepth++
@@ -58,7 +64,7 @@ func parseConfigPackages(src []byte) []configPkg {
 			continue
 		}
 
-		// Strip inline comment
+		// Strip inline comment for name extraction
 		nameLine := trimmed
 		if idx := strings.Index(nameLine, " #"); idx >= 0 {
 			nameLine = strings.TrimSpace(nameLine[:idx])
@@ -83,6 +89,12 @@ func parseConfigPackages(src []byte) []configPkg {
 
 // addPackage inserts name as a new line before the closing ] of environment.systemPackages.
 func addPackage(src []byte, name string) []byte {
+	for _, p := range parseConfigPackages(src) {
+		if p.Name == name {
+			return src
+		}
+	}
+
 	lines := strings.Split(string(src), "\n")
 
 	blockStart := -1
@@ -98,7 +110,11 @@ func addPackage(src []byte, name string) []byte {
 
 	depth := 1
 	for i := blockStart + 1; i < len(lines); i++ {
-		for _, ch := range lines[i] {
+		scanLine := lines[i]
+		if idx := strings.Index(scanLine, " #"); idx >= 0 {
+			scanLine = scanLine[:idx]
+		}
+		for _, ch := range scanLine {
 			switch ch {
 			case '[':
 				depth++
