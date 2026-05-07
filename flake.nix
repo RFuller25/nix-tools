@@ -14,7 +14,7 @@
         packages = {
           talc = pkgs.buildGoModule {
             pname = "talc";
-            version = "0.1.0";
+            version = "0.2.0";
             src = ./tools/talc;
             vendorHash = "sha256-P3iFBhlDRS+bTfGRwy2bTPmi83HgIOMPKI364SRUouI=";
           };
