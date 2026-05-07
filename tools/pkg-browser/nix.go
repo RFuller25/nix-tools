@@ -90,6 +90,7 @@ func parseSearchJSON(data []byte) ([]pkg, error) {
 type installedLoadedMsg struct{ pkgs []pkg }
 type searchResultMsg struct{ pkgs []pkg }
 type nixErrMsg struct{ err error }
+type profileErrMsg struct{ err error }
 type configLoadedMsg struct{ pkgs []configPkg }
 type configErrMsg struct{ err error }
 type configSavedMsg struct{ pkgs []configPkg }
@@ -125,7 +126,7 @@ func loadInstalled() tea.Cmd {
 			if msg == "" {
 				msg = err.Error()
 			}
-			return nixErrMsg{fmt.Errorf("%s", msg)}
+			return profileErrMsg{fmt.Errorf("%s", msg)}
 		}
 		blocks := strings.Split(strings.TrimSpace(string(out)), "\n\n")
 		var pkgs []pkg

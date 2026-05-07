@@ -176,12 +176,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		return m, nil
 
+	case profileErrMsg:
+		m.profileErr = msg.err
+		m.loading = false
+		return m, nil
+
 	case nixErrMsg:
-		if m.searchOpen {
-			m.searchErr = msg.err
-		} else {
-			m.profileErr = msg.err
-		}
+		m.searchErr = msg.err
 		m.loading = false
 		return m, nil
 
@@ -195,8 +196,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case configSavedMsg:
 		m.configPkgs = msg.pkgs
-		if m.configCursor >= len(msg.pkgs) && len(msg.pkgs) > 0 {
-			m.configCursor = len(msg.pkgs) - 1
+		if m.configCursor >= len(msg.pkgs) {
+			if len(msg.pkgs) == 0 {
+				m.configCursor = 0
+			} else {
+				m.configCursor = len(msg.pkgs) - 1
+			}
 		}
 		m.statusMsg = "Saved. Run nixos-switch to apply."
 		return m, nil

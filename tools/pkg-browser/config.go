@@ -42,6 +42,8 @@ func parseConfigPackages(src []byte) []configPkg {
 			scanLine = scanLine[:idx]
 		}
 
+		// Snapshot depth before processing this line's characters:
+		// we want to know if this entry started at top level, not where it ended.
 		atTopLevel := bracketDepth == 1 && parenDepth == 0
 
 		for _, ch := range scanLine {
