@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,24 +25,51 @@ var (
 // "-" requires trailing whitespace to distinguish operator from negative number.
 var autoPrefixRe = regexp.MustCompile(`^[+*/^%]|^-\s|^to\s|^in\s`)
 
-// substituteAnswer replaces all occurrences of "ANSWER" in expr with lastResult.
-// Returns expr unchanged if lastResult is empty.
-func substituteAnswer(expr, lastResult string) string {
-	if lastResult == "" {
-		return expr
+var ansIndexRe = regexp.MustCompile(`(?i)\b(ans|answer)\(([0-9]+)\)`)
+var ansPlainRe = regexp.MustCompile(`(?i)\b(ans|answer)\b`)
+
+// substituteAnswer replaces ANS(x)/ANSWER(x) with the x-th previous answer
+// (1=most recent) and bare ANS/ANSWER with the most recent answer.
+func substituteAnswer(expr string, answers []string) (string, error) {
+	var subErr error
+	result := ansIndexRe.ReplaceAllStringFunc(expr, func(match string) string {
+		sub := ansIndexRe.FindStringSubmatch(match)
+		x, _ := strconv.Atoi(sub[2])
+		if x <= 0 {
+			subErr = fmt.Errorf("ANS index must be ≥ 1")
+			return match
+		}
+		if x > len(answers) {
+			subErr = fmt.Errorf("ANS(%d) out of range (only %d answer(s))", x, len(answers))
+			return match
+		}
+		return answers[x-1]
+	})
+	if subErr != nil {
+		return "", subErr
 	}
-	return strings.ReplaceAll(expr, "ANSWER", lastResult)
+	if len(answers) > 0 {
+		result = ansPlainRe.ReplaceAllString(result, answers[0])
+	}
+	return result, nil
 }
 
 // resolveExpr determines the actual qalc expression to evaluate and the display
 // expression to show in history.
-func resolveExpr(input, lastResult string) (expr, displayExpr string, isAuto bool) {
+func resolveExpr(input string, answers []string) (expr, displayExpr string, isAuto bool, err error) {
 	trimmed := strings.TrimSpace(input)
-	if lastResult != "" && autoPrefixRe.MatchString(trimmed) {
-		return lastResult + " " + trimmed, "ANSWER " + trimmed, true
+	lastResult := ""
+	if len(answers) > 0 {
+		lastResult = answers[0]
 	}
-	expr = substituteAnswer(trimmed, lastResult)
-	return expr, trimmed, false
+	if lastResult != "" && autoPrefixRe.MatchString(trimmed) {
+		return lastResult + " " + trimmed, "ANSWER " + trimmed, true, nil
+	}
+	expr, err = substituteAnswer(trimmed, answers)
+	if err != nil {
+		return "", trimmed, false, err
+	}
+	return expr, trimmed, false, nil
 }
 
 // ── output parsing ─────────────────────────────────────────────────────────
@@ -114,12 +143,18 @@ type debounceMsg struct{ id int }
 // ── qalc invocation ────────────────────────────────────────────────────────
 
 // evalExpr resolves and evaluates the expression, returning full qalc output.
-func evalExpr(input, lastResult string) tea.Cmd {
+func evalExpr(input string, answers []string) tea.Cmd {
 	return func() tea.Msg {
-		expr, displayExpr, isAuto := resolveExpr(input, lastResult)
-		out, err := exec.Command("qalc", expr).Output()
-		if err != nil && len(out) == 0 {
+		expr, displayExpr, isAuto, err := resolveExpr(input, answers)
+		if err != nil {
 			return calcErrMsg{displayExpr: displayExpr, err: err.Error()}
+		}
+		if cmd := evalAltTimeCmd(expr, displayExpr, isAuto); cmd != nil {
+			return cmd()
+		}
+		out, cmdErr := exec.Command("qalc", expr).Output()
+		if cmdErr != nil && len(out) == 0 {
+			return calcErrMsg{displayExpr: displayExpr, err: cmdErr.Error()}
 		}
 		display, answer := parseResult(string(out))
 		return resultMsg{
@@ -132,15 +167,21 @@ func evalExpr(input, lastResult string) tea.Cmd {
 }
 
 // evalPreview calls qalc for a live preview. Stale results are discarded by id.
-func evalPreview(input, lastResult string, id int) tea.Cmd {
+func evalPreview(input string, answers []string, id int) tea.Cmd {
 	return func() tea.Msg {
 		trimmed := strings.TrimSpace(input)
 		if trimmed == "" {
 			return previewMsg{id: id}
 		}
-		expr, _, _ := resolveExpr(trimmed, lastResult)
-		out, err := exec.Command("qalc", expr).Output()
-		if err != nil && len(out) == 0 {
+		expr, _, _, err := resolveExpr(trimmed, answers)
+		if err != nil {
+			return previewMsg{id: id}
+		}
+		if preview := previewAltTime(expr); preview != "" {
+			return previewMsg{id: id, result: preview}
+		}
+		out, cmdErr := exec.Command("qalc", expr).Output()
+		if cmdErr != nil && len(out) == 0 {
 			return previewMsg{id: id}
 		}
 		display, _ := parseResult(string(out))

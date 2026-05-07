@@ -4,33 +4,89 @@ import (
 	"testing"
 )
 
-// ── substituteAnswer (unchanged) ───────────────────────────────────────────
+// ── substituteAnswer ───────────────────────────────────────────────────────
 
 func TestSubstituteAnswer(t *testing.T) {
-	got := substituteAnswer("ANSWER * 2", "5")
+	got, err := substituteAnswer("ANSWER * 2", []string{"5"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got != "5 * 2" {
 		t.Fatalf("got %q, want %q", got, "5 * 2")
 	}
 }
 
 func TestSubstituteAnswerNoToken(t *testing.T) {
-	got := substituteAnswer("2 + 2", "5")
+	got, err := substituteAnswer("2 + 2", []string{"5"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got != "2 + 2" {
 		t.Fatalf("got %q, want %q", got, "2 + 2")
 	}
 }
 
 func TestSubstituteAnswerEmptyLast(t *testing.T) {
-	got := substituteAnswer("ANSWER + 1", "")
+	got, err := substituteAnswer("ANSWER + 1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got != "ANSWER + 1" {
 		t.Fatalf("got %q, want %q", got, "ANSWER + 1")
 	}
 }
 
 func TestSubstituteAnswerMultiple(t *testing.T) {
-	got := substituteAnswer("ANSWER + ANSWER", "3")
+	got, err := substituteAnswer("ANSWER + ANSWER", []string{"3"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got != "3 + 3" {
 		t.Fatalf("got %q, want %q", got, "3 + 3")
+	}
+}
+
+func TestSubstituteAnswerIndex1(t *testing.T) {
+	got, err := substituteAnswer("ANS(1) + 1", []string{"10", "5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "10 + 1" {
+		t.Fatalf("got %q, want %q", got, "10 + 1")
+	}
+}
+
+func TestSubstituteAnswerIndex2(t *testing.T) {
+	got, err := substituteAnswer("ANS(2) * 2", []string{"10", "5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "5 * 2" {
+		t.Fatalf("got %q, want %q", got, "5 * 2")
+	}
+}
+
+func TestSubstituteAnswerIndexCaseInsensitive(t *testing.T) {
+	got, err := substituteAnswer("answer(1) + ANS(2)", []string{"10", "5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "10 + 5" {
+		t.Fatalf("got %q, want %q", got, "10 + 5")
+	}
+}
+
+func TestSubstituteAnswerIndexZeroInvalid(t *testing.T) {
+	_, err := substituteAnswer("ANS(0) + 1", []string{"10"})
+	if err == nil {
+		t.Fatal("expected error for ANS(0)")
+	}
+}
+
+func TestSubstituteAnswerIndexOutOfRange(t *testing.T) {
+	_, err := substituteAnswer("ANS(3) + 1", []string{"10", "5"})
+	if err == nil {
+		t.Fatal("expected error for ANS(3) with only 2 answers")
 	}
 }
 
@@ -109,7 +165,10 @@ func TestPrimaryUnitPlain(t *testing.T) {
 // ── resolveExpr ────────────────────────────────────────────────────────────
 
 func TestResolveExprAutoPrefix(t *testing.T) {
-	expr, displayExpr, isAuto := resolveExpr("/ 4", "20")
+	expr, displayExpr, isAuto, err := resolveExpr("/ 4", []string{"20"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if expr != "20 / 4" {
 		t.Errorf("expr = %q, want %q", expr, "20 / 4")
 	}
@@ -122,7 +181,10 @@ func TestResolveExprAutoPrefix(t *testing.T) {
 }
 
 func TestResolveExprAutoPrefixTo(t *testing.T) {
-	expr, displayExpr, isAuto := resolveExpr("to miles", "100 km")
+	expr, displayExpr, isAuto, err := resolveExpr("to miles", []string{"100 km"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if expr != "100 km to miles" {
 		t.Errorf("expr = %q, want %q", expr, "100 km to miles")
 	}
@@ -135,18 +197,21 @@ func TestResolveExprAutoPrefixTo(t *testing.T) {
 }
 
 func TestResolveExprAutoPrefixMinus(t *testing.T) {
-	_, _, isAuto := resolveExpr("- 3", "10")
+	_, _, isAuto, _ := resolveExpr("- 3", []string{"10"})
 	if !isAuto {
 		t.Error("'- 3' should trigger auto-prefix")
 	}
-	_, _, isAutoNeg := resolveExpr("-3", "10")
+	_, _, isAutoNeg, _ := resolveExpr("-3", []string{"10"})
 	if isAutoNeg {
 		t.Error("'-3' should NOT trigger auto-prefix (negative number)")
 	}
 }
 
 func TestResolveExprNoAutoPrefixWhenEmpty(t *testing.T) {
-	expr, displayExpr, isAuto := resolveExpr("/ 4", "")
+	expr, displayExpr, isAuto, err := resolveExpr("/ 4", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if isAuto {
 		t.Error("isAuto should be false when lastResult is empty")
 	}
@@ -159,7 +224,10 @@ func TestResolveExprNoAutoPrefixWhenEmpty(t *testing.T) {
 }
 
 func TestResolveExprExplicitAnswer(t *testing.T) {
-	expr, displayExpr, isAuto := resolveExpr("ANSWER * 2", "5")
+	expr, displayExpr, isAuto, err := resolveExpr("ANSWER * 2", []string{"5"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if expr != "5 * 2" {
 		t.Errorf("expr = %q, want %q", expr, "5 * 2")
 	}
@@ -172,7 +240,10 @@ func TestResolveExprExplicitAnswer(t *testing.T) {
 }
 
 func TestResolveExprPlain(t *testing.T) {
-	expr, displayExpr, isAuto := resolveExpr("2 + 2", "5")
+	expr, displayExpr, isAuto, err := resolveExpr("2 + 2", []string{"5"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if expr != "2 + 2" {
 		t.Errorf("expr = %q", expr)
 	}
@@ -181,5 +252,15 @@ func TestResolveExprPlain(t *testing.T) {
 	}
 	if isAuto {
 		t.Error("isAuto should be false for plain expression")
+	}
+}
+
+func TestResolveExprAnsIndex(t *testing.T) {
+	expr, _, _, err := resolveExpr("ANS(2) + 1", []string{"10", "5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr != "5 + 1" {
+		t.Errorf("expr = %q, want %q", expr, "5 + 1")
 	}
 }

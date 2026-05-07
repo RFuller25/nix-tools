@@ -12,18 +12,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+
 // ── styles ─────────────────────────────────────────────────────────────────
 
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("205"))
-
-	answerChipStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("205")).
-			Foreground(lipgloss.Color("205")).
-			Padding(0, 1)
 
 	divStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
 
@@ -59,7 +54,7 @@ type model struct {
 	input          textinput.Model
 	viewport       viewport.Model
 	history        []historyEntry
-	lastResult     string
+	answers        []string // most-recent first; answers[0] = last result
 	debounceID     int
 	preview        string
 	previewLoading bool
@@ -81,7 +76,7 @@ func initialModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(textinput.Blink, tea.ClearScreen)
 }
 
 // ── update ─────────────────────────────────────────────────────────────────
@@ -121,7 +116,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.preview = ""
 			m.previewLoading = false
 			m.debounceID++
-			return m, evalExpr(raw, m.lastResult)
+			return m, evalExpr(raw, m.answers)
 
 		case "up", "down", "pgup", "pgdown":
 			var vpCmd tea.Cmd
@@ -150,7 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.previewLoading = false
 			return m, nil
 		}
-		return m, evalPreview(raw, m.lastResult, msg.id)
+		return m, evalPreview(raw, m.answers, msg.id)
 
 	case previewMsg:
 		if msg.id != m.debounceID {
@@ -161,7 +156,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case resultMsg:
-		m.lastResult = msg.answer
+		m.answers = append([]string{msg.answer}, m.answers...)
 		m.history = append(m.history, historyEntry{
 			displayExpr: msg.displayExpr,
 			display:     msg.display,
@@ -196,11 +191,7 @@ func (m model) View() string {
 
 	div := divStyle.Render(strings.Repeat("─", m.width))
 
-	// Header: title + ANSWER chip (when set) + right-aligned help
 	header := titleStyle.Render("talc")
-	if m.lastResult != "" {
-		header += "  " + answerChipStyle.Render("ANSWER: "+m.lastResult)
-	}
 	rightHelp := helpStyle.Render("ctrl+c: quit")
 	gap := m.width - lipgloss.Width(header) - lipgloss.Width(rightHelp)
 	if gap > 0 {
