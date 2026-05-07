@@ -4,9 +4,21 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+func validateConfigPath(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("cannot read config file: %w", err)
+	}
+	if !strings.Contains(string(data), "environment.systemPackages") {
+		return fmt.Errorf("file does not contain environment.systemPackages")
+	}
+	return nil
+}
 
 func main() {
 	configFlag := flag.String("config", "", "path to NixOS configuration.nix (skips first-run prompt)")
@@ -15,9 +27,16 @@ func main() {
 	var configPath string
 
 	if *configFlag != "" {
+		if err := validateConfigPath(*configFlag); err != nil {
+			fmt.Fprintf(os.Stderr, "error: --config: %v\n", err)
+			os.Exit(1)
+		}
 		configPath = *configFlag
 	} else {
 		cfg, err := readAppConfig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not read saved config: %v\n", err)
+		}
 		if err != nil || cfg.ConfigPath == "" {
 			// First-run setup
 			p := tea.NewProgram(newSetupModel())
