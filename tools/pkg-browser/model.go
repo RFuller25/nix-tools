@@ -73,7 +73,11 @@ func initialModel(configPath string) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(loadInstalled(), m.spinner.Tick)
+	cmds := []tea.Cmd{loadInstalled(), m.spinner.Tick}
+	if m.configPath != "" {
+		cmds = append(cmds, loadConfig(m.configPath))
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -165,6 +169,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.profileErr = msg.err
 		}
 		m.loading = false
+		return m, nil
+
+	case configLoadedMsg:
+		m.configPkgs = msg.pkgs
+		return m, nil
+
+	case configErrMsg:
+		m.configErr = msg.err
 		return m, nil
 
 	case spinner.TickMsg:

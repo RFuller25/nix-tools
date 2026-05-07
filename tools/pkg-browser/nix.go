@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -88,6 +89,9 @@ func parseSearchJSON(data []byte) ([]pkg, error) {
 type installedLoadedMsg struct{ pkgs []pkg }
 type searchResultMsg struct{ pkgs []pkg }
 type nixErrMsg struct{ err error }
+type configLoadedMsg struct{ pkgs []configPkg }
+type configErrMsg struct{ err error }
+type configSavedMsg struct{ pkgs []configPkg }
 
 func loadInstalled() tea.Cmd {
 	return func() tea.Msg {
@@ -131,5 +135,15 @@ func searchNixpkgs(query string) tea.Cmd {
 			return nixErrMsg{err}
 		}
 		return searchResultMsg{pkgs}
+	}
+}
+
+func loadConfig(path string) tea.Cmd {
+	return func() tea.Msg {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return configErrMsg{err}
+		}
+		return configLoadedMsg{pkgs: parseConfigPackages(src)}
 	}
 }
