@@ -147,3 +147,31 @@ func loadConfig(path string) tea.Cmd {
 		return configLoadedMsg{pkgs: parseConfigPackages(src)}
 	}
 }
+
+func applyAdd(configPath, name string) tea.Cmd {
+	return func() tea.Msg {
+		src, err := os.ReadFile(configPath)
+		if err != nil {
+			return configErrMsg{err}
+		}
+		updated := addPackage(src, name)
+		if err := os.WriteFile(configPath, updated, 0644); err != nil {
+			return configErrMsg{err}
+		}
+		return configSavedMsg{pkgs: parseConfigPackages(updated)}
+	}
+}
+
+func applyRemove(configPath, name string) tea.Cmd {
+	return func() tea.Msg {
+		src, err := os.ReadFile(configPath)
+		if err != nil {
+			return configErrMsg{err}
+		}
+		updated := removePackage(src, name)
+		if err := os.WriteFile(configPath, updated, 0644); err != nil {
+			return configErrMsg{err}
+		}
+		return configSavedMsg{pkgs: parseConfigPackages(updated)}
+	}
+}

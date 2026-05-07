@@ -104,6 +104,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchInput.SetValue("")
 				m.searchInput.Blur()
 				return m, nil
+			case "a":
+				if len(m.searchResult) > 0 {
+					p := m.searchResult[m.searchCursor]
+					return m, applyAdd(m.configPath, p.Name)
+				}
+				return m, nil
 			case "enter":
 				q := strings.TrimSpace(m.searchInput.Value())
 				if q != "" {
@@ -144,6 +150,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.searchOpen = true
 			m.searchInput.Focus()
 			return m, nil
+		case "d":
+			if m.focus == panelConfig && len(m.configPkgs) > 0 {
+				p := m.configPkgs[m.configCursor]
+				if !p.ReadOnly {
+					return m, applyRemove(m.configPath, p.Name)
+				}
+			}
+			return m, nil
 		case "up", "k":
 			m.moveCursor(-1)
 			return m, nil
@@ -177,6 +191,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case configErrMsg:
 		m.configErr = msg.err
+		return m, nil
+
+	case configSavedMsg:
+		m.configPkgs = msg.pkgs
+		m.statusMsg = "Saved. Run nixos-switch to apply."
 		return m, nil
 
 	case spinner.TickMsg:
