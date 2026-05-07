@@ -105,7 +105,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchInput.Blur()
 				return m, nil
 			case "a":
-				if len(m.searchResult) > 0 {
+				if len(m.searchResult) > 0 && m.configPath != "" {
 					p := m.searchResult[m.searchCursor]
 					return m, applyAdd(m.configPath, p.Name)
 				}
@@ -195,6 +195,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case configSavedMsg:
 		m.configPkgs = msg.pkgs
+		if m.configCursor >= len(msg.pkgs) && len(msg.pkgs) > 0 {
+			m.configCursor = len(msg.pkgs) - 1
+		}
 		m.statusMsg = "Saved. Run nixos-switch to apply."
 		return m, nil
 

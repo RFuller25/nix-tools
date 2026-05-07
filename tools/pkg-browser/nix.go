@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -93,6 +94,26 @@ type configLoadedMsg struct{ pkgs []configPkg }
 type configErrMsg struct{ err error }
 type configSavedMsg struct{ pkgs []configPkg }
 
+// atomicWrite writes data to path atomically using a temp file + rename.
+func atomicWrite(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".pkg-browser-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
+
 func loadInstalled() tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command("nix", "profile", "list")
@@ -155,8 +176,8 @@ func applyAdd(configPath, name string) tea.Cmd {
 			return configErrMsg{err}
 		}
 		updated := addPackage(src, name)
-		if err := os.WriteFile(configPath, updated, 0644); err != nil {
-			return configErrMsg{err}
+		if err := atomicWrite(configPath, updated); err != nil {
+			return configErrMsg{fmt.Errorf("save failed (file unchanged): %w", err)}
 		}
 		return configSavedMsg{pkgs: parseConfigPackages(updated)}
 	}
@@ -169,8 +190,8 @@ func applyRemove(configPath, name string) tea.Cmd {
 			return configErrMsg{err}
 		}
 		updated := removePackage(src, name)
-		if err := os.WriteFile(configPath, updated, 0644); err != nil {
-			return configErrMsg{err}
+		if err := atomicWrite(configPath, updated); err != nil {
+			return configErrMsg{fmt.Errorf("save failed (file unchanged): %w", err)}
 		}
 		return configSavedMsg{pkgs: parseConfigPackages(updated)}
 	}
