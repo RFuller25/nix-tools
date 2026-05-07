@@ -12,13 +12,6 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in {
         packages = {
-          nixos-switch = pkgs.buildGoModule {
-            pname = "nixos-switch";
-            version = "0.1.0";
-            src = ./tools/nixos-switch;
-            vendorHash = "sha256-P3iFBhlDRS+bTfGRwy2bTPmi83HgIOMPKI364SRUouI=";
-          };
-
           talc = pkgs.buildGoModule {
             pname = "talc";
             version = "0.1.0";
@@ -26,27 +19,16 @@
             vendorHash = "sha256-P3iFBhlDRS+bTfGRwy2bTPmi83HgIOMPKI364SRUouI=";
           };
 
-          pkg-browser = pkgs.buildGoModule {
-            pname = "pkg-browser";
-            version = "0.1.0";
-            src = ./tools/pkg-browser;
-            vendorHash = "sha256-HsV9tFxW9vLAFHgVFrBopSqgdN/wAN1ss734rPQMbNM=";
-          };
+          default = self.packages.${system}.talc;
         };
 
         apps = {
-          nixos-switch = {
-            type = "app";
-            program = "${self.packages.${system}.nixos-switch}/bin/nixos-switch";
-          };
           talc = {
             type = "app";
             program = "${self.packages.${system}.talc}/bin/talc";
           };
-          pkg-browser = {
-            type = "app";
-            program = "${self.packages.${system}.pkg-browser}/bin/pkg-browser";
-          };
+
+          default = self.apps.${system}.talc;
         };
       });
 }

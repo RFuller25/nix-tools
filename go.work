@@ -1,7 +1,5 @@
 go 1.26.2
 
 use (
-	./tools/nixos-switch
-	./tools/pkg-browser
 	./tools/talc
 )

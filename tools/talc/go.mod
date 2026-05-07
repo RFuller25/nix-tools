@@ -1,4 +1,4 @@
-module github.com/RFuller25/nix-tools/tools/nixos-switch
+module github.com/RFuller25/nix-tools/tools/talc
 
 go 1.26.2
 
