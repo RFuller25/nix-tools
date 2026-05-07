@@ -19,10 +19,10 @@
             vendorHash = "sha256-P3iFBhlDRS+bTfGRwy2bTPmi83HgIOMPKI364SRUouI=";
           };
 
-          qalc = pkgs.buildGoModule {
-            pname = "qalc";
+          talc = pkgs.buildGoModule {
+            pname = "talc";
             version = "0.1.0";
-            src = ./tools/qalc;
+            src = ./tools/talc;
             vendorHash = "sha256-P3iFBhlDRS+bTfGRwy2bTPmi83HgIOMPKI364SRUouI=";
           };
 
@@ -39,9 +39,9 @@
             type = "app";
             program = "${self.packages.${system}.nixos-switch}/bin/nixos-switch";
           };
-          qalc = {
+          talc = {
             type = "app";
-            program = "${self.packages.${system}.qalc}/bin/qalc";
+            program = "${self.packages.${system}.talc}/bin/talc";
           };
           pkg-browser = {
             type = "app";
