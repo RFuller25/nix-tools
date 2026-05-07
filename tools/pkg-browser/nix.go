@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -88,6 +90,30 @@ func parseSearchJSON(data []byte) ([]pkg, error) {
 type installedLoadedMsg struct{ pkgs []pkg }
 type searchResultMsg struct{ pkgs []pkg }
 type nixErrMsg struct{ err error }
+type profileErrMsg struct{ err error }
+type configLoadedMsg struct{ pkgs []configPkg }
+type configErrMsg struct{ err error }
+type configSavedMsg struct{ pkgs []configPkg }
+
+// atomicWrite writes data to path atomically using a temp file + rename.
+func atomicWrite(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".pkg-browser-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
 
 func loadInstalled() tea.Cmd {
 	return func() tea.Msg {
@@ -100,7 +126,7 @@ func loadInstalled() tea.Cmd {
 			if msg == "" {
 				msg = err.Error()
 			}
-			return nixErrMsg{fmt.Errorf("%s", msg)}
+			return profileErrMsg{fmt.Errorf("%s", msg)}
 		}
 		blocks := strings.Split(strings.TrimSpace(string(out)), "\n\n")
 		var pkgs []pkg
@@ -131,5 +157,43 @@ func searchNixpkgs(query string) tea.Cmd {
 			return nixErrMsg{err}
 		}
 		return searchResultMsg{pkgs}
+	}
+}
+
+func loadConfig(path string) tea.Cmd {
+	return func() tea.Msg {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return configErrMsg{err}
+		}
+		return configLoadedMsg{pkgs: parseConfigPackages(src)}
+	}
+}
+
+func applyAdd(configPath, name string) tea.Cmd {
+	return func() tea.Msg {
+		src, err := os.ReadFile(configPath)
+		if err != nil {
+			return configErrMsg{err}
+		}
+		updated := addPackage(src, name)
+		if err := atomicWrite(configPath, updated); err != nil {
+			return configErrMsg{fmt.Errorf("save failed (file unchanged): %w", err)}
+		}
+		return configSavedMsg{pkgs: parseConfigPackages(updated)}
+	}
+}
+
+func applyRemove(configPath, name string) tea.Cmd {
+	return func() tea.Msg {
+		src, err := os.ReadFile(configPath)
+		if err != nil {
+			return configErrMsg{err}
+		}
+		updated := removePackage(src, name)
+		if err := atomicWrite(configPath, updated); err != nil {
+			return configErrMsg{fmt.Errorf("save failed (file unchanged): %w", err)}
+		}
+		return configSavedMsg{pkgs: parseConfigPackages(updated)}
 	}
 }
