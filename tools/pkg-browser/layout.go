@@ -6,15 +6,20 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const searchMaxRows = 5
+
 // panelContentHeight returns list content rows available given fixed chrome.
 // Fixed chrome: header(2) + bottom_divider(1) + help(1) = 4.
-// When search open: also subtracts search_input(1) + search_divider(1) + min(results,5)(variable).
+// When search open: also subtracts search_input(1) + search_divider(1) + min(results,searchMaxRows)(variable).
 func panelContentHeight(m model) int {
 	fixed := 4
 	if m.searchOpen {
 		searchRows := len(m.searchResult)
-		if searchRows > 5 {
-			searchRows = 5
+		if searchRows > searchMaxRows {
+			searchRows = searchMaxRows
+		}
+		if searchRows == 0 {
+			searchRows = 1 // placeholder/spinner/error always emits 1 row
 		}
 		fixed += 2 + searchRows
 	}
@@ -122,8 +127,7 @@ func renderSearchPanel(m model) string {
 	if len(m.searchResult) == 0 {
 		return descStyle.Render("type a query and press enter") + "\n"
 	}
-	maxRows := 5
-	lines := pkgLines(m.searchResult, m.searchCursor, true, m.width, maxRows)
+	lines := pkgLines(m.searchResult, m.searchCursor, true, m.width, searchMaxRows)
 	return strings.Join(lines, "\n") + "\n"
 }
 
