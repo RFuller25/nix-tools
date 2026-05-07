@@ -53,7 +53,7 @@ func formatKaktovik(totalSecs float64) string {
 	h := ticks / 400
 	m := (ticks % 400) / 20
 	s := ticks % 20
-	return kakDigit(h) + ":" + kakDigit(m) + ":" + kakDigit(s)
+	return kakDigit(h) + " : " + kakDigit(m) + " : " + kakDigit(s)
 }
 
 func formatChron(totalSecs float64) string {

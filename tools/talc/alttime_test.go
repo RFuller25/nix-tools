@@ -9,7 +9,7 @@ import (
 func TestFormatKaktovikMidnight(t *testing.T) {
 	got := formatKaktovik(0)
 	// 0 ticks → 𝋀:𝋀:𝋀
-	want := kakDigit(0) + ":" + kakDigit(0) + ":" + kakDigit(0)
+	want := kakDigit(0) + " : " + kakDigit(0) + " : " + kakDigit(0)
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -19,7 +19,7 @@ func TestFormatKaktovikHalfDay(t *testing.T) {
 	// 43200 s = half day = 4000 kak-ticks
 	// h=10 (4000/400), m=0, s=0
 	got := formatKaktovik(43200)
-	want := kakDigit(10) + ":" + kakDigit(0) + ":" + kakDigit(0)
+	want := kakDigit(10) + " : " + kakDigit(0) + " : " + kakDigit(0)
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -30,7 +30,7 @@ func TestFormatKaktovikRoundtrip(t *testing.T) {
 	// ticks = floor(52200*8000/86400) = floor(4833.33) = 4833
 	// h=floor(4833/400)=12, rem=33, m=floor(33/20)=1, s=13
 	got := formatKaktovik(52200)
-	want := kakDigit(12) + ":" + kakDigit(1) + ":" + kakDigit(13)
+	want := kakDigit(12) + " : " + kakDigit(1) + " : " + kakDigit(13)
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -39,7 +39,7 @@ func TestFormatKaktovikRoundtrip(t *testing.T) {
 func TestFormatKaktovikWrapAround(t *testing.T) {
 	// 86400 s = full day → wraps to midnight
 	got := formatKaktovik(86400)
-	want := kakDigit(0) + ":" + kakDigit(0) + ":" + kakDigit(0)
+	want := kakDigit(0) + " : " + kakDigit(0) + " : " + kakDigit(0)
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
