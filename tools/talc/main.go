@@ -156,7 +156,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case resultMsg:
-		m.answers = append([]string{msg.answer}, m.answers...)
+		if msg.answer != "" {
+			m.answers = append([]string{msg.answer}, m.answers...)
+		}
 		m.history = append(m.history, historyEntry{
 			displayExpr: msg.displayExpr,
 			display:     msg.display,

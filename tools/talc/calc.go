@@ -25,7 +25,7 @@ var (
 // "-" requires trailing whitespace to distinguish operator from negative number.
 var autoPrefixRe = regexp.MustCompile(`^[+*/^%]|^-\s|^to\s|^in\s`)
 
-var ansIndexRe = regexp.MustCompile(`(?i)\b(ans|answer)\(([0-9]+)\)`)
+var ansIndexRe = regexp.MustCompile(`(?i)\b(ans|answer)\s*\(\s*([0-9]+)\s*\)`)
 var ansPlainRe = regexp.MustCompile(`(?i)\b(ans|answer)\b`)
 
 // substituteAnswer replaces ANS(x)/ANSWER(x) with the x-th previous answer
@@ -144,6 +144,9 @@ type debounceMsg struct{ id int }
 
 // evalExpr resolves and evaluates the expression, returning full qalc output.
 func evalExpr(input string, answers []string) tea.Cmd {
+	if cmd := evalUnitDefCmd(input); cmd != nil {
+		return cmd
+	}
 	return func() tea.Msg {
 		expr, displayExpr, isAuto, err := resolveExpr(input, answers)
 		if err != nil {
@@ -171,6 +174,9 @@ func evalPreview(input string, answers []string, id int) tea.Cmd {
 	return func() tea.Msg {
 		trimmed := strings.TrimSpace(input)
 		if trimmed == "" {
+			return previewMsg{id: id}
+		}
+		if _, ok := resolveUnitCmd(trimmed); ok {
 			return previewMsg{id: id}
 		}
 		expr, _, _, err := resolveExpr(trimmed, answers)

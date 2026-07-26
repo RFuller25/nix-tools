@@ -90,6 +90,24 @@ func TestSubstituteAnswerIndexOutOfRange(t *testing.T) {
 	}
 }
 
+func TestSubstituteAnswerIndexWhitespaceTolerant(t *testing.T) {
+	got, err := substituteAnswer("ANSWER (2) * 2", []string{"10", "5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "5 * 2" {
+		t.Fatalf("got %q, want %q", got, "5 * 2")
+	}
+
+	got, err = substituteAnswer("ANS( 2 )*2", []string{"10", "5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "5*2" {
+		t.Fatalf("got %q, want %q", got, "5*2")
+	}
+}
+
 // ── parseResult ────────────────────────────────────────────────────────────
 
 func TestParseResultExact(t *testing.T) {
