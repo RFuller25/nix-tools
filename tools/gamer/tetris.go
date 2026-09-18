@@ -68,11 +68,15 @@ type tetris struct {
 	over, paused        bool
 	gen                 int
 	recorded            bool
+
+	snd sounder
 }
 
 func newTetris(seed int64) *tetris {
-	return &tetris{rng: rand.New(rand.NewSource(seed)), hold: -1}
+	return &tetris{rng: rand.New(rand.NewSource(seed)), hold: -1, snd: noSound{}}
 }
+
+func (t *tetris) SetAudio(s sounder) { t.snd = s }
 
 func (t *tetris) ID() string         { return "tetris" }
 func (t *tetris) Name() string       { return "Tetris" }
@@ -125,6 +129,7 @@ func (t *tetris) spawn() {
 	t.holdUsed = false
 	if t.collides(t.rot, t.x, t.y) {
 		t.over = true
+		t.snd.Play(sfxGameOver()...)
 	}
 }
 
@@ -174,10 +179,16 @@ func (t *tetris) lock() {
 			t.board[c[1]][c[0]] = t.cur + 1
 		}
 	}
+	t.snd.Play(sfxLock()...)
 	if cleared := t.clearLines(); cleared > 0 {
 		t.lines += cleared
 		t.score += [5]int{0, 100, 300, 500, 800}[cleared] * t.level
-		t.level = 1 + t.lines/10
+		level := 1 + t.lines/10
+		t.snd.Play(sfxLines(cleared)...)
+		if level > t.level {
+			t.snd.Play(sfxLevelUp()...)
+		}
+		t.level = level
 	}
 	t.spawn()
 }
@@ -215,6 +226,7 @@ func (t *tetris) ghostY() int {
 }
 
 func (t *tetris) hardDrop() {
+	t.snd.Play(sfxHardDrop()...)
 	target := t.ghostY()
 	t.score += 2 * (target - t.y)
 	t.y = target
@@ -235,12 +247,14 @@ func (t *tetris) swapHold() {
 		t.next = t.draw()
 	}
 	t.hold, t.held = cur, true
+	t.snd.Play(sfxHold()...)
 	t.rot = 0
 	t.x = boardW/2 - tetrominoes[t.cur].size/2
 	t.y = 0
 	t.holdUsed = true
 	if t.collides(t.rot, t.x, t.y) {
 		t.over = true
+		t.snd.Play(sfxGameOver()...)
 	}
 }
 
@@ -275,17 +289,25 @@ func (t *tetris) Update(msg tea.Msg) tea.Cmd {
 		}
 		switch msg.String() {
 		case "left", "h":
-			t.move(-1, 0)
+			if t.move(-1, 0) {
+				t.snd.Play(sfxShift()...)
+			}
 		case "right", "l":
-			t.move(1, 0)
+			if t.move(1, 0) {
+				t.snd.Play(sfxShift()...)
+			}
 		case "down", "j":
 			if t.move(0, 1) {
 				t.score++
 			}
 		case "up", "k", "x":
-			t.rotate(1)
+			if t.rotate(1) {
+				t.snd.Play(sfxRotate()...)
+			}
 		case "z":
-			t.rotate(-1)
+			if t.rotate(-1) {
+				t.snd.Play(sfxRotate()...)
+			}
 		case " ":
 			t.hardDrop()
 		case "c":

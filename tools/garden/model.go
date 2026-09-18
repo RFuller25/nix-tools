@@ -22,10 +22,17 @@ const (
 )
 
 type tickMsg time.Time
+type windTickMsg time.Time
 type saveMsg struct{ err error }
 
 func tick() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
+
+// blow drives the wind animation, which runs far faster than the garden's
+// once-a-second simulation tick.
+func blow() tea.Cmd {
+	return tea.Tick(windTick, func(t time.Time) tea.Msg { return windTickMsg(t) })
 }
 
 type model struct {
@@ -55,6 +62,9 @@ type model struct {
 	naming bool
 	input  textinput.Model
 
+	audio *Audio
+	wind  windState
+
 	status      string
 	statusStyle lipgloss.Style
 
@@ -74,6 +84,8 @@ func newModel(g *Garden, path string, now time.Time) model {
 		now:     now,
 		input:   ti,
 		almanac: AllSpecies(),
+		audio:   NewAudio(sampleRate),
+		wind:    newWind(g.Seed ^ now.UnixNano()),
 		width:   80,
 		height:  30,
 	}
@@ -82,7 +94,7 @@ func newModel(g *Garden, path string, now time.Time) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(tick(), tea.ClearScreen, textinput.Blink)
+	return tea.Batch(tick(), blow(), tea.ClearScreen, textinput.Blink)
 }
 
 // refreshShop rebuilds the seed-shop listing under the current filters.
@@ -121,6 +133,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tick()
 
+	case windTickMsg:
+		m.wind.advance(windTick.Seconds(), m.g.Weather(m.now), m.gridCols())
+		return m, blow()
+
 	case saveMsg:
 		m.saveErr = msg.err
 		if msg.err == nil {
@@ -142,10 +158,31 @@ func (m model) save() tea.Cmd {
 }
 
 func (m model) quit() (tea.Model, tea.Cmd) {
+	m.audio.Close()
 	if err := Save(m.path, m.g); err != nil {
 		m.saveErr = err
 	}
 	return m, tea.Quit
+}
+
+// toggleMusic starts or stops the garden's ambient piece. The choice is kept
+// in the save file, so a garden you left humming is humming when you return.
+func (m *model) toggleMusic() {
+	if m.audio.Playing() {
+		m.audio.StopMusic()
+		m.g.Music = false
+		m.dirty = true
+		m.setStatus(subtleStyle, "Music off.")
+		return
+	}
+	if err := m.audio.StartMusic(calmMusic(sampleRate, m.g.Seed)); err != nil {
+		m.setStatus(warnStyle, "%s", playerHint())
+		m.g.Music = false
+		return
+	}
+	m.g.Music = true
+	m.dirty = true
+	m.setStatus(okStyle, "Something quiet, in D, through %s.", m.audio.Backend())
 }
 
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -159,6 +196,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return m.quit()
+	case "m":
+		m.toggleMusic()
+		return m, nil
 	case "q":
 		if m.screen == screenGarden {
 			return m.quit()

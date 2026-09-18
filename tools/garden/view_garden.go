@@ -165,6 +165,8 @@ func (m model) ambient() string {
 		return fmt.Sprintf("%d bed(s) could use weeding.", weedy)
 	case empty == PlotCount:
 		return "Bare soil, waiting. Press p to sow something."
+	case m.wind.strongest() > 0.65:
+		return "A gust runs through the beds."
 	case m.g.Weather(m.now).Wet():
 		return "Rain is doing the watering today."
 	default:
@@ -199,7 +201,7 @@ func (m model) viewGarden() string {
 	}
 
 	keys := keyHints(m.width, "←↑↓→ move", "p plant", "w water", "c weed", "f gather",
-		"n name", "i info", "a almanac", "W water all", "C weed all", "tab screens", "? help", "q quit")
+		"n name", "i info", "a almanac", "m music", "W water all", "C weed all", "tab screens", "? help", "q quit")
 	if m.naming {
 		return strings.Join([]string{
 			head,
@@ -241,7 +243,9 @@ func (m model) renderCell(idx int) string {
 
 	var lines []string
 	if sp := p.Species(); sp != nil {
-		lines = append(lines, renderArt(sp, p.Stage(), cellInner, artHeight)...)
+		// Taller plants catch more of the gust than a seedling does.
+		sway := m.wind.swayAt(idx%m.gridCols()) * (0.45 + 0.55*p.Growth)
+		lines = append(lines, renderArt(sp, p.Stage(), cellInner, artHeight, sway)...)
 	} else {
 		for i := 0; i < artHeight; i++ {
 			lines = append(lines, strings.Repeat(" ", cellInner))

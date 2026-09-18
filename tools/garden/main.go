@@ -52,6 +52,9 @@ func main() {
 	bonus := g.Visit(now)
 
 	m := newModel(g, path, now)
+	if g.Music {
+		m.toggleMusic() // the garden was left with the music on
+	}
 	if bonus > 0 {
 		m.setStatus(seedStyle, "A new day: %d seeds from the shed.", bonus)
 	}

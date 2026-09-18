@@ -22,6 +22,7 @@ func (m model) viewHelp() string {
 			{"a", "almanac of every species"},
 			{"tab", "cycle garden → shed → almanac → journal"},
 			{"esc", "back to the garden"},
+			{"m", "calming music on or off"},
 			{"? ", "this help"},
 			{"q", "quit (the garden saves itself)"},
 		}},

@@ -12,6 +12,8 @@ import (
 
 // Scores is the persisted record of how well you have done at each game.
 type Scores struct {
+	// Muted remembers whether the player turned the sound off.
+	Muted   bool                 `json:"muted"`
 	Best    map[string]int       `json:"best"`
 	Played  map[string]int       `json:"played"`
 	LastRun map[string]time.Time `json:"last_run"`

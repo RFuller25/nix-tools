@@ -130,6 +130,7 @@ type Garden struct {
 	Matured   int            `json:"matured"`  // lifetime plants brought to maturity
 	Planted   int            `json:"planted"`  // lifetime plants sown
 	Gathered  int            `json:"gathered"` // lifetime seeds gathered
+	Music     bool           `json:"music"`    // was the music playing when we last closed
 	Journal   []JournalEntry `json:"journal"`
 	LastTick  time.Time      `json:"last_tick"`
 	LastVisit time.Time      `json:"last_visit"`

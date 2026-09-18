@@ -16,8 +16,8 @@ gamer --play tetris      # skip the menu
 | **Minesweeper** | clear the field without standing on a mine | fastest time |
 
 Menu: `↑↓` to choose, `enter` to play, `q` to quit. In a game, `esc` returns to
-the menu and `r` starts a fresh round. Each game prints its own keys along the
-bottom.
+the menu and `r` starts a fresh round. `m` mutes and unmutes from anywhere. Each
+game prints its own keys along the bottom.
 
 ## Notes on each
 
@@ -35,6 +35,28 @@ bottom.
 * **Minesweeper** — 16×14 with 40 mines. The first square you open is always
   safe, along with everything touching it. `f` flags; `space` on a revealed
   number opens the rest of its neighbours once the flags add up.
+
+## Sound
+
+A looping chiptune theme plus a sound effect for everything that happens:
+pieces locking, lines clearing, tiles merging, mines going off. All of it is
+generated as samples at run time — there are no audio files in the repository
+and nothing is linked into the binary.
+
+`m` mutes and unmutes, and the setting is remembered between sessions; `--mute`
+starts silent. Muting is not a volume of zero: it shuts the player down, so a
+muted game holds no sound device and burns no CPU.
+
+Playback works by piping raw PCM to the first of these it finds on `PATH`:
+`pw-play`, `paplay`, `aplay`, `ffplay`, or sox's `play`. With none of them
+installed the games run exactly as before, silently, and the menu says so.
+`GAMER_AUDIO=off` disables sound entirely.
+
+To hear the music and effects without a sound card:
+
+```sh
+RENDER_DIR=/tmp go test ./tools/gamer -run TestRenderDemos
+```
 
 ## Scores
 

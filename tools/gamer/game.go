@@ -2,6 +2,18 @@ package main
 
 import tea "github.com/charmbracelet/bubbletea"
 
+// sounder is whatever a game plays its effects through. Games hold one of
+// these rather than the audio engine itself, so a game under test makes no
+// noise and needs no speaker.
+type sounder interface {
+	Play(vs ...voice)
+}
+
+// noSound is the default: a game with the sound turned off entirely.
+type noSound struct{}
+
+func (noSound) Play(...voice) {}
+
 // game is one playable thing in the arcade. Games keep their own state and
 // their own clocks; the shell only routes messages and draws the chrome.
 type game interface {
@@ -27,4 +39,6 @@ type game interface {
 	Result() (score int, lowerIsBetter bool, record bool)
 	// ScoreLabel names the score in the menu, e.g. "points" or "moves".
 	ScoreLabel() string
+	// SetAudio points the game's sound effects at an output.
+	SetAudio(s sounder)
 }

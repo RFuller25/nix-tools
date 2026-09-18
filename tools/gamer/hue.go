@@ -31,6 +31,7 @@ type hue struct {
 	recorded bool
 
 	rng *rand.Rand
+	snd sounder
 }
 
 type rgb struct{ r, g, b float64 }
@@ -50,8 +51,10 @@ func (c rgb) hex() string {
 }
 
 func newHue(seed int64) *hue {
-	return &hue{rng: rand.New(rand.NewSource(seed))}
+	return &hue{rng: rand.New(rand.NewSource(seed)), snd: noSound{}}
 }
+
+func (h *hue) SetAudio(s sounder) { h.snd = s }
 
 func (h *hue) ID() string         { return "hue" }
 func (h *hue) Name() string       { return "Hue" }
@@ -197,17 +200,21 @@ func (h *hue) pick() {
 	if !h.holding {
 		h.holding = true
 		h.hx, h.hy = h.cx, h.cy
+		h.snd.Play(sfxPick()...)
 		return
 	}
 	if h.hx == h.cx && h.hy == h.cy {
 		h.holding = false // put it back down
+		h.snd.Play(sfxDrop()...)
 		return
 	}
 	h.tiles[h.hy][h.hx], h.tiles[h.cy][h.cx] = h.tiles[h.cy][h.cx], h.tiles[h.hy][h.hx]
 	h.holding = false
 	h.moves++
+	h.snd.Play(sfxSwap()...)
 	if h.isSolved() {
 		h.solved = true
+		h.snd.Play(sfxWin()...)
 	}
 }
 

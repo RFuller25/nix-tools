@@ -16,6 +16,7 @@ func main() {
 		scoreFile   = flag.String("scores", "", "path to the score file (default: $XDG_DATA_HOME/gamer/scores.json)")
 		showVersion = flag.Bool("version", false, "print version and exit")
 		startWith   = flag.String("play", "", "jump straight into a game: tetris, 2048, snake, hue, mines")
+		mute        = flag.Bool("mute", false, "start with the sound off")
 	)
 	flag.Parse()
 
@@ -38,6 +39,10 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gamer:", err)
 		os.Exit(1)
+	}
+
+	if *mute {
+		scores.Muted = true
 	}
 
 	m := newModel(scores, path, time.Now())

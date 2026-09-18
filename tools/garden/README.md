@@ -41,8 +41,34 @@ nix run .#garden      # or: go run ./tools/garden
 | `s` | seed shed |
 | `a` | almanac — every species, every stage |
 | `tab` | cycle garden → shed → almanac → journal |
+| `m` | calming music on or off |
 | `?` | help |
 | `q` | quit (the garden saves itself) |
+
+## Wind
+
+Gusts blow through the garden at random, more often in a storm than in fog.
+Each one starts off to the left and crosses the beds, so plants lean one after
+another rather than all together — and they bend, with the tip of a plant
+moving furthest and the base staying rooted. A tall, mature plant catches more
+of the wind than a seedling does.
+
+## Music
+
+`m` plays a slow ambient piece: a low drone with single notes from a D major
+pentatonic scale drifting over it, generated as samples at run time rather than
+loaded from a file. Each garden's seed gives it its own drift. The setting is
+saved, so a garden left humming is humming when you return.
+
+Playback pipes raw PCM to the first of these found on `PATH`: `pw-play`,
+`paplay`, `aplay`, `ffplay`, or sox's `play`. With none installed the garden
+says so and stays quiet. `GARDEN_AUDIO=off` disables it entirely.
+
+To hear the piece without a sound card:
+
+```sh
+RENDER_DIR=/tmp go test ./tools/garden -run TestRenderCalmMusic
+```
 
 ## The almanac
 

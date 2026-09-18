@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -107,7 +108,11 @@ func colorizeLine(sp *Species, line string) string {
 // aligned so plants stand on the soil, and centred as a whole. The frame is
 // offset by a single amount rather than centring each line on its own, so a
 // drawing keeps the shape it was drawn with.
-func renderArt(sp *Species, stage, width, height int) []string {
+//
+// sway leans the plant in the wind, from -1 to 1. The lean is strongest at the
+// top and nothing at all at the base, so the plant bends rather than slides,
+// and it is clamped to the space left inside the bed so nothing is clipped.
+func renderArt(sp *Species, stage, width, height int, sway float64) []string {
 	frame := sp.Stage(stage)
 	out := make([]string, 0, height)
 	for i := 0; i < height-len(frame); i++ {
@@ -130,11 +135,23 @@ func renderArt(sp *Species, stage, width, height int) []string {
 		left = 0
 	}
 
-	for _, line := range frame {
+	// How far the top of the plant may lean without leaving the bed.
+	room := min(left, width-frameWidth-left)
+	if room > 2 {
+		room = 2
+	}
+
+	for i, line := range frame {
 		if lipgloss.Width(line) > width {
 			line = trimToWidth(line, width)
 		}
-		padded := strings.Repeat(" ", left) + colorizeLine(sp, line)
+		shift := 0
+		if room > 0 && len(frame) > 1 {
+			// 1 at the tip, 0 at the base.
+			height := float64(len(frame)-1-i) / float64(len(frame)-1)
+			shift = int(math.Round(sway * float64(room) * height))
+		}
+		padded := strings.Repeat(" ", max(0, left+shift)) + colorizeLine(sp, line)
 		out = append(out, pad(padded, width))
 	}
 	return out
