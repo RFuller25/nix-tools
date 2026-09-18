@@ -27,7 +27,7 @@ func (m model) viewInfo() string {
 		width = 30
 	}
 
-	art := renderArt(sp, p.Stage(), 24, 7, m.wind.swayAt(m.cursor%m.gridCols()))
+	art := renderArt(sp, sp.PaletteIn(p), p.Stage(), 24, 7, m.wind.swayAt(m.cursor%plotCols))
 	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true)
 
 	headline := []string{
@@ -51,7 +51,14 @@ func (m model) viewInfo() string {
 
 	desc := lipgloss.NewStyle().Width(width).Render(valueStyle.Render(sp.Desc))
 
+	ground := soilNote(sp, p)
+	if sp.ID == "hydrangea" && !p.Pond {
+		ground += ", so it flowers " + HydrangeaColour(p.PH)
+	}
+
 	care := strings.Join([]string{
+		field("bed", fmt.Sprintf("%d — %s, %s", m.cursor+1, p.Soil(), richnessWord(p.Richness)), width),
+		field("ground", ground, width),
 		field("origin", sp.Origin, width),
 		field("blooms", sp.Bloom, width),
 		field("sun", sp.Sun, width),
@@ -79,6 +86,20 @@ func (m model) viewInfo() string {
 		}, "\n")
 	}
 	return strings.Join([]string{cardBorder.Render(card), m.footer(keys)}, "\n")
+}
+
+// richnessWord describes how much heart a bed's soil has left in it.
+func richnessWord(v float64) string {
+	switch {
+	case v > 0.75:
+		return "deeply composted"
+	case v > 0.5:
+		return "in good heart"
+	case v > 0.25:
+		return "workable"
+	default:
+		return "hungry ground"
+	}
 }
 
 func compact(lines []string) []string {

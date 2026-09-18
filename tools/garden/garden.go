@@ -2,13 +2,23 @@ package main
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math"
 	"math/rand"
 	"time"
 )
 
-// PlotCount is how many beds the garden holds.
-const PlotCount = 15
+// The garden is a fixed five-bed-wide world that grows downwards as the
+// gardener buys more ground. Beds keep their positions, so neighbours stay
+// neighbours however the terminal is sized.
+const (
+	plotCols    = 5
+	PlotCount   = 15 // beds a new garden starts with
+	maxPlots    = 30
+	bedBaseCost = 18 // seeds for the first extra bed
+	bedStepCost = 6  // added for each bed after that
+	pondCost    = 12
+)
 
 // Tuning constants for the growth simulation. A well-watered, weeded plant
 // reaches maturity in Species.Hours, which is under a day for every species.
@@ -33,10 +43,33 @@ type Plot struct {
 	Weeds     float64   `json:"weeds"`    // 0..1
 	Pods      float64   `json:"pods"`     // ripe seed pods waiting to be gathered
 	Matured   bool      `json:"matured"`  // has reached the mature stage at least once
+
+	// Pond beds hold water instead of soil. Only the aquatic species will
+	// grow in one, and nothing else will.
+	Pond bool `json:"pond,omitempty"`
+
+	// Soil. pH runs from about 4.5 (peat bog) to 8 (chalk); richness is how
+	// much compost the bed has had worked into it.
+	PH       float64 `json:"ph"`
+	Richness float64 `json:"richness"`
 }
 
 // Empty reports whether anything is planted here.
 func (p *Plot) Empty() bool { return p.SpeciesID == "" }
+
+// Soil describes a bed's earth in words, for the info card.
+func (p *Plot) Soil() string {
+	switch {
+	case p.Pond:
+		return "still water"
+	case p.PH < 5.6:
+		return fmt.Sprintf("acid, pH %.1f", p.PH)
+	case p.PH > 7.3:
+		return fmt.Sprintf("chalky, pH %.1f", p.PH)
+	default:
+		return fmt.Sprintf("neutral, pH %.1f", p.PH)
+	}
+}
 
 // Species resolves the plot's species, or nil when the bed is empty.
 func (p *Plot) Species() *Species {
@@ -149,8 +182,93 @@ func NewGarden(now time.Time) *Garden {
 		LastTick: now,
 		Created:  now,
 	}
+	g.layOutSoil()
 	g.Log(now, "A patch of bare earth. Something could grow here.")
 	return g
+}
+
+// layOutSoil gives every bed its own patch of ground, derived from the
+// garden's seed so the same garden always has the same soil.
+func (g *Garden) layOutSoil() {
+	for i := range g.Plots {
+		if g.Plots[i].PH == 0 {
+			g.Plots[i].PH = 5.7 + 1.7*hashUnit(g.Seed, int64(i), 0x501)
+		}
+		if g.Plots[i].Richness == 0 {
+			g.Plots[i].Richness = 0.3 + 0.35*hashUnit(g.Seed, int64(i), 0x502)
+		}
+	}
+}
+
+// Rows is how many rows of beds the garden currently has.
+func (g *Garden) Rows() int {
+	return (len(g.Plots) + plotCols - 1) / plotCols
+}
+
+// Neighbours lists the beds sharing an edge with this one. Companion planting
+// works on these, and so does a plant sowing itself about.
+func (g *Garden) Neighbours(idx int) []int {
+	col, row := idx%plotCols, idx/plotCols
+	var out []int
+	add := func(c, r int) {
+		if c < 0 || c >= plotCols || r < 0 {
+			return
+		}
+		if n := r*plotCols + c; n >= 0 && n < len(g.Plots) {
+			out = append(out, n)
+		}
+	}
+	add(col-1, row)
+	add(col+1, row)
+	add(col, row-1)
+	add(col, row+1)
+	return out
+}
+
+// BedCost is what the next new bed costs, rising as the garden spreads.
+func (g *Garden) BedCost() int {
+	extra := len(g.Plots) - PlotCount
+	return bedBaseCost + bedStepCost*extra
+}
+
+// BuyBed breaks new ground at the bottom of the garden.
+func (g *Garden) BuyBed(now time.Time) error {
+	if len(g.Plots) >= maxPlots {
+		return fmt.Errorf("there is no more room to dig")
+	}
+	cost := g.BedCost()
+	if g.Seeds < cost {
+		return fmt.Errorf("breaking new ground costs %d seeds", cost)
+	}
+	g.Seeds -= cost
+	g.Plots = append(g.Plots, Plot{})
+	g.layOutSoil()
+	g.Log(now, "Broke new ground: bed %d is ready.", len(g.Plots))
+	return nil
+}
+
+// DigPond turns an empty bed into water, which is the only place the aquatic
+// plants will grow. Filling it back in returns it to ordinary soil.
+func (g *Garden) DigPond(idx int, now time.Time) error {
+	p := &g.Plots[idx]
+	if !p.Empty() {
+		return fmt.Errorf("lift %s first", p.DisplayName())
+	}
+	if p.Pond {
+		p.Pond = false
+		p.Moisture = 0.6
+		g.Log(now, "Filled in the pond in bed %d.", idx+1)
+		return nil
+	}
+	if g.Seeds < pondCost {
+		return fmt.Errorf("digging a pond costs %d seeds", pondCost)
+	}
+	g.Seeds -= pondCost
+	p.Pond = true
+	p.Moisture = 1
+	p.Weeds = 0
+	g.Log(now, "Dug a pond in bed %d.", idx+1)
+	return nil
 }
 
 // Log appends a journal entry, keeping the log to a sane length.
@@ -213,19 +331,24 @@ func (g *Garden) stepAll(at time.Time, dt float64, now time.Time) {
 }
 
 func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at, now time.Time) {
-	// Weeds creep in everywhere, planted or not, and rest over winter.
-	weedRate := baseWeedPerHour
-	if season == Winter {
-		weedRate *= 0.45
+	if p.Pond {
+		p.Moisture = 1
+		p.Weeds = 0
+	} else {
+		// Weeds creep in everywhere, planted or not, and rest over winter.
+		weedRate := baseWeedPerHour
+		if season == Winter {
+			weedRate *= 0.45
+		}
+		p.Weeds = clamp01(p.Weeds + weedRate*dt)
 	}
-	p.Weeds = clamp01(p.Weeds + weedRate*dt)
 
-	if p.Empty() {
+	if !p.Pond {
 		p.Moisture = clamp01(p.Moisture - baseDryPerHour*w.Dryness*dt + w.Rainfall*dt)
+	}
+	if p.Empty() {
 		return
 	}
-
-	p.Moisture = clamp01(p.Moisture - baseDryPerHour*w.Dryness*dt + w.Rainfall*dt)
 
 	sp := p.Species()
 	if sp == nil {
@@ -237,6 +360,7 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 		return
 	}
 
+	feed(p, dt)
 	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season)
 	p.Growth = math.Min(1.0, p.Growth+rate*dt)
 	if p.Growth >= 1.0 && !p.Matured {
@@ -267,7 +391,7 @@ func growthFactor(p *Plot, sp *Species, w Weather, season Season) float64 {
 	if sp.LikesSeason(season) {
 		seasonal = 1.0
 	}
-	return moisture * weeds * seasonal * w.Growth
+	return moisture * weeds * seasonal * w.Growth * soilFactor(sp, p)
 }
 
 // Plant sows a species into a bed, charging its seed cost.
@@ -282,6 +406,12 @@ func (g *Garden) Plant(idx int, sp *Species, now time.Time) error {
 	if !g.Unlocked(sp) {
 		return fmt.Errorf("%s needs %d matured plants to unlock", sp.Common, sp.Unlock)
 	}
+	if sp.Kind == KindAquatic && !p.Pond {
+		return fmt.Errorf("%s needs a pond — dig one with d", sp.Common)
+	}
+	if sp.Kind != KindAquatic && p.Pond {
+		return fmt.Errorf("bed %d is a pond; only water plants will grow there", idx+1)
+	}
 	if g.Seeds < sp.SeedCost {
 		return fmt.Errorf("not enough seeds for %s (costs %d)", sp.Common, sp.SeedCost)
 	}
@@ -292,6 +422,9 @@ func (g *Garden) Plant(idx int, sp *Species, now time.Time) error {
 		PlantedAt: now,
 		Moisture:  0.65, // a watering-in, as any gardener would
 		Weeds:     0,
+		Pond:      p.Pond,
+		PH:        p.PH,
+		Richness:  p.Richness,
 	}
 	g.Log(now, "Sowed %s (%s) in bed %d.", sp.Common, sp.Latin, idx+1)
 	return nil
@@ -300,7 +433,7 @@ func (g *Garden) Plant(idx int, sp *Species, now time.Time) error {
 // Water fills a bed's soil. Returns false when there was nothing to do.
 func (g *Garden) Water(idx int, now time.Time) bool {
 	p := &g.Plots[idx]
-	if p.Empty() || p.Moisture > 0.92 {
+	if p.Empty() || p.Pond || p.Moisture > 0.92 {
 		return false
 	}
 	p.Moisture = 1.0
@@ -357,8 +490,12 @@ func (g *Garden) Uproot(idx int, now time.Time) bool {
 		return false
 	}
 	name := p.DisplayName()
-	*p = Plot{Moisture: p.Moisture, Weeds: p.Weeds}
-	g.Log(now, "Lifted %s and turned the soil in bed %d.", name, idx+1)
+	// The lifted plant goes back into the ground it came from: the bed gets
+	// richer, and its pH drifts towards neutral as compost buffers it.
+	richness := math.Min(1, p.Richness+0.18)
+	ph := p.PH + (6.5-p.PH)*0.12
+	*p = Plot{Moisture: p.Moisture, Weeds: p.Weeds, Pond: p.Pond, PH: ph, Richness: richness}
+	g.Log(now, "Lifted %s and composted it into bed %d.", name, idx+1)
 	return true
 }
 
@@ -406,4 +543,17 @@ func clamp01(v float64) float64 {
 		return 1
 	}
 	return v
+}
+
+// hashUnit turns a few numbers into a repeatable value between 0 and 1. The
+// garden uses it wherever it wants variety that survives being reloaded, or
+// replayed hour by hour after the program has been closed.
+func hashUnit(seed, a, salt int64) float64 {
+	h := fnv.New64a()
+	var buf [24]byte
+	putInt(buf[0:8], seed)
+	putInt(buf[8:16], a)
+	putInt(buf[16:24], salt)
+	_, _ = h.Write(buf[:])
+	return float64(h.Sum64()%1_000_003) / 1_000_003
 }

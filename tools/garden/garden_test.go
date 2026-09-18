@@ -13,6 +13,12 @@ func newTestGarden(now time.Time) *Garden {
 	g.Seed = 42
 	g.Seeds = 500
 	g.Matured = 100 // an experienced gardener: everything is unlocked
+
+	// The soil is derived from the seed, so re-lay it now the seed is fixed.
+	for i := range g.Plots {
+		g.Plots[i].PH, g.Plots[i].Richness = 0, 0
+	}
+	g.layOutSoil()
 	return g
 }
 
@@ -22,6 +28,9 @@ func TestWellTendedMaturesOnSchedule(t *testing.T) {
 	for _, sp := range AllSpecies() {
 		now := inSeason(sp)
 		g := newTestGarden(now)
+		if sp.Kind == KindAquatic {
+			g.Plots[0].Pond = true // water plants need water
+		}
 		if err := g.Plant(0, sp, now); err != nil {
 			t.Fatalf("planting %s: %v", sp.ID, err)
 		}
@@ -224,6 +233,7 @@ func TestPlantingCostsAndLocks(t *testing.T) {
 	}
 
 	locked := SpeciesByID("lotus")
+	g.Plots[1].Pond = true
 	if err := g.Plant(1, locked, now); err == nil {
 		t.Error("planting a locked species should fail")
 	}

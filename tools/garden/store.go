@@ -41,10 +41,14 @@ func Load(path string, now time.Time) (*Garden, error) {
 	if err := json.Unmarshal(data, &g); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
-	if len(g.Plots) < PlotCount {
+	// Old saves, or a hand-edited one, may hold the wrong number of beds.
+	switch {
+	case len(g.Plots) < PlotCount:
 		plots := make([]Plot, PlotCount)
 		copy(plots, g.Plots)
 		g.Plots = plots
+	case len(g.Plots) > maxPlots:
+		g.Plots = g.Plots[:maxPlots]
 	}
 	if g.Seed == 0 {
 		g.Seed = now.UnixNano()
@@ -52,6 +56,7 @@ func Load(path string, now time.Time) (*Garden, error) {
 	if g.Created.IsZero() {
 		g.Created = now
 	}
+	g.layOutSoil() // fills in soil for beds saved before the ground was modelled
 	// Drop plantings whose species no longer exists in the catalogue rather
 	// than crashing on an unknown ID.
 	for i := range g.Plots {

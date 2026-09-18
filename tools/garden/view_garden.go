@@ -17,20 +17,23 @@ const (
 	maxCols   = 5
 )
 
-func (m model) gridCols() int {
+// gridCols is the width of the garden itself, which never changes: beds keep
+// their places so that neighbours stay neighbours.
+func (m model) gridCols() int { return plotCols }
+
+func (m model) gridRows() int { return m.g.Rows() }
+
+// visibleCols is how many columns of beds fit on screen. A narrow terminal
+// scrolls across the garden rather than reflowing it.
+func (m model) visibleCols() int {
 	cols := (m.width + cellGap) / (cellWidth + cellGap)
 	if cols < 1 {
 		cols = 1
 	}
-	if cols > maxCols {
-		cols = maxCols
+	if cols > plotCols {
+		cols = plotCols
 	}
 	return cols
-}
-
-func (m model) gridRows() int {
-	cols := m.gridCols()
-	return (PlotCount + cols - 1) / cols
 }
 
 // visibleRows is how many rows of beds fit under the header and footer.
@@ -47,7 +50,8 @@ func (m model) visibleRows() int {
 }
 
 func (m *model) ensureVisible() {
-	row := m.cursor / m.gridCols()
+	row, col := m.cursor/plotCols, m.cursor%plotCols
+
 	vis := m.visibleRows()
 	if row < m.scroll {
 		m.scroll = row
@@ -57,6 +61,17 @@ func (m *model) ensureVisible() {
 	}
 	if maxScroll := m.gridRows() - vis; m.scroll > maxScroll {
 		m.scroll = max(0, maxScroll)
+	}
+
+	wide := m.visibleCols()
+	if col < m.scrollX {
+		m.scrollX = col
+	}
+	if col >= m.scrollX+wide {
+		m.scrollX = col - wide + 1
+	}
+	if maxScroll := plotCols - wide; m.scrollX > maxScroll {
+		m.scrollX = max(0, maxScroll)
 	}
 }
 
@@ -163,7 +178,7 @@ func (m model) ambient() string {
 		return fmt.Sprintf("%d plant(s) have seed ready to gather (f).", ripe)
 	case weedy > 0:
 		return fmt.Sprintf("%d bed(s) could use weeding.", weedy)
-	case empty == PlotCount:
+	case empty == len(m.g.Plots):
 		return "Bare soil, waiting. Press p to sow something."
 	case m.wind.strongest() > 0.65:
 		return "A gust runs through the beds."
@@ -175,33 +190,40 @@ func (m model) ambient() string {
 }
 
 func (m model) viewGarden() string {
-	cols := m.gridCols()
 	vis := m.visibleRows()
+	wide := m.visibleCols()
 	rows := m.gridRows()
 
 	var body []string
 	for row := m.scroll; row < rows && row < m.scroll+vis; row++ {
-		cells := make([]string, 0, cols)
-		for col := 0; col < cols; col++ {
-			idx := row*cols + col
-			if idx >= PlotCount {
+		cells := make([]string, 0, wide)
+		for col := m.scrollX; col < plotCols && col < m.scrollX+wide; col++ {
+			idx := row*plotCols + col
+			if idx >= len(m.g.Plots) {
 				break
 			}
 			cells = append(cells, m.renderCell(idx))
+		}
+		if len(cells) == 0 {
+			continue
 		}
 		body = append(body, lipgloss.JoinHorizontal(lipgloss.Top, joinWithGap(cells)...))
 	}
 
 	head := m.header()
-	if rows > vis {
+	if rows > vis || wide < plotCols {
 		hint := subtleStyle.Render(fmt.Sprintf("  rows %d-%d of %d", m.scroll+1, min(rows, m.scroll+vis), rows))
+		if wide < plotCols {
+			hint = subtleStyle.Render(fmt.Sprintf("  beds %d-%d of %d across", m.scrollX+1, m.scrollX+wide, plotCols))
+		}
 		if lipgloss.Width(head)+lipgloss.Width(hint) <= m.width {
 			head += hint
 		}
 	}
 
 	keys := keyHints(m.width, "←↑↓→ move", "p plant", "w water", "c weed", "f gather",
-		"n name", "i info", "a almanac", "m music", "W water all", "C weed all", "tab screens", "? help", "q quit")
+		"n name", "i info", "a almanac", "m music", "b new bed", "d pond",
+		"W water all", "C weed all", "tab screens", "? help", "q quit")
 	if m.naming {
 		return strings.Join([]string{
 			head,
@@ -245,19 +267,27 @@ func (m model) renderCell(idx int) string {
 	if sp := p.Species(); sp != nil {
 		// Taller plants catch more of the gust than a seedling does.
 		sway := m.wind.swayAt(idx%m.gridCols()) * (0.45 + 0.55*p.Growth)
-		lines = append(lines, renderArt(sp, p.Stage(), cellInner, artHeight, sway)...)
+		lines = append(lines, renderArt(sp, sp.PaletteIn(p), p.Stage(), cellInner, artHeight, sway)...)
 	} else {
 		for i := 0; i < artHeight; i++ {
 			lines = append(lines, strings.Repeat(" ", cellInner))
 		}
 	}
-	lines = append(lines, soilLine(cellInner, p.Weeds, !p.Empty()))
+	if p.Pond {
+		lines = append(lines, waterStyle.Render(strings.Repeat("≈", cellInner)))
+	} else {
+		lines = append(lines, soilLine(cellInner, p.Weeds, !p.Empty()))
+	}
 
 	name := p.DisplayName()
 	if p.Empty() {
 		name = fmt.Sprintf("bed %d", idx+1)
 		lines = append(lines, pad(bareSoilStyle.Render(truncate(name, cellInner)), cellInner))
-		lines = append(lines, pad(subtleStyle.Render(truncate("empty", cellInner)), cellInner))
+		state := "empty"
+		if p.Pond {
+			state = "pond"
+		}
+		lines = append(lines, pad(subtleStyle.Render(truncate(state, cellInner)), cellInner))
 	} else {
 		nameStyle := valueStyle
 		if selected {

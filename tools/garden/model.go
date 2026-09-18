@@ -43,6 +43,7 @@ type model struct {
 	screen   screen
 	cursor   int // selected bed
 	scroll   int // first visible grid row
+	scrollX  int // first visible grid column
 	saveErr  error
 	lastSave time.Time
 	dirty    bool
@@ -256,14 +257,14 @@ func nextScreen(s screen) screen {
 }
 
 func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
-	cols := m.gridCols()
+	cols := plotCols
 	switch key {
 	case "left", "h":
 		if m.cursor%cols > 0 {
 			m.cursor--
 		}
 	case "right", "l":
-		if m.cursor%cols < cols-1 && m.cursor+1 < PlotCount {
+		if m.cursor%cols < cols-1 && m.cursor+1 < len(m.g.Plots) {
 			m.cursor++
 		}
 	case "up", "k":
@@ -271,13 +272,13 @@ func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
 			m.cursor -= cols
 		}
 	case "down", "j":
-		if m.cursor+cols < PlotCount {
+		if m.cursor+cols < len(m.g.Plots) {
 			m.cursor += cols
 		}
 	case "home", "g":
 		m.cursor = 0
 	case "end", "G":
-		m.cursor = PlotCount - 1
+		m.cursor = len(m.g.Plots) - 1
 	case "p", "enter":
 		if m.plot().Empty() {
 			m.screen = screenShop
@@ -361,6 +362,26 @@ func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
 			m.setStatus(warnStyle, "Lifted the plant in bed %d.", m.cursor+1)
 		} else {
 			m.setStatus(subtleStyle, "Bed %d is already empty.", m.cursor+1)
+		}
+	case "b":
+		if err := m.g.BuyBed(m.now); err != nil {
+			m.setStatus(warnStyle, "%s", err.Error())
+		} else {
+			m.dirty = true
+			m.cursor = len(m.g.Plots) - 1
+			m.setStatus(okStyle, "New ground broken: bed %d. The next costs %d seeds.", len(m.g.Plots), m.g.BedCost())
+		}
+	case "d":
+		wasPond := m.plot().Pond
+		if err := m.g.DigPond(m.cursor, m.now); err != nil {
+			m.setStatus(warnStyle, "%s", err.Error())
+		} else {
+			m.dirty = true
+			if wasPond {
+				m.setStatus(okStyle, "Filled the pond back in.")
+			} else {
+				m.setStatus(waterStyle, "Dug a pond. Water lilies and lotus will grow here.")
+			}
 		}
 	case "a":
 		m.screen = screenAlmanac
@@ -457,9 +478,9 @@ func (m model) firstEmptyFrom(start int) int {
 	if m.g.Plots[start].Empty() {
 		return start
 	}
-	for i := 0; i < PlotCount; i++ {
-		if m.g.Plots[(start+i)%PlotCount].Empty() {
-			return (start + i) % PlotCount
+	for i := 0; i < len(m.g.Plots); i++ {
+		if n := (start + i) % len(m.g.Plots); m.g.Plots[n].Empty() {
+			return n
 		}
 	}
 	return -1
@@ -485,9 +506,9 @@ func (m model) handleInfoKey(key string) (tea.Model, tea.Cmd) {
 	case "n", "r":
 		m.startNaming()
 	case "left", "h", "up", "k":
-		m.cursor = (m.cursor + PlotCount - 1) % PlotCount
+		m.cursor = (m.cursor + len(m.g.Plots) - 1) % len(m.g.Plots)
 	case "right", "l", "down", "j":
-		m.cursor = (m.cursor + 1) % PlotCount
+		m.cursor = (m.cursor + 1) % len(m.g.Plots)
 	case "u":
 		if m.g.Uproot(m.cursor, m.now) {
 			m.dirty = true
