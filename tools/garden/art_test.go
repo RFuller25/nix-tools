@@ -65,8 +65,8 @@ func TestColorizeKeepsTheText(t *testing.T) {
 
 // Weeds should show in the soil, and bare beds should read as bare.
 func TestSoilLineReflectsWeeds(t *testing.T) {
-	clean := soilLine(13, 0, true)
-	weedy := soilLine(13, 0.9, true)
+	clean := soilLine(13, 0, true, phaseNoon)
+	weedy := soilLine(13, 0.9, true, phaseNoon)
 	if lipgloss.Width(clean) != 13 || lipgloss.Width(weedy) != 13 {
 		t.Fatal("soil lines must fill the bed's width")
 	}

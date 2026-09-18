@@ -80,8 +80,10 @@ func (m model) header() string {
 	w := m.g.Weather(m.now)
 
 	left := titleStyle.Render("❀ garden")
+	ph := m.phase()
 	// Most-important facts first; the tail is dropped on a narrow terminal.
 	bits := []string{
+		labelStyle.Render(ph.Glyph()+" ") + valueStyle.Render(ph.String()),
 		labelStyle.Render(season.Glyph()+" ") + valueStyle.Render(season.String()),
 		labelStyle.Render(w.Glyph()+" ") + valueStyle.Render(w.Name()),
 		seedStyle.Render(fmt.Sprintf("✦ %d seeds", m.g.Seeds)),
@@ -180,6 +182,8 @@ func (m model) ambient() string {
 		return fmt.Sprintf("%d bed(s) could use weeding.", weedy)
 	case empty == len(m.g.Plots):
 		return "Bare soil, waiting. Press p to sow something."
+	case m.nightScent() != "":
+		return m.nightScent()
 	case m.wind.strongest() > 0.65:
 		return "A gust runs through the beds."
 	case m.g.Weather(m.now).Wet():
@@ -267,7 +271,7 @@ func (m model) renderCell(idx int) string {
 	if sp := p.Species(); sp != nil {
 		// Taller plants catch more of the gust than a seedling does.
 		sway := m.wind.swayAt(idx%plotCols) * (0.45 + 0.55*p.Growth)
-		stage, pal := appearance(sp, p, m.g.Season(m.now))
+		stage, pal := appearance(sp, p, m.g.Season(m.now), m.phase())
 		lines = append(lines, renderArt(sp, pal, stage, cellInner, artHeight, sway)...)
 	} else {
 		for i := 0; i < artHeight; i++ {
@@ -275,9 +279,9 @@ func (m model) renderCell(idx int) string {
 		}
 	}
 	if p.Pond {
-		lines = append(lines, waterStyle.Render(strings.Repeat("≈", cellInner)))
+		lines = append(lines, litStyle("74", m.phase()).Render(strings.Repeat("≈", cellInner)))
 	} else {
-		lines = append(lines, soilLine(cellInner, p.Weeds, !p.Empty()))
+		lines = append(lines, soilLine(cellInner, p.Weeds, !p.Empty(), m.phase()))
 	}
 
 	name := p.DisplayName()

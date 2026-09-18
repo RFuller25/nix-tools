@@ -76,7 +76,7 @@ func (m model) almanacDetail(sp *Species, listWidth int) string {
 		if i == m.almanacStage {
 			style = okStyle
 		}
-		block := strings.Join(art, "\n") + "\n" + soilLine(stageW, 0, true) + "\n" + pad(style.Render(center(label, stageW)), stageW)
+		block := strings.Join(art, "\n") + "\n" + soilLine(stageW, 0, true, phaseNoon) + "\n" + pad(style.Render(center(label, stageW)), stageW)
 		frames = append(frames, block)
 	}
 	strip := lipgloss.JoinHorizontal(lipgloss.Top, joinWithGap(frames)...)

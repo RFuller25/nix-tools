@@ -28,9 +28,9 @@ func (m model) viewInfo() string {
 	}
 
 	season := m.g.Season(m.now)
-	stage, pal := appearance(sp, p, season)
+	stage, pal := appearance(sp, p, season, m.phase())
 	art := renderArt(sp, pal, stage, 24, 7, m.wind.swayAt(m.cursor%plotCols))
-	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true)
+	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true, m.phase())
 
 	headline := []string{
 		titleStyle.Render(p.DisplayName()),
@@ -38,7 +38,7 @@ func (m model) viewInfo() string {
 		subtleStyle.Render(sp.Family + " · " + sp.Kind.String() + " · " + rarityStyle(sp.Rarity).Render(sp.Rarity.String())),
 		"",
 		field("stage", fmt.Sprintf("%s (%d of %d)", p.StageName(), p.Stage()+1, StageCount), width-28),
-		field("doing", state(sp, p, season), width-28),
+		field("doing", state(sp, p, season, m.phase()), width-28),
 		field("mood", p.Mood(), width-28),
 		field("age", humanDuration(p.Age(m.now)), width-28),
 		field("next", m.nextStageNote(p, sp), width-28),
@@ -74,12 +74,31 @@ func (m model) viewInfo() string {
 
 	tip := lipgloss.NewStyle().Width(width).Render(subtleStyle.Render("✎ " + sp.Note))
 
+	var neighbours []string
+	for _, e := range m.g.companionEffects(m.cursor, sp) {
+		style, sign := okStyle, "+"
+		if e.Delta < 0 {
+			style, sign = warnStyle, ""
+		}
+		line := fmt.Sprintf("bed %d, %s: %s%.0f%% — %s", e.Bed+1, e.Other.Common, sign, e.Delta*100, e.Note)
+		neighbours = append(neighbours, lipgloss.NewStyle().Width(width).Render(style.Render(line)))
+	}
+	if len(neighbours) > 0 {
+		neighbours = append([]string{labelStyle.Render("neighbours")}, neighbours...)
+	}
+
 	pods := ""
 	if p.Pods >= 1 {
 		pods = seedStyle.Render(fmt.Sprintf("✦ %d ripe seed pod(s) — press f to gather.", int(p.Pods)))
 	}
 
-	card := strings.Join(compact([]string{top, "", meters, "", desc, "", care, "", tip, pods}), "\n")
+	parts := []string{top, "", meters, "", desc, "", care, ""}
+	parts = append(parts, neighbours...)
+	if len(neighbours) > 0 {
+		parts = append(parts, "")
+	}
+	parts = append(parts, tip, pods)
+	card := strings.Join(compact(parts), "\n")
 
 	keys := "w water · c weed · f gather · n name · u lift · ←→ other beds · esc back"
 	if m.naming {

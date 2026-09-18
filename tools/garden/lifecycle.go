@@ -37,9 +37,11 @@ var lives = map[string]LifeKind{
 	"pea": Annual, "poppy": Annual, "pumpkin": Annual, "radish": Annual,
 	"snapdragon": Annual, "sunflower": Annual, "sweetcorn": Annual,
 	"sweetpea": Annual, "tomato": Annual, "zinnia": Annual,
+	"moonflower": Annual, "nightstock": Annual,
 
 	// Biennials: leaves the first year, flowers the second.
 	"beetroot": Biennial, "carrot": Biennial, "foxglove": Biennial, "parsley": Biennial,
+	"eveningprimrose": Biennial,
 
 	// Herbaceous perennials, including the bulbs and the tender things we
 	// keep going year to year.
@@ -82,6 +84,7 @@ var selfSeeders = map[string]bool{
 	"foxglove": true, "lupine": true, "dill": true, "lemonbalm": true,
 	"marigold": true, "snapdragon": true, "sunflower": true, "parsley": true,
 	"chives": true, "lettuce": true, "sweetpea": true, "morningglory": true,
+	"eveningprimrose": true, "nightstock": true,
 }
 
 // Life is what kind of life the species leads.

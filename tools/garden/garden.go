@@ -400,7 +400,7 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 	}
 
 	feed(p, dt)
-	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season)
+	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season) * g.companionFactor(idx, sp)
 	p.Growth = math.Min(1.0, p.Growth+rate*dt)
 	if p.Growth >= 1.0 && !p.Matured {
 		p.Matured = true

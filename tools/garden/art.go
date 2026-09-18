@@ -49,6 +49,11 @@ func classOf(sp *Species, r rune) glyphClass {
 
 var soilStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("94"))
 
+// litStyle is a foreground colour under the light of the moment.
+func litStyle(color string, ph phase) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(tint(color, ph)))
+}
+
 func colorFor(pal Palette, class glyphClass) string {
 	p := pal
 	switch class {
@@ -167,8 +172,8 @@ func trimToWidth(line string, width int) string {
 }
 
 // soilLine draws the strip of earth a plant stands on, dusted with weeds as
-// they take hold.
-func soilLine(width int, weeds float64, planted bool) string {
+// they take hold, and lit by the time of day.
+func soilLine(width int, weeds float64, planted bool, ph phase) string {
 	ground := []rune(strings.Repeat("▁", width))
 	switch {
 	case weeds > 0.75:
@@ -185,11 +190,12 @@ func soilLine(width int, weeds float64, planted bool) string {
 		}
 	}
 	line := string(ground)
-	if weeds > 0.2 {
-		return weedStyle.Render(line)
+	switch {
+	case weeds > 0.2:
+		return litStyle("101", ph).Render(line)
+	case planted:
+		return litStyle("94", ph).Render(line)
+	default:
+		return litStyle("240", ph).Render(line)
 	}
-	if planted {
-		return soilStyle.Render(line)
-	}
-	return bareSoilStyle.Render(line)
 }

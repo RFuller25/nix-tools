@@ -120,6 +120,27 @@ func (m *model) setStatus(style lipgloss.Style, format string, args ...any) {
 
 func (m *model) plot() *Plot { return &m.g.Plots[m.cursor] }
 
+// phase is where the real clock has got to in the day.
+func (m model) phase() phase { return phaseAt(m.now) }
+
+// nightScent is the line shown when something is perfuming the dark.
+func (m model) nightScent() string {
+	ph := m.phase()
+	if ph != phaseDusk && !ph.Dark() {
+		return ""
+	}
+	for i := range m.g.Plots {
+		p := &m.g.Plots[i]
+		if p.Empty() || p.Growth < 1 || p.Spent {
+			continue
+		}
+		if sp := p.Species(); sp != nil && sp.NightScented() {
+			return sp.Common + " is scenting the dark."
+		}
+	}
+	return ""
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -467,7 +488,7 @@ func (m model) handleShopKey(key string) (tea.Model, tea.Cmd) {
 		m.cursor = idx
 		m.dirty = true
 		m.screen = screenGarden
-		m.setStatus(okStyle, "Sowed %s in bed %d.", sp.Common, idx+1)
+		m.setStatus(okStyle, "Sowed %s in bed %d.%s", sp.Common, idx+1, companionAside(m.g, idx, sp))
 		return m, m.save()
 	}
 	return m, nil

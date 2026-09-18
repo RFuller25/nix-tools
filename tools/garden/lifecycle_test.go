@@ -127,12 +127,12 @@ func TestAppearanceFollowsTheLifecycle(t *testing.T) {
 	grown := &Plot{SpeciesID: "hosta", Growth: 1, Matured: true, PH: 6.5}
 	hosta := SpeciesByID("hosta")
 
-	stage, pal := appearance(hosta, grown, Summer)
+	stage, pal := bareAppearance(hosta, grown, Summer, phaseNoon)
 	if stage != StageMature || pal != hosta.Palette {
 		t.Error("a growing hosta in summer should be drawn in full")
 	}
 
-	stage, pal = appearance(hosta, grown, Winter)
+	stage, pal = bareAppearance(hosta, grown, Winter, phaseNoon)
 	if stage != StageSeedling {
 		t.Errorf("a dormant perennial drew stage %s, want a tuft", stageNames[stage])
 	}
@@ -142,12 +142,12 @@ func TestAppearanceFollowsTheLifecycle(t *testing.T) {
 
 	maple := SpeciesByID("japanesemaple")
 	bare := &Plot{SpeciesID: "japanesemaple", Growth: 1, Matured: true, PH: 6.5}
-	if stage, _ := appearance(maple, bare, Winter); stage != StageBud {
+	if stage, _ := bareAppearance(maple, bare, Winter, phaseNoon); stage != StageBud {
 		t.Errorf("a bare tree drew stage %s", stageNames[stage])
 	}
 
 	spent := &Plot{SpeciesID: "sunflower", Growth: 1, Matured: true, Spent: true, PH: 6.5}
-	stage, pal = appearance(SpeciesByID("sunflower"), spent, Summer)
+	stage, pal = bareAppearance(SpeciesByID("sunflower"), spent, Summer, phaseNoon)
 	if stage != StageMature || pal != driedPalette {
 		t.Error("a plant gone to seed should keep its shape and lose its colour")
 	}
