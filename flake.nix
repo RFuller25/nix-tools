@@ -21,6 +21,15 @@
             vendorHash = pkgs.lib.fakeHash;
           };
 
+          gamer = pkgs.buildGoModule {
+            pname = "gamer";
+            version = "0.1.0";
+            src = ./tools/gamer;
+            # Placeholder: run `nix build .#gamer` once and paste in the hash
+            # nix reports.
+            vendorHash = pkgs.lib.fakeHash;
+          };
+
           talc = pkgs.buildGoModule {
             pname = "talc";
             version = "0.2.0";
@@ -35,6 +44,11 @@
           garden = {
             type = "app";
             program = "${self.packages.${system}.garden}/bin/garden";
+          };
+
+          gamer = {
+            type = "app";
+            program = "${self.packages.${system}.gamer}/bin/gamer";
           };
 
           talc = {

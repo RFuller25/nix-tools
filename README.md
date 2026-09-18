@@ -6,11 +6,13 @@ Bubbletea TUI utilities, packaged as a Nix flake.
 | --- | --- |
 | [`talc`](tools/talc) | calculator with units, alternative time systems and answer history |
 | [`garden`](tools/garden) | a little garden you plant, tend and come back to |
+| [`gamer`](tools/gamer) | Tetris, 2048, Snake, Hue and Minesweeper in one menu |
 
 ## Running
 
 ```sh
 nix run .#garden
+nix run .#gamer
 nix run .#talc
 ```
 
