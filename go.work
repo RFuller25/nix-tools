@@ -1,5 +1,6 @@
 go 1.26.2
 
 use (
+	./tools/garden
 	./tools/talc
 )

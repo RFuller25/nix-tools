@@ -26,3 +26,4 @@ vendor/
 .DS_Store
 Thumbs.db
 tools/talc/talc
+tools/garden/garden
