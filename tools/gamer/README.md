@@ -34,7 +34,8 @@ game prints its own keys along the bottom.
   its own slot settles there and drops out of play, marked `✓`, so progress
   only ever accumulates — and that can never strand a puzzle, because the tiles
   still loose always include a pair whose swap settles one of them. Solve it in
-  as few swaps as you can.
+  as few swaps as you can: the finished board drops every mark and cursor and
+  rolls a wave of hue across the bare gradient until you press `r` or leave.
 * **Minesweeper** — 16×14 with 40 mines. The first square you open is always
   safe, along with everything touching it. `f` flags; `space` on a revealed
   number opens the rest of its neighbours once the flags add up.
