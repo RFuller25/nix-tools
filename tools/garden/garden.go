@@ -180,10 +180,12 @@ type Garden struct {
 	// and Sightings the first time each creature came to visit.
 	Herbarium map[string]time.Time `json:"herbarium,omitempty"`
 	Sightings map[string]time.Time `json:"sightings,omitempty"`
-	Journal   []JournalEntry       `json:"journal"`
-	LastTick  time.Time            `json:"last_tick"`
-	LastVisit time.Time            `json:"last_visit"`
-	Created   time.Time            `json:"created"`
+	// Tasks are the gentle suggestions the journal keeps.
+	Tasks     []TaskState    `json:"tasks,omitempty"`
+	Journal   []JournalEntry `json:"journal"`
+	LastTick  time.Time      `json:"last_tick"`
+	LastVisit time.Time      `json:"last_visit"`
+	Created   time.Time      `json:"created"`
 }
 
 const gardenVersion = 1
@@ -199,6 +201,7 @@ func NewGarden(now time.Time) *Garden {
 		Created:  now,
 	}
 	g.layOutSoil()
+	g.refreshTasks(now)
 	g.Log(now, "A patch of bare earth. Something could grow here.")
 	return g
 }
@@ -368,6 +371,9 @@ func (g *Garden) Advance(now time.Time) {
 		t = next
 	}
 	g.LastTick = now
+	// The suggestions are settled once per catch-up rather than once per
+	// step: nobody finishes one inside a quarter of an hour.
+	g.checkTasks(now)
 }
 
 func (g *Garden) stepAll(at time.Time, dt float64, now time.Time) {

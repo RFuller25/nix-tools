@@ -14,11 +14,14 @@ func newTestGarden(now time.Time) *Garden {
 	g.Seeds = 500
 	g.Matured = 100 // an experienced gardener: everything is unlocked
 
-	// The soil is derived from the seed, so re-lay it now the seed is fixed.
+	// The soil and the suggestions are both derived from the seed, so redo
+	// them now the seed is fixed.
 	for i := range g.Plots {
 		g.Plots[i].PH, g.Plots[i].Richness = 0, 0
 	}
 	g.layOutSoil()
+	g.Tasks = nil
+	g.refreshTasks(now)
 	return g
 }
 
