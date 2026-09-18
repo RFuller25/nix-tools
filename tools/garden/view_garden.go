@@ -266,8 +266,9 @@ func (m model) renderCell(idx int) string {
 	var lines []string
 	if sp := p.Species(); sp != nil {
 		// Taller plants catch more of the gust than a seedling does.
-		sway := m.wind.swayAt(idx%m.gridCols()) * (0.45 + 0.55*p.Growth)
-		lines = append(lines, renderArt(sp, sp.PaletteIn(p), p.Stage(), cellInner, artHeight, sway)...)
+		sway := m.wind.swayAt(idx%plotCols) * (0.45 + 0.55*p.Growth)
+		stage, pal := appearance(sp, p, m.g.Season(m.now))
+		lines = append(lines, renderArt(sp, pal, stage, cellInner, artHeight, sway)...)
 	} else {
 		for i := 0; i < artHeight; i++ {
 			lines = append(lines, strings.Repeat(" ", cellInner))
@@ -310,6 +311,8 @@ func (m model) statStrip(p *Plot) string {
 	water := meter(p.Moisture, 3, waterStyle)
 	extra := ""
 	switch {
+	case p.Spent:
+		extra = subtleStyle.Render("seed")
 	case p.Pods >= 1:
 		extra = seedStyle.Render(fmt.Sprintf("✦%d", int(p.Pods)))
 	case p.Weeds > 0.45:

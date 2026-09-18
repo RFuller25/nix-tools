@@ -44,6 +44,12 @@ type Plot struct {
 	Pods      float64   `json:"pods"`     // ripe seed pods waiting to be gathered
 	Matured   bool      `json:"matured"`  // has reached the mature stage at least once
 
+	// MaturedAt is when it first came into flower, and Spent marks an annual
+	// or biennial that has finished its year and gone to seed. Nothing dies:
+	// a spent plant stands there, dry and full of seed, until it is lifted.
+	MaturedAt time.Time `json:"matured_at,omitempty"`
+	Spent     bool      `json:"spent,omitempty"`
+
 	// Pond beds hold water instead of soil. Only the aquatic species will
 	// grow in one, and nothing else will.
 	Pond bool `json:"pond,omitempty"`
@@ -119,7 +125,12 @@ func (p *Plot) Weedy() bool { return !p.Empty() && p.Weeds > 0.45 }
 func (p *Plot) Mood() string {
 	switch {
 	case p.Empty():
+		if p.Pond {
+			return "still water"
+		}
 		return "bare soil"
+	case p.Spent:
+		return "gone to seed"
 	case p.Moisture < 0.15:
 		return "parched, but holding on"
 	case p.Thirsty() && p.Weedy():
@@ -155,19 +166,22 @@ type JournalEntry struct {
 
 // Garden is the whole saved world.
 type Garden struct {
-	Version   int            `json:"version"`
-	Seed      int64          `json:"seed"`
-	Gardener  string         `json:"gardener,omitempty"`
-	Plots     []Plot         `json:"plots"`
-	Seeds     int            `json:"seeds"`
-	Matured   int            `json:"matured"`  // lifetime plants brought to maturity
-	Planted   int            `json:"planted"`  // lifetime plants sown
-	Gathered  int            `json:"gathered"` // lifetime seeds gathered
-	Music     bool           `json:"music"`    // was the music playing when we last closed
-	Journal   []JournalEntry `json:"journal"`
-	LastTick  time.Time      `json:"last_tick"`
-	LastVisit time.Time      `json:"last_visit"`
-	Created   time.Time      `json:"created"`
+	Version    int    `json:"version"`
+	Seed       int64  `json:"seed"`
+	Gardener   string `json:"gardener,omitempty"`
+	Plots      []Plot `json:"plots"`
+	Seeds      int    `json:"seeds"`
+	Matured    int    `json:"matured"`    // lifetime plants brought to maturity
+	Planted    int    `json:"planted"`    // lifetime plants sown
+	Gathered   int    `json:"gathered"`   // lifetime seeds gathered
+	Volunteers int    `json:"volunteers"` // plants that sowed themselves
+	Music      bool   `json:"music"`      // was the music playing when we last closed
+	// Herbarium records the first time each species was brought into flower.
+	Herbarium map[string]time.Time `json:"herbarium,omitempty"`
+	Journal   []JournalEntry       `json:"journal"`
+	LastTick  time.Time            `json:"last_tick"`
+	LastVisit time.Time            `json:"last_visit"`
+	Created   time.Time            `json:"created"`
 }
 
 const gardenVersion = 1
@@ -271,6 +285,25 @@ func (g *Garden) DigPond(idx int, now time.Time) error {
 	return nil
 }
 
+// collect files a species in the herbarium the first time it flowers.
+func (g *Garden) collect(sp *Species, at time.Time) {
+	if g.Herbarium == nil {
+		g.Herbarium = map[string]time.Time{}
+	}
+	if _, seen := g.Herbarium[sp.ID]; seen {
+		return
+	}
+	g.Herbarium[sp.ID] = at
+	g.Log(at, "Pressed %s (%s) into the herbarium — %d of %d.",
+		sp.Common, sp.Latin, len(g.Herbarium), len(AllSpecies()))
+}
+
+// Collected reports whether a species has ever flowered in this garden.
+func (g *Garden) Collected(sp *Species) (time.Time, bool) {
+	at, ok := g.Herbarium[sp.ID]
+	return at, ok
+}
+
 // Log appends a journal entry, keeping the log to a sane length.
 func (g *Garden) Log(at time.Time, format string, args ...any) {
 	g.Journal = append(g.Journal, JournalEntry{At: at, Text: fmt.Sprintf(format, args...)})
@@ -356,7 +389,13 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 	}
 
 	if p.Growth >= 1.0 {
-		p.Pods = math.Min(maxPods, p.Pods+podsPerHour*dt*seasonPodFactor(season))
+		if !p.Spent {
+			p.Pods = math.Min(maxPods, p.Pods+podsPerHour*dt*seasonPodFactor(season))
+			g.maybeGoToSeed(p, idx, sp, at, now)
+		}
+		// A plant in seed scatters some of it about, whether it is still
+		// flowering or standing dry.
+		g.maybeSelfSeed(p, idx, sp, season, at, dt, now)
 		return
 	}
 
@@ -365,7 +404,9 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 	p.Growth = math.Min(1.0, p.Growth+rate*dt)
 	if p.Growth >= 1.0 && !p.Matured {
 		p.Matured = true
+		p.MaturedAt = at
 		g.Matured++
+		g.collect(sp, at)
 		// Journal the moment, dated when it actually happened.
 		when := at
 		if when.After(now) {
@@ -556,4 +597,81 @@ func hashUnit(seed, a, salt int64) float64 {
 	putInt(buf[16:24], salt)
 	_, _ = h.Write(buf[:])
 	return float64(h.Sum64()%1_000_003) / 1_000_003
+}
+
+// maybeGoToSeed finishes an annual or biennial that has had its season. The
+// plant does not die: it dries, hands over a last few seeds, and stands until
+// the gardener lifts it.
+func (g *Garden) maybeGoToSeed(p *Plot, idx int, sp *Species, at, now time.Time) {
+	span := seedSpan(sp)
+	if span <= 0 || p.MaturedAt.IsZero() {
+		return
+	}
+	if at.Sub(p.MaturedAt).Hours() < span {
+		return
+	}
+	p.Spent = true
+	p.Pods = math.Min(maxPods, p.Pods+2)
+	when := at
+	if when.After(now) {
+		when = now
+	}
+	g.Log(when, "%s has gone to seed in bed %d.", p.DisplayName(), idx+1)
+}
+
+// Self-seeding. A cottage garden fills its own gaps: poppies, cosmos and
+// foxgloves drop seed where they stand and come up in whatever bare ground
+// they can find.
+const (
+	quarterSeconds = 900
+	volunteerOdds  = 0.02 // per quarter hour, for a seeding plant with a gap beside it
+)
+
+// maybeSelfSeed drops a volunteer seedling into a neighbouring bed.
+//
+// The decision is taken only on quarter-hour boundaries, and from a hash of
+// the garden's seed rather than a random number generator. That matters: a
+// garden left running and one catching up on a fortnight it spent closed must
+// arrive at exactly the same plants.
+func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at time.Time, dt float64, now time.Time) {
+	if !sp.SelfSeeds() || p.Pods < 1 || !sp.LikesSeason(season) {
+		return
+	}
+
+	start := at.Unix() / quarterSeconds
+	end := at.Add(time.Duration(dt*float64(time.Hour))).Unix() / quarterSeconds
+	for q := start + 1; q <= end; q++ {
+		if hashUnit(g.Seed, q, int64(idx)+0x5EED) > volunteerOdds {
+			continue
+		}
+		// Bare ground only, and never a pond.
+		var gaps []int
+		for _, n := range g.Neighbours(idx) {
+			if g.Plots[n].Empty() && !g.Plots[n].Pond {
+				gaps = append(gaps, n)
+			}
+		}
+		if len(gaps) == 0 {
+			return
+		}
+		target := gaps[int(hashUnit(g.Seed, q, int64(idx)+0xB1AD)*float64(len(gaps)))%len(gaps)]
+
+		when := at
+		if when.After(now) {
+			when = now
+		}
+		bed := &g.Plots[target]
+		*bed = Plot{
+			SpeciesID: sp.ID,
+			PlantedAt: when,
+			Moisture:  bed.Moisture,
+			PH:        bed.PH,
+			Richness:  bed.Richness,
+		}
+		p.Pods--
+		g.Planted++
+		g.Volunteers++
+		g.Log(when, "A %s has sown itself into bed %d.", sp.Common, target+1)
+		return
+	}
 }

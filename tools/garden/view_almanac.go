@@ -38,7 +38,11 @@ func (m model) viewAlmanac() string {
 		if !m.g.Unlocked(sp) {
 			style = lockedStyle
 		}
-		lines = append(lines, marker+style.Render(truncate(sp.Common, listWidth-4)))
+		pressed := "  "
+		if _, ok := m.g.Collected(sp); ok {
+			pressed = okStyle.Render("✓ ")
+		}
+		lines = append(lines, marker+pressed+style.Render(truncate(sp.Common, listWidth-6)))
 	}
 
 	detail := ""
@@ -46,9 +50,11 @@ func (m model) viewAlmanac() string {
 		detail = m.almanacDetail(m.almanac[m.almanacCursor], listWidth)
 	}
 
-	head := titleStyle.Render("❦ almanac") + subtleStyle.Render(fmt.Sprintf("  ·  %d species  ·  %d unlocked", len(AllSpecies()), m.unlockedCount()))
+	head := titleStyle.Render("❦ almanac") + subtleStyle.Render(fmt.Sprintf(
+		"  ·  %d species  ·  %d unlocked  ·  ", len(AllSpecies()), m.unlockedCount())) +
+		okStyle.Render(fmt.Sprintf("%d pressed", len(m.g.Herbarium)))
 	body := lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(lines, "\n"), "  ", detail)
-	keys := "↑↓ species · ←→ life stage · space cycle stages · esc back"
+	keys := "↑↓ species · ←→ life stage · space cycle stages · ✓ grown here · esc back"
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
 }
 
@@ -75,10 +81,16 @@ func (m model) almanacDetail(sp *Species, listWidth int) string {
 	}
 	strip := lipgloss.JoinHorizontal(lipgloss.Top, joinWithGap(frames)...)
 
+	grown := subtleStyle.Render("not yet grown here")
+	if at, ok := m.g.Collected(sp); ok {
+		grown = okStyle.Render("✓ first flowered " + at.Format("2 January 2006"))
+	}
+
 	rows := []string{
 		titleStyle.Render(sp.Common),
 		latinStyle.Render(sp.Latin),
 		subtleStyle.Render(sp.Family + " · " + rarityStyle(sp.Rarity).Render(sp.Rarity.String())),
+		grown,
 		"",
 		strip,
 		"",
@@ -90,6 +102,8 @@ func (m model) almanacDetail(sp *Species, listWidth int) string {
 		field("water", sp.Water, width),
 		field("height", sp.Height, width),
 		field("season", sp.SeasonNames(), width),
+		field("life", lifeNote(sp), width),
+		field("soil", sp.PrefersSoil().String(), width),
 		field("matures", "about "+hours(sp.Hours), width),
 		field("cost", fmt.Sprintf("%d seeds", sp.SeedCost), width),
 		"",

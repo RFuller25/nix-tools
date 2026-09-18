@@ -27,7 +27,9 @@ func (m model) viewInfo() string {
 		width = 30
 	}
 
-	art := renderArt(sp, sp.PaletteIn(p), p.Stage(), 24, 7, m.wind.swayAt(m.cursor%plotCols))
+	season := m.g.Season(m.now)
+	stage, pal := appearance(sp, p, season)
+	art := renderArt(sp, pal, stage, 24, 7, m.wind.swayAt(m.cursor%plotCols))
 	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true)
 
 	headline := []string{
@@ -36,6 +38,7 @@ func (m model) viewInfo() string {
 		subtleStyle.Render(sp.Family + " · " + sp.Kind.String() + " · " + rarityStyle(sp.Rarity).Render(sp.Rarity.String())),
 		"",
 		field("stage", fmt.Sprintf("%s (%d of %d)", p.StageName(), p.Stage()+1, StageCount), width-28),
+		field("doing", state(sp, p, season), width-28),
 		field("mood", p.Mood(), width-28),
 		field("age", humanDuration(p.Age(m.now)), width-28),
 		field("next", m.nextStageNote(p, sp), width-28),
@@ -65,6 +68,7 @@ func (m model) viewInfo() string {
 		field("water", sp.Water, width),
 		field("height", sp.Height, width),
 		field("season", sp.SeasonNames(), width),
+		field("life", lifeNote(sp), width),
 		field("planted", p.PlantedAt.Format("Mon 2 Jan, 15:04"), width),
 	}, "\n")
 
@@ -86,6 +90,27 @@ func (m model) viewInfo() string {
 		}, "\n")
 	}
 	return strings.Join([]string{cardBorder.Render(card), m.footer(keys)}, "\n")
+}
+
+// lifeNote says what kind of life the plant leads, and what that means for
+// the gardener watching it.
+func lifeNote(sp *Species) string {
+	switch sp.Life() {
+	case Annual:
+		return "annual — flowers, seeds, and is done"
+	case Biennial:
+		return "biennial — leaves first, then flowers"
+	case Woody:
+		if sp.Evergreen() {
+			return "evergreen shrub or tree"
+		}
+		return "deciduous shrub or tree — bare in winter"
+	default:
+		if sp.Evergreen() {
+			return "evergreen perennial — back every year"
+		}
+		return "perennial — dies back, returns in spring"
+	}
 }
 
 // richnessWord describes how much heart a bed's soil has left in it.
@@ -119,6 +144,12 @@ func compact(lines []string) []string {
 // nextStageNote estimates when the plant reaches its next drawn stage at the
 // rate it is growing right now.
 func (m model) nextStageNote(p *Plot, sp *Species) string {
+	if p.Spent {
+		return "finished for the year — lift it (u) to compost the bed"
+	}
+	if dormant(sp, m.g.Season(m.now)) && p.Growth >= 1 {
+		return "asleep until spring"
+	}
 	if p.Growth >= 1 {
 		if p.Pods >= maxPods {
 			return "fully grown, seed pods full"
