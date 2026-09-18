@@ -114,7 +114,7 @@ func TestSwayKeepsPlantsInsideTheirBed(t *testing.T) {
 		for stage := 0; stage < StageCount; stage++ {
 			var base []string
 			for _, sway := range []float64{-1, -0.5, 0, 0.5, 1} {
-				lines := renderArt(sp, stage, cellInner, artHeight, sway)
+				lines := renderArt(sp, sp.Palette, stage, cellInner, artHeight, sway)
 				if len(lines) != artHeight {
 					t.Fatalf("%s stage %s drew %d lines", sp.ID, stageNames[stage], len(lines))
 				}
@@ -138,8 +138,8 @@ func TestSwayKeepsPlantsInsideTheirBed(t *testing.T) {
 
 func TestTallPlantsLeanFurtherThanTheirBase(t *testing.T) {
 	sp := SpeciesByID("foxglove")
-	upright := renderArt(sp, StageMature, cellInner, artHeight, 0)
-	leaning := renderArt(sp, StageMature, cellInner, artHeight, 1)
+	upright := renderArt(sp, sp.Palette, StageMature, cellInner, artHeight, 0)
+	leaning := renderArt(sp, sp.Palette, StageMature, cellInner, artHeight, 1)
 
 	indent := func(s string) int { return len(s) - len(strings.TrimLeft(s, " ")) }
 	topShift := indent(leaning[0]) - indent(upright[0])

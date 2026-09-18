@@ -16,6 +16,9 @@ func main() {
 		savePathFlag = flag.String("save", "", "path to the garden save file (default: $XDG_DATA_HOME/garden/garden.json)")
 		showVersion  = flag.Bool("version", false, "print version and exit")
 		listSpecies  = flag.Bool("species", false, "list every species in the almanac and exit")
+		postcard     = flag.Bool("postcard", false, "print the garden as it stands and exit")
+		status       = flag.Bool("status", false, "print a one-line summary and exit, for a prompt or status bar")
+		width        = flag.Int("width", 80, "how wide to draw the postcard")
 	)
 	flag.Parse()
 
@@ -50,6 +53,21 @@ func main() {
 	}
 	g.Advance(now)
 	bonus := g.Visit(now)
+
+	if *postcard {
+		fmt.Println(renderPostcard(g, now, *width))
+		if err := Save(path, g); err != nil {
+			fmt.Fprintln(os.Stderr, "garden: saving:", err)
+		}
+		return
+	}
+	if *status {
+		fmt.Println(renderStatus(g, now))
+		if err := Save(path, g); err != nil {
+			fmt.Fprintln(os.Stderr, "garden: saving:", err)
+		}
+		return
+	}
 
 	m := newModel(g, path, now)
 	if g.Music {

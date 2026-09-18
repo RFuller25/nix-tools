@@ -27,7 +27,7 @@ func TestFrameLinesShareAWidth(t *testing.T) {
 func TestRenderArtFillsItsBox(t *testing.T) {
 	sp := SpeciesByID("sunflower")
 	for _, size := range [][2]int{{13, 5}, {11, 6}, {24, 7}, {5, 2}} {
-		lines := renderArt(sp, StageMature, size[0], size[1], 0)
+		lines := renderArt(sp, sp.Palette, StageMature, size[0], size[1], 0)
 		if len(lines) != size[1] {
 			t.Errorf("%dx%d box got %d lines", size[0], size[1], len(lines))
 		}
@@ -42,7 +42,7 @@ func TestRenderArtFillsItsBox(t *testing.T) {
 // Artwork sits on the soil: the frame is bottom-aligned in its box.
 func TestArtIsBottomAligned(t *testing.T) {
 	sp := SpeciesByID("crocus")
-	lines := renderArt(sp, StageSeed, 13, 5, 0)
+	lines := renderArt(sp, sp.Palette, StageSeed, 13, 5, 0)
 	for i := 0; i < 4; i++ {
 		if strings.TrimSpace(lines[i]) != "" {
 			t.Errorf("line %d should be empty sky, got %q", i, lines[i])
@@ -56,7 +56,7 @@ func TestArtIsBottomAligned(t *testing.T) {
 func TestColorizeKeepsTheText(t *testing.T) {
 	sp := SpeciesByID("rose")
 	for _, line := range sp.Stage(StageMature) {
-		painted := colorizeLine(sp, line)
+		painted := colorizeLine(sp, sp.Palette, line)
 		if lipgloss.Width(painted) != lipgloss.Width(line) {
 			t.Errorf("colouring changed the width of %q", line)
 		}
@@ -65,8 +65,8 @@ func TestColorizeKeepsTheText(t *testing.T) {
 
 // Weeds should show in the soil, and bare beds should read as bare.
 func TestSoilLineReflectsWeeds(t *testing.T) {
-	clean := soilLine(13, 0, true)
-	weedy := soilLine(13, 0.9, true)
+	clean := soilLine(13, 0, true, phaseNoon)
+	weedy := soilLine(13, 0.9, true, phaseNoon)
 	if lipgloss.Width(clean) != 13 || lipgloss.Width(weedy) != 13 {
 		t.Fatal("soil lines must fill the bed's width")
 	}

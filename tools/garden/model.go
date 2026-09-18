@@ -43,6 +43,7 @@ type model struct {
 	screen   screen
 	cursor   int // selected bed
 	scroll   int // first visible grid row
+	scrollX  int // first visible grid column
 	saveErr  error
 	lastSave time.Time
 	dirty    bool
@@ -64,6 +65,7 @@ type model struct {
 
 	audio *Audio
 	wind  windState
+	life  wildlife
 
 	status      string
 	statusStyle lipgloss.Style
@@ -86,6 +88,7 @@ func newModel(g *Garden, path string, now time.Time) model {
 		almanac: AllSpecies(),
 		audio:   NewAudio(sampleRate),
 		wind:    newWind(g.Seed ^ now.UnixNano()),
+		life:    newWildlife(g.Seed ^ now.UnixNano() ^ 0x1F0C),
 		width:   80,
 		height:  30,
 	}
@@ -119,6 +122,47 @@ func (m *model) setStatus(style lipgloss.Style, format string, args ...any) {
 
 func (m *model) plot() *Plot { return &m.g.Plots[m.cursor] }
 
+// phase is where the real clock has got to in the day.
+func (m model) phase() phase { return phaseAt(m.now) }
+
+// visitorLine names whatever has come to call, for the status line.
+func (m model) visitorLine() string {
+	c, ok := m.life.present()
+	if !ok {
+		return ""
+	}
+	return upperFirst(c.kind().name) + " in the garden."
+}
+
+func upperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	if r[0] >= 'a' && r[0] <= 'z' {
+		r[0] -= 32
+	}
+	return string(r)
+}
+
+// nightScent is the line shown when something is perfuming the dark.
+func (m model) nightScent() string {
+	ph := m.phase()
+	if ph != phaseDusk && !ph.Dark() {
+		return ""
+	}
+	for i := range m.g.Plots {
+		p := &m.g.Plots[i]
+		if p.Empty() || p.Growth < 1 || p.Spent {
+			continue
+		}
+		if sp := p.Species(); sp != nil && sp.NightScented() {
+			return sp.Common + " is scenting the dark."
+		}
+	}
+	return ""
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -135,6 +179,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case windTickMsg:
 		m.wind.advance(windTick.Seconds(), m.g.Weather(m.now), m.gridCols())
+		m.life.advance(windTick.Seconds(), m.g, m.now, m.g.Weather(m.now), func(c creature) {
+			k := c.kind()
+			if m.g.sight(k.name, k.note, m.now) {
+				m.dirty = true
+			}
+		})
 		return m, blow()
 
 	case saveMsg:
@@ -256,14 +306,14 @@ func nextScreen(s screen) screen {
 }
 
 func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
-	cols := m.gridCols()
+	cols := plotCols
 	switch key {
 	case "left", "h":
 		if m.cursor%cols > 0 {
 			m.cursor--
 		}
 	case "right", "l":
-		if m.cursor%cols < cols-1 && m.cursor+1 < PlotCount {
+		if m.cursor%cols < cols-1 && m.cursor+1 < len(m.g.Plots) {
 			m.cursor++
 		}
 	case "up", "k":
@@ -271,13 +321,13 @@ func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
 			m.cursor -= cols
 		}
 	case "down", "j":
-		if m.cursor+cols < PlotCount {
+		if m.cursor+cols < len(m.g.Plots) {
 			m.cursor += cols
 		}
 	case "home", "g":
 		m.cursor = 0
 	case "end", "G":
-		m.cursor = PlotCount - 1
+		m.cursor = len(m.g.Plots) - 1
 	case "p", "enter":
 		if m.plot().Empty() {
 			m.screen = screenShop
@@ -361,6 +411,26 @@ func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
 			m.setStatus(warnStyle, "Lifted the plant in bed %d.", m.cursor+1)
 		} else {
 			m.setStatus(subtleStyle, "Bed %d is already empty.", m.cursor+1)
+		}
+	case "b":
+		if err := m.g.BuyBed(m.now); err != nil {
+			m.setStatus(warnStyle, "%s", err.Error())
+		} else {
+			m.dirty = true
+			m.cursor = len(m.g.Plots) - 1
+			m.setStatus(okStyle, "New ground broken: bed %d. The next costs %d seeds.", len(m.g.Plots), m.g.BedCost())
+		}
+	case "d":
+		wasPond := m.plot().Pond
+		if err := m.g.DigPond(m.cursor, m.now); err != nil {
+			m.setStatus(warnStyle, "%s", err.Error())
+		} else {
+			m.dirty = true
+			if wasPond {
+				m.setStatus(okStyle, "Filled the pond back in.")
+			} else {
+				m.setStatus(waterStyle, "Dug a pond. Water lilies and lotus will grow here.")
+			}
 		}
 	case "a":
 		m.screen = screenAlmanac
@@ -446,7 +516,7 @@ func (m model) handleShopKey(key string) (tea.Model, tea.Cmd) {
 		m.cursor = idx
 		m.dirty = true
 		m.screen = screenGarden
-		m.setStatus(okStyle, "Sowed %s in bed %d.", sp.Common, idx+1)
+		m.setStatus(okStyle, "Sowed %s in bed %d.%s", sp.Common, idx+1, companionAside(m.g, idx, sp))
 		return m, m.save()
 	}
 	return m, nil
@@ -457,9 +527,9 @@ func (m model) firstEmptyFrom(start int) int {
 	if m.g.Plots[start].Empty() {
 		return start
 	}
-	for i := 0; i < PlotCount; i++ {
-		if m.g.Plots[(start+i)%PlotCount].Empty() {
-			return (start + i) % PlotCount
+	for i := 0; i < len(m.g.Plots); i++ {
+		if n := (start + i) % len(m.g.Plots); m.g.Plots[n].Empty() {
+			return n
 		}
 	}
 	return -1
@@ -485,9 +555,9 @@ func (m model) handleInfoKey(key string) (tea.Model, tea.Cmd) {
 	case "n", "r":
 		m.startNaming()
 	case "left", "h", "up", "k":
-		m.cursor = (m.cursor + PlotCount - 1) % PlotCount
+		m.cursor = (m.cursor + len(m.g.Plots) - 1) % len(m.g.Plots)
 	case "right", "l", "down", "j":
-		m.cursor = (m.cursor + 1) % PlotCount
+		m.cursor = (m.cursor + 1) % len(m.g.Plots)
 	case "u":
 		if m.g.Uproot(m.cursor, m.now) {
 			m.dirty = true

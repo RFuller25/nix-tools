@@ -41,9 +41,64 @@ nix run .#garden      # or: go run ./tools/garden
 | `s` | seed shed |
 | `a` | almanac — every species, every stage |
 | `tab` | cycle garden → shed → almanac → journal |
+| `b` | break new ground: one more bed |
+| `d` | dig a pond here, or fill it back in |
 | `m` | calming music on or off |
 | `?` | help |
 | `q` | quit (the garden saves itself) |
+
+## The garden itself
+
+Five beds wide, three rows to start, growing downwards to thirty as you break
+new ground (`b`). Beds keep their positions — a narrow terminal scrolls across
+the garden rather than reflowing it — because what grows next door matters.
+
+Every bed has its own pH and its own richness, derived from the garden's seed.
+Mediterranean herbs want chalk, bog and woodland plants want acid, and a plant
+in ground it dislikes grows slowly rather than badly. Lifting a plant (`u`)
+composts it into the bed it came from. Bigleaf hydrangea reads its bed and
+flowers blue in acid soil and pink in lime, which is the one plant here doing
+its own chemistry.
+
+Ponds (`d`) never dry out, never weed over, and are the only place the water
+lily and the sacred lotus will grow.
+
+## Light
+
+The garden runs on the real sun. Dawn comes up rose, dusk goes amber, night
+settles blue and dim, and day length follows the season — a January evening is
+dark by five. Crocus, tulip, water lily, lotus, morning glory and chamomile
+fold shut for the dark. Moonflower, evening primrose and night-scented stock do
+the opposite: shut all day, open at dusk, and scent the garden for the moths.
+
+## Neighbours
+
+What you plant alongside matters, using the relationships gardeners have
+actually used. Marigolds guard the nightshades against nematodes, basil sits
+beside tomatoes, alliums keep aphids off roses, chives muddle the carrot fly,
+legumes feed the ground around them and corn gives beans a frame to climb —
+while mint crowds out whatever it is next to, sunflowers sour the ground for
+beans, and a birch drinks its neighbours dry. The info card lists what the beds
+alongside are doing and why.
+
+## The year
+
+Every species leads the life it really leads. Annuals and biennials flower, set
+seed and finish: a spent plant is not dead, it stands there bleached to straw
+with a last handful of seed until you lift it. Perennials die back over winter,
+deciduous trees stand bare, evergreens carry on, and all of them wake in spring.
+
+Self-seeders — poppies, cosmos, foxgloves, chamomile and a dozen more — drop
+volunteers into bare ground beside them, free. That decision is hashed from the
+garden's seed rather than rolled at random, so a garden left running and one
+catching up on a fortnight it spent closed grow exactly the same plants.
+
+## Visitors
+
+Bees work the flowers on a dry day, butterflies follow the nectar, finches drop
+in on seed heads, dragonflies patrol a pond, and after dark moths come to the
+night-scented flowers while a fox or a hedgehog crosses the beds. Nothing
+visits a garden with nothing in it. The journal notes each one's first visit.
 
 ## Wind
 
@@ -70,12 +125,19 @@ To hear the piece without a sound card:
 RENDER_DIR=/tmp go test ./tools/garden -run TestRenderCalmMusic
 ```
 
+## Worth doing
+
+The journal keeps three gentle suggestions — grow three things that flower in
+autumn, put a marigold beside a tomato, wait for a moth — each worth a few
+seeds. Never a timer, never a failure; finish one and another appears.
+
 ## The almanac
 
-85 real species, each with its Latin binomial, family, origin, flowering time,
+88 real species, each with its Latin binomial, family, origin, flowering time,
 sun and water needs, eventual height, a gardener's note and a description —
-from sweet basil to the sacred lotus, by way of the Venus flytrap and a
-bonsai black pine.
+from sweet basil to the sacred lotus, by way of the Venus flytrap and a bonsai
+black pine. Bring one into flower and it is pressed into the herbarium, marked
+with a tick and the date it first flowered.
 
 ## Saved state
 
@@ -84,6 +146,12 @@ Override with `--save <path>` or `GARDEN_SAVE`. Writes are atomic, so an
 interrupted save cannot shred an existing garden.
 
 ```sh
-garden --species   # list the whole catalogue and exit
+garden --species    # list the whole catalogue and exit
+garden --postcard   # print the garden as it stands, to share or redirect
+garden --status     # one line for a prompt or a status bar
 garden --version
 ```
+
+`--postcard` draws the beds with no cursor and no chrome; `--width` sets how
+wide. `--status` prints something like
+`❀ 7/15 growing · 3 in flower · 2 thirsty · 21 seeds`.

@@ -82,7 +82,7 @@ func (m model) shopDetail(sp *Species, listWidth int) string {
 	if width < 24 {
 		width = 24
 	}
-	art := strings.Join(renderArt(sp, StageMature, min(width, 24), 6, 0), "\n")
+	art := strings.Join(renderArt(sp, sp.Palette, StageMature, min(width, 24), 6, 0), "\n")
 
 	rows := []string{
 		titleStyle.Render(sp.Common),
