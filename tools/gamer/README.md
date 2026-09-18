@@ -30,8 +30,11 @@ game prints its own keys along the bottom.
   follow its own tail into the square it is leaving.
 * **Hue** — a two-way colour gradient is cut into a 7×5 grid and shuffled, with
   the corners and a few other tiles pinned as reference points. Pick a tile up
-  with `space` and press `space` on another to swap them. Solve it in as few
-  swaps as you can.
+  with `space` and press `space` on another to swap them. A tile that lands in
+  its own slot settles there and drops out of play, marked `✓`, so progress
+  only ever accumulates — and that can never strand a puzzle, because the tiles
+  still loose always include a pair whose swap settles one of them. Solve it in
+  as few swaps as you can.
 * **Minesweeper** — 16×14 with 40 mines. The first square you open is always
   safe, along with everything touching it. `f` flags; `space` on a revealed
   number opens the rest of its neighbours once the flags add up.

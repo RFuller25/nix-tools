@@ -135,6 +135,16 @@ func sfxEat() []voice {
 
 func sfxPick() []voice { return []voice{blip(waveTriangle, note(74), 0.05, 0.16)} }
 func sfxDrop() []voice { return []voice{blip(waveTriangle, note(69), 0.05, 0.14)} }
+
+// sfxSettle is the small click of a tile locking into its place: quieter than
+// a swap, since several can land in a row.
+func sfxSettle() []voice {
+	return []voice{
+		blip(waveTriangle, note(83), 0.04, 0.12),
+		at(blip(waveTriangle, note(90), 0.06, 0.10), 0.04),
+	}
+}
+
 func sfxSwap() []voice {
 	return []voice{
 		blip(waveTriangle, note(71), 0.05, 0.16),

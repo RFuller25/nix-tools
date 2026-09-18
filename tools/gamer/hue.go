@@ -18,10 +18,16 @@ const (
 // hue is the shade-sorting puzzle: a smooth colour gradient is cut into tiles
 // and shuffled, with a few pinned in place as reference points. Put every
 // shade back where it belongs.
+//
+// A tile that reaches its own slot locks there and cannot be picked up again,
+// so progress only ever accumulates. That can never strand a puzzle: the tiles
+// still out of place always include one whose home is held by another loose
+// tile, and swapping the two settles at least one of them.
 type hue struct {
 	target [hueH][hueW]rgb  // the finished gradient
 	tiles  [hueH][hueW]int  // which target tile currently sits in each slot
-	fixed  [hueH][hueW]bool // pinned tiles, which cannot be moved
+	fixed  [hueH][hueW]bool // pinned tiles, which were never in play
+	locked [hueH][hueW]bool // tiles the player has settled into place
 
 	cx, cy   int  // cursor
 	holding  bool // a tile has been picked up
@@ -116,6 +122,7 @@ func mix(a, b rgb, t float64) rgb {
 func (h *hue) Start() tea.Cmd {
 	h.buildGradient()
 	h.fixed = [hueH][hueW]bool{}
+	h.locked = [hueH][hueW]bool{}
 	h.moves = 0
 	h.solved, h.recorded, h.holding = false, false, false
 	h.cx, h.cy = 0, 0
@@ -136,11 +143,13 @@ func (h *hue) Start() tea.Cmd {
 		}
 	}
 	h.shuffle()
+	// The shuffle can drop a tile straight into its own slot; that counts.
+	h.settle()
 
 	// Start the cursor on a tile the player can actually pick up.
 	for y := 0; y < hueH; y++ {
 		for x := 0; x < hueW; x++ {
-			if !h.fixed[y][x] {
+			if h.movable(x, y) {
 				h.cx, h.cy = x, y
 				return nil
 			}
@@ -175,6 +184,28 @@ func (h *hue) shuffle() {
 	}
 }
 
+// movable reports whether the tile in a slot can still be picked up: pinned
+// tiles never could, and settled ones no longer can.
+func (h *hue) movable(x, y int) bool {
+	return !h.fixed[y][x] && !h.locked[y][x]
+}
+
+// settle locks every tile that is sitting in its own slot, and reports how
+// many newly clicked into place.
+func (h *hue) settle() int {
+	n := 0
+	for y := 0; y < hueH; y++ {
+		for x := 0; x < hueW; x++ {
+			if h.tiles[y][x] != y*hueW+x || h.locked[y][x] || h.fixed[y][x] {
+				continue
+			}
+			h.locked[y][x] = true
+			n++
+		}
+	}
+	return n
+}
+
 func (h *hue) isSolved() bool {
 	for y := 0; y < hueH; y++ {
 		for x := 0; x < hueW; x++ {
@@ -194,7 +225,7 @@ func (h *hue) colorAt(x, y int) rgb {
 
 // pick picks up a tile, or swaps it with the one already held.
 func (h *hue) pick() {
-	if h.solved || h.fixed[h.cy][h.cx] {
+	if h.solved || !h.movable(h.cx, h.cy) {
 		return
 	}
 	if !h.holding {
@@ -212,6 +243,9 @@ func (h *hue) pick() {
 	h.holding = false
 	h.moves++
 	h.snd.Play(sfxSwap()...)
+	if h.settle() > 0 {
+		h.snd.Play(sfxSettle()...)
+	}
 	if h.isSolved() {
 		h.solved = true
 		h.snd.Play(sfxWin()...)
@@ -266,7 +300,7 @@ func (h *hue) Result() (int, bool, bool) {
 }
 
 func (h *hue) Help() string {
-	return helpStyle.Render("←↑↓→ move · space pick up and swap · r new puzzle")
+	return helpStyle.Render("←↑↓→ move · space pick up and swap · tiles lock when right · r new puzzle")
 }
 
 func (h *hue) View(width, height int) string {
@@ -283,6 +317,8 @@ func (h *hue) View(width, height int) string {
 				mark = center("↕", tileW)
 			case h.fixed[y][x]:
 				mark = center("·", tileW)
+			case h.locked[y][x]:
+				mark = center("✓", tileW)
 			}
 			for i := range lines {
 				content := spaces(tileW)
@@ -303,7 +339,7 @@ func (h *hue) View(width, height int) string {
 	side := []string{
 		labelStyle.Render("moves"), accentStyle.Render(fmt.Sprintf("%d", h.moves)), "",
 		labelStyle.Render("in place"), valueStyle.Render(fmt.Sprintf("%d/%d", h.placed(), hueW*hueH)), "",
-		subtleStyle.Render("· pinned tiles"), subtleStyle.Render("↕ held tile"),
+		subtleStyle.Render("· pinned"), subtleStyle.Render("✓ settled, now fixed"), subtleStyle.Render("↕ held tile"),
 	}
 	if h.solved {
 		side = append(side, "", okStyle.Render("solved!"),

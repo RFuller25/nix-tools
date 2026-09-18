@@ -201,3 +201,197 @@ func TestRGBHex(t *testing.T) {
 		}
 	}
 }
+
+func TestTilesLockWhenTheyReachTheirPlace(t *testing.T) {
+	h := newHue(21)
+	h.Start()
+
+	// Find a loose tile and the slot it belongs in.
+	var from, to [2]int
+	found := false
+	for y := 0; y < hueH && !found; y++ {
+		for x := 0; x < hueW && !found; x++ {
+			if !h.movable(x, y) {
+				continue
+			}
+			want := h.tiles[y][x]
+			hx, hy := want%hueW, want/hueW
+			if h.movable(hx, hy) {
+				from, to, found = [2]int{x, y}, [2]int{hx, hy}, true
+			}
+		}
+	}
+	if !found {
+		t.Skip("this shuffle left no straightforward swap to test")
+	}
+
+	h.cx, h.cy = from[0], from[1]
+	h.pick()
+	h.cx, h.cy = to[0], to[1]
+	h.pick()
+
+	if !h.locked[to[1]][to[0]] {
+		t.Error("a tile that reached its own slot was not locked")
+	}
+	if h.fixed[to[1]][to[0]] {
+		t.Error("settling a tile should not mark it as one of the pinned anchors")
+	}
+
+	// And it stays put from now on.
+	before := h.tiles
+	h.cx, h.cy = to[0], to[1]
+	h.pick()
+	if h.holding {
+		t.Error("a settled tile was picked up again")
+	}
+	if h.tiles != before {
+		t.Error("the board changed when trying to move a settled tile")
+	}
+}
+
+func TestSettledTilesCannotBeSwappedInto(t *testing.T) {
+	h := newHue(22)
+	h.Start()
+
+	// Settle whatever the shuffle placed, then try to swap a loose tile onto
+	// one of those slots.
+	var locked, loose [2]int
+	haveLocked, haveLoose := false, false
+	for y := 0; y < hueH; y++ {
+		for x := 0; x < hueW; x++ {
+			switch {
+			case h.locked[y][x] && !haveLocked:
+				locked, haveLocked = [2]int{x, y}, true
+			case h.movable(x, y) && !haveLoose:
+				loose, haveLoose = [2]int{x, y}, true
+			}
+		}
+	}
+	if !haveLocked || !haveLoose {
+		t.Skip("this shuffle produced nothing settled to test against")
+	}
+
+	h.cx, h.cy = loose[0], loose[1]
+	h.pick()
+	if !h.holding {
+		t.Fatal("a loose tile could not be picked up")
+	}
+	before, moves := h.tiles, h.moves
+	h.cx, h.cy = locked[0], locked[1]
+	h.pick()
+
+	if h.tiles != before {
+		t.Error("a held tile was swapped onto a settled one")
+	}
+	if h.moves != moves {
+		t.Error("a refused swap was counted as a move")
+	}
+	if !h.holding {
+		t.Error("the held tile was dropped by a refused swap")
+	}
+}
+
+func TestStartSettlesWhateverTheShuffleGotRight(t *testing.T) {
+	for seed := int64(0); seed < 30; seed++ {
+		h := newHue(seed)
+		h.Start()
+
+		for y := 0; y < hueH; y++ {
+			for x := 0; x < hueW; x++ {
+				correct := h.tiles[y][x] == y*hueW+x
+				if correct && !h.fixed[y][x] && !h.locked[y][x] {
+					t.Fatalf("seed %d: the tile at %d,%d starts in its own slot but is not locked", seed, x, y)
+				}
+				if !correct && h.locked[y][x] {
+					t.Fatalf("seed %d: the tile at %d,%d is locked in the wrong slot", seed, x, y)
+				}
+			}
+		}
+		if !h.movable(h.cx, h.cy) {
+			t.Fatalf("seed %d: the cursor starts on a tile that cannot be moved", seed)
+		}
+	}
+}
+
+// Locking must never strand a puzzle: with every settled tile out of play,
+// there is always a swap left that settles another one.
+func TestLockingNeverStrandsThePuzzle(t *testing.T) {
+	for seed := int64(0); seed < 40; seed++ {
+		h := newHue(seed)
+		h.Start()
+
+		swaps := 0
+		for !h.isSolved() {
+			if swaps > hueW*hueH*2 {
+				t.Fatalf("seed %d: still unsolved after %d swaps", seed, swaps)
+			}
+
+			// Take the first tile out of place and send it home.
+			var from, to [2]int
+			found := false
+			for y := 0; y < hueH && !found; y++ {
+				for x := 0; x < hueW && !found; x++ {
+					if h.tiles[y][x] != y*hueW+x {
+						want := h.tiles[y][x]
+						from, to, found = [2]int{x, y}, [2]int{want % hueW, want / hueW}, true
+					}
+				}
+			}
+			if !found {
+				break
+			}
+			if !h.movable(from[0], from[1]) || !h.movable(to[0], to[1]) {
+				t.Fatalf("seed %d: the swap that would settle a tile is blocked", seed)
+			}
+
+			h.cx, h.cy = from[0], from[1]
+			h.pick()
+			h.cx, h.cy = to[0], to[1]
+			h.pick()
+			swaps++
+		}
+
+		if !h.solved {
+			t.Fatalf("seed %d: the board is complete but the game did not notice", seed)
+		}
+		for y := 0; y < hueH; y++ {
+			for x := 0; x < hueW; x++ {
+				if !h.fixed[y][x] && !h.locked[y][x] {
+					t.Fatalf("seed %d: a solved board left %d,%d unlocked", seed, x, y)
+				}
+			}
+		}
+	}
+}
+
+// Every swap should settle at least the tile it sends home, so a careful
+// player never has to undo anything.
+func TestEverySwapMakesProgress(t *testing.T) {
+	h := newHue(23)
+	h.Start()
+
+	for i := 0; i < 50 && !h.isSolved(); i++ {
+		before := h.placed()
+		var from, to [2]int
+		found := false
+		for y := 0; y < hueH && !found; y++ {
+			for x := 0; x < hueW && !found; x++ {
+				if h.tiles[y][x] != y*hueW+x {
+					want := h.tiles[y][x]
+					from, to, found = [2]int{x, y}, [2]int{want % hueW, want / hueW}, true
+				}
+			}
+		}
+		if !found {
+			break
+		}
+		h.cx, h.cy = from[0], from[1]
+		h.pick()
+		h.cx, h.cy = to[0], to[1]
+		h.pick()
+
+		if h.placed() <= before {
+			t.Fatalf("a swap sending a tile home left %d in place, was %d", h.placed(), before)
+		}
+	}
+}
