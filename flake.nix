@@ -12,6 +12,24 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in {
         packages = {
+          garden = pkgs.buildGoModule {
+            pname = "garden";
+            version = "0.1.0";
+            src = ./tools/garden;
+            # Placeholder: run `nix build .#garden` once and paste in the hash
+            # nix reports.
+            vendorHash = pkgs.lib.fakeHash;
+          };
+
+          gamer = pkgs.buildGoModule {
+            pname = "gamer";
+            version = "0.1.0";
+            src = ./tools/gamer;
+            # Placeholder: run `nix build .#gamer` once and paste in the hash
+            # nix reports.
+            vendorHash = pkgs.lib.fakeHash;
+          };
+
           talc = pkgs.buildGoModule {
             pname = "talc";
             version = "0.2.0";
@@ -23,6 +41,16 @@
         };
 
         apps = {
+          garden = {
+            type = "app";
+            program = "${self.packages.${system}.garden}/bin/garden";
+          };
+
+          gamer = {
+            type = "app";
+            program = "${self.packages.${system}.gamer}/bin/gamer";
+          };
+
           talc = {
             type = "app";
             program = "${self.packages.${system}.talc}/bin/talc";
