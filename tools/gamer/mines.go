@@ -42,11 +42,14 @@ type mines struct {
 	gen     int
 
 	rng *rand.Rand
+	snd sounder
 }
 
 func newMines(seed int64) *mines {
-	return &mines{rng: rand.New(rand.NewSource(seed))}
+	return &mines{rng: rand.New(rand.NewSource(seed)), snd: noSound{}}
 }
+
+func (m *mines) SetAudio(s sounder) { m.snd = s }
 
 func (m *mines) ID() string         { return "mines" }
 func (m *mines) Name() string       { return "Minesweeper" }
@@ -247,13 +250,26 @@ func (m *mines) Update(msg tea.Msg) tea.Cmd {
 		case "down", "j":
 			m.cy = min(minesH-1, m.cy+1)
 		case "enter", " ":
+			// One sound per key press, whatever the flood fill opened.
 			if m.grid[m.cy][m.cx].revealed {
 				m.chord(m.cx, m.cy)
 			} else {
 				m.reveal(m.cx, m.cy)
 			}
+			switch {
+			case m.lost:
+				m.snd.Play(sfxBoom()...)
+			case m.won:
+				m.snd.Play(sfxWin()...)
+			default:
+				m.snd.Play(sfxReveal()...)
+			}
 		case "f", "x":
+			before := m.grid[m.cy][m.cx].flagged
 			m.toggleFlag(m.cx, m.cy)
+			if m.grid[m.cy][m.cx].flagged != before {
+				m.snd.Play(sfxFlag()...)
+			}
 		}
 	}
 	return nil

@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -186,4 +187,117 @@ func TestTicksFromOtherRoundsAreIgnored(t *testing.T) {
 	if g.y != y {
 		t.Error("a tick moved a piece in a game that is no longer on screen")
 	}
+}
+
+func TestMuteKeyTogglesAndPersists(t *testing.T) {
+	m := testModel(t)
+	if m.audio.Muted() {
+		t.Fatal("sound starts muted")
+	}
+
+	m.Update(key("m"))
+	if !m.audio.Muted() {
+		t.Error("m did not mute the sound")
+	}
+	if !m.scores.Muted {
+		t.Error("muting was not recorded in the score file")
+	}
+	if !strings.Contains(strings.ToLower(m.status), "sound off") {
+		t.Errorf("status after muting was %q", m.status)
+	}
+
+	back, err := LoadScores(m.path)
+	if err != nil {
+		t.Fatalf("reloading scores: %v", err)
+	}
+	if !back.Muted {
+		t.Error("the mute setting did not reach the disk")
+	}
+
+	m.Update(key("m"))
+	if m.audio.Muted() || m.scores.Muted {
+		t.Error("m did not unmute the sound again")
+	}
+}
+
+func TestMuteSettingIsRestored(t *testing.T) {
+	scores := newScores()
+	scores.Muted = true
+	m := newModel(scores, filepath.Join(t.TempDir(), "scores.json"), time.Now())
+	if !m.audio.Muted() {
+		t.Error("a saved mute setting was not applied at startup")
+	}
+}
+
+// The mute key must work from inside a game as well as from the menu, and
+// must not be swallowed by the game's own key handling.
+func TestMuteWorksInsideAGame(t *testing.T) {
+	for _, g := range testModel(t).games {
+		m := testModel(t)
+		m.startByID(g.ID())
+		m.active.Start()
+
+		m.Update(key("m"))
+		if !m.audio.Muted() {
+			t.Errorf("m did not mute while playing %s", g.ID())
+		}
+		if strings.TrimSpace(m.View()) == "" {
+			t.Errorf("%s drew nothing after muting", g.ID())
+		}
+	}
+}
+
+func TestMenuShowsTheSoundState(t *testing.T) {
+	m := testModel(t)
+	if !strings.Contains(m.View(), "m to mute") && !strings.Contains(m.View(), "no audio player") {
+		t.Errorf("the menu says nothing about the sound:\n%s", m.View())
+	}
+
+	m.Update(key("m"))
+	if !strings.Contains(m.View(), "m to unmute") {
+		t.Error("the menu does not offer to unmute once muted")
+	}
+}
+
+// Games must make their noise through whatever they are given, and nothing
+// should reach the audio engine when a game is played on its own.
+func TestGamesPlayThroughTheAudioTheyAreGiven(t *testing.T) {
+	for _, g := range testModel(t).games {
+		rec := &recordingSounder{}
+		g.SetAudio(rec)
+		g.Start()
+
+		// Snake and Tetris only make a noise when something happens, so
+		// each game is played for a while on its own clock.
+		keys := []string{"left", "right", "down", "up", " ", "f", "z", "c"}
+		for i := 0; i < 600 && rec.count() == 0; i++ {
+			g.Update(key(keys[i%len(keys)]))
+			switch v := g.(type) {
+			case *snake:
+				v.Update(snakeTickMsg{v.gen})
+			case *tetris:
+				v.Update(tetrisTickMsg{v.gen})
+			}
+		}
+		if rec.count() == 0 {
+			t.Errorf("%s made no sound at all while being played", g.ID())
+		}
+	}
+}
+
+type recordingSounder struct {
+	mu     sync.Mutex
+	voices int
+}
+
+func (r *recordingSounder) Play(vs ...voice) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.voices += len(vs)
+}
+
+func (r *recordingSounder) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.voices
 }

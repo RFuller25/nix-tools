@@ -27,7 +27,7 @@ func (m model) viewInfo() string {
 		width = 30
 	}
 
-	art := renderArt(sp, p.Stage(), 24, 7)
+	art := renderArt(sp, p.Stage(), 24, 7, m.wind.swayAt(m.cursor%m.gridCols()))
 	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true)
 
 	headline := []string{

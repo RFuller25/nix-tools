@@ -195,3 +195,50 @@ func TestKeystrokesPersist(t *testing.T) {
 		t.Error("planting did not cost any seeds")
 	}
 }
+
+// The music key must be safe to press on a machine with no audio, and must
+// tell the gardener why nothing happened.
+func TestMusicKeyWithoutAPlayer(t *testing.T) {
+	t.Setenv("GARDEN_AUDIO", "off")
+	m := demoModel(t, 90, 30)
+
+	var cur tea.Model = m
+	next, _ := cur.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")})
+	got := next.(model)
+
+	if got.g.Music {
+		t.Error("the save file says music is on, but there is no player")
+	}
+	if !strings.Contains(got.status, "no audio player") {
+		t.Errorf("status after pressing m was %q", got.status)
+	}
+	if got.audio.Playing() {
+		t.Error("audio reports playing with no player available")
+	}
+	if strings.TrimSpace(got.View()) == "" {
+		t.Error("the garden drew nothing after pressing m")
+	}
+}
+
+// Wind ticks must move the garden along without disturbing the simulation.
+func TestWindTickAnimatesWithoutChangingTheGarden(t *testing.T) {
+	m := demoModel(t, 90, 30)
+	m.g.Seed = 1
+	before := m.g.Plots[0]
+
+	var cur tea.Model = m
+	for i := 0; i < 200; i++ {
+		next, cmd := cur.Update(windTickMsg(m.now))
+		cur = next
+		if cmd == nil {
+			t.Fatal("the wind stopped ticking")
+		}
+		if strings.TrimSpace(cur.View()) == "" {
+			t.Fatal("the garden drew nothing mid-gust")
+		}
+	}
+	got := cur.(model)
+	if got.g.Plots[0] != before {
+		t.Error("the wind animation altered the garden's state")
+	}
+}

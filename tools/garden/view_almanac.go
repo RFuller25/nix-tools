@@ -64,7 +64,7 @@ func (m model) almanacDetail(sp *Species, listWidth int) string {
 	fit := max(1, (width-2)/(stageW+1))
 	var frames []string
 	for i := 0; i < StageCount && i < fit; i++ {
-		art := renderArt(sp, i, stageW, 6)
+		art := renderArt(sp, i, stageW, 6, 0)
 		label := stageNames[i]
 		style := subtleStyle
 		if i == m.almanacStage {

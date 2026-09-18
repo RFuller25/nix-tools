@@ -24,6 +24,9 @@ type model struct {
 	path   string
 	now    time.Time
 
+	audio     *Audio
+	musicSeed int64
+
 	screen  screen
 	status  string
 	saveErr error
@@ -33,7 +36,7 @@ type model struct {
 }
 
 func newModel(scores *Scores, path string, now time.Time) model {
-	return model{
+	m := model{
 		games: []game{
 			newTetris(now.UnixNano()),
 			new2048(now.UnixNano()),
@@ -41,18 +44,57 @@ func newModel(scores *Scores, path string, now time.Time) model {
 			newHue(now.UnixNano()),
 			newMines(now.UnixNano()),
 		},
-		scores: scores,
-		path:   path,
-		now:    now,
-		width:  80,
-		height: 30,
+		scores:    scores,
+		path:      path,
+		now:       now,
+		audio:     NewAudio(sampleRate),
+		musicSeed: now.UnixNano(),
+		width:     80,
+		height:    30,
+	}
+	m.audio.SetMuted(scores.Muted)
+	for _, g := range m.games {
+		g.SetAudio(m.audio)
+	}
+	return m
+}
+
+// setMusic puts the theme on at the given tempo: unhurried in the menu,
+// brisker in a game. Muted or with no player about, this does nothing.
+func (m *model) setMusic(bpm float64) {
+	m.audio.SetMusic(chiptune(sampleRate, m.musicSeed, bpm))
+}
+
+// toggleMute switches all sound off or back on and remembers the choice.
+func (m *model) toggleMute() {
+	muted := !m.audio.Muted()
+	m.audio.SetMuted(muted)
+	m.scores.Muted = muted
+
+	switch {
+	case muted:
+		m.status = "Sound off."
+	case !m.audio.Available():
+		m.status = playerHint()
+	default:
+		m.status = "Sound on, through " + m.audio.Backend() + "."
+		if m.screen == screenPlay {
+			m.setMusic(gameBPM)
+		} else {
+			m.setMusic(menuBPM)
+		}
+	}
+	if err := Save(m.path, m.scores); err != nil {
+		m.saveErr = err
 	}
 }
 
 func (m *model) Init() tea.Cmd {
 	if m.active != nil {
+		m.setMusic(gameBPM)
 		return tea.Batch(tea.ClearScreen, m.active.Start())
 	}
+	m.setMusic(menuBPM)
 	return tea.ClearScreen
 }
 
@@ -93,6 +135,10 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key == "ctrl+c" {
 		return m, m.quit()
 	}
+	if key == "m" {
+		m.toggleMute()
+		return m, nil
+	}
 
 	if m.screen == screenMenu {
 		switch key {
@@ -101,10 +147,12 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
+				m.audio.Play(sfxMove()...)
 			}
 		case "down", "j":
 			if m.cursor < len(m.games)-1 {
 				m.cursor++
+				m.audio.Play(sfxMove()...)
 			}
 		case "home", "g":
 			m.cursor = 0
@@ -114,6 +162,8 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.active = m.games[m.cursor]
 			m.screen = screenPlay
 			m.status = ""
+			m.audio.Play(sfxSelect()...)
+			m.setMusic(gameBPM)
 			return m, m.active.Start()
 		}
 		return m, nil
@@ -125,6 +175,7 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "Q":
 		m.screen = screenMenu
 		m.active = nil
+		m.setMusic(menuBPM)
 		return m, tea.ClearScreen
 	}
 
@@ -151,10 +202,23 @@ func (m *model) harvest() {
 }
 
 func (m *model) quit() tea.Cmd {
+	m.audio.Close()
 	if err := Save(m.path, m.scores); err != nil {
 		m.saveErr = err
 	}
 	return tea.Quit
+}
+
+// soundLine describes the state of the sound, for the menu.
+func (m *model) soundLine() string {
+	switch {
+	case m.audio.Muted():
+		return subtleStyle.Render("sound muted · m to unmute")
+	case !m.audio.Available():
+		return subtleStyle.Render("silent · " + playerHint())
+	default:
+		return subtleStyle.Render("sound on via " + m.audio.Backend() + " · m to mute")
+	}
 }
 
 func (m *model) View() string {
@@ -195,7 +259,8 @@ func (m *model) menuView() string {
 	if m.saveErr != nil {
 		b.WriteString(warnStyle.Render("scores not saved: "+m.saveErr.Error()) + "\n")
 	}
-	b.WriteString(helpStyle.Render("↑↓ choose · enter play · q quit"))
+	b.WriteString(m.soundLine() + "\n")
+	b.WriteString(helpStyle.Render("↑↓ choose · enter play · m mute · q quit"))
 	return b.String()
 }
 
@@ -209,6 +274,10 @@ func (m *model) playView() string {
 	bodyHeight := max(4, m.height-4)
 	body := g.View(m.width, bodyHeight)
 
-	help := g.Help() + subtleStyle.Render(" · esc menu")
+	sound := " · m mute"
+	if m.audio.Muted() {
+		sound = " · m unmute"
+	}
+	help := g.Help() + subtleStyle.Render(sound+" · esc menu")
 	return strings.Join([]string{head, body, helpStyle.Render(help)}, "\n")
 }

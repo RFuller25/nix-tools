@@ -21,10 +21,32 @@ func TestSlideLine(t *testing.T) {
 		{"unequal neighbours stay", [4]int{2, 4, 2, 4}, [4]int{2, 4, 2, 4}, 0, false},
 	}
 	for _, c := range cases {
-		got, score, changed := slideLine(c.in)
-		if got != c.want || score != c.score || changed != c.changed {
+		got, res := slideLine(c.in)
+		if got != c.want || res.score != c.score || res.changed != c.changed {
 			t.Errorf("%s: slideLine(%v) = %v, %d, %v; want %v, %d, %v",
-				c.name, c.in, got, score, changed, c.want, c.score, c.changed)
+				c.name, c.in, got, res.score, res.changed, c.want, c.score, c.changed)
+		}
+		if res.biggest > 0 && res.score == 0 {
+			t.Errorf("%s: reported a merge to %d but scored nothing", c.name, res.biggest)
+		}
+	}
+}
+
+// The merge sound is pitched by the biggest tile a move created, so that
+// number has to be right.
+func TestSlideLineReportsTheBiggestMerge(t *testing.T) {
+	cases := []struct {
+		in   [gridN]int
+		want int
+	}{
+		{[4]int{2, 2, 0, 0}, 4},
+		{[4]int{2, 2, 4, 4}, 8},
+		{[4]int{8, 8, 2, 2}, 16},
+		{[4]int{2, 4, 8, 16}, 0}, // nothing merged
+	}
+	for _, c := range cases {
+		if _, res := slideLine(c.in); res.biggest != c.want {
+			t.Errorf("slideLine(%v).biggest = %d, want %d", c.in, res.biggest, c.want)
 		}
 	}
 }

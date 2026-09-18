@@ -35,11 +35,14 @@ type snake struct {
 	recorded     bool
 
 	rng *rand.Rand
+	snd sounder
 }
 
 func newSnake(seed int64) *snake {
-	return &snake{rng: rand.New(rand.NewSource(seed))}
+	return &snake{rng: rand.New(rand.NewSource(seed)), snd: noSound{}}
 }
+
+func (s *snake) SetAudio(snd sounder) { s.snd = snd }
 
 func (s *snake) ID() string         { return "snake" }
 func (s *snake) Name() string       { return "Snake" }
@@ -126,6 +129,7 @@ func (s *snake) step() {
 
 	if next.x < 0 || next.x >= snakeW || next.y < 0 || next.y >= snakeH {
 		s.over = true
+		s.snd.Play(sfxGameOver()...)
 		return
 	}
 	// The tail square is about to be vacated, so moving into it is fine
@@ -138,6 +142,7 @@ func (s *snake) step() {
 			continue
 		}
 		s.over = true
+		s.snd.Play(sfxGameOver()...)
 		return
 	}
 
@@ -145,6 +150,7 @@ func (s *snake) step() {
 	if next == s.food {
 		s.score += 10
 		s.grow += 2
+		s.snd.Play(sfxEat()...)
 		s.placeFood()
 	}
 	if s.grow > 0 {

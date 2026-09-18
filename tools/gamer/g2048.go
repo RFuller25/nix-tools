@@ -21,11 +21,14 @@ type g2048 struct {
 	recorded bool
 
 	rng *rand.Rand
+	snd sounder
 }
 
 func new2048(seed int64) *g2048 {
-	return &g2048{rng: rand.New(rand.NewSource(seed))}
+	return &g2048{rng: rand.New(rand.NewSource(seed)), snd: noSound{}}
 }
+
+func (g *g2048) SetAudio(s sounder) { g.snd = s }
 
 func (g *g2048) ID() string         { return "2048" }
 func (g *g2048) Name() string       { return "2048" }
@@ -63,9 +66,16 @@ func (g *g2048) addTile() bool {
 	return true
 }
 
+// slide is what one row's worth of sliding produced.
+type slide struct {
+	score   int  // points won
+	biggest int  // the largest tile the move created, 0 if nothing merged
+	changed bool // whether the row actually moved
+}
+
 // slideLine compacts one row towards index 0, merging equal neighbours once
-// each. It returns the new row and the points scored.
-func slideLine(line [gridN]int) ([gridN]int, int, bool) {
+// each.
+func slideLine(line [gridN]int) ([gridN]int, slide) {
 	var packed []int
 	for _, v := range line {
 		if v != 0 {
@@ -74,12 +84,15 @@ func slideLine(line [gridN]int) ([gridN]int, int, bool) {
 	}
 
 	var merged []int
-	score := 0
+	var res slide
 	for i := 0; i < len(packed); i++ {
 		if i+1 < len(packed) && packed[i] == packed[i+1] {
 			value := packed[i] * 2
 			merged = append(merged, value)
-			score += value
+			res.score += value
+			if value > res.biggest {
+				res.biggest = value
+			}
 			i++ // the pair is spent
 			continue
 		}
@@ -88,7 +101,8 @@ func slideLine(line [gridN]int) ([gridN]int, int, bool) {
 
 	var out [gridN]int
 	copy(out[:], merged)
-	return out, score, out != line
+	res.changed = out != line
+	return out, res
 }
 
 type direction int
@@ -135,15 +149,19 @@ func (g *g2048) setLine(dir direction, i int, line [gridN]int) {
 
 // move slides the whole grid one way, returning whether anything shifted.
 func (g *g2048) move(dir direction) bool {
-	moved := false
+	moved, biggest := false, 0
 	for i := 0; i < gridN; i++ {
-		line, score, changed := slideLine(g.line(dir, i))
-		if changed {
+		line, res := slideLine(g.line(dir, i))
+		if res.changed {
 			g.setLine(dir, i, line)
 			moved = true
 		}
-		g.score += score
+		g.score += res.score
+		if res.biggest > biggest {
+			biggest = res.biggest
+		}
 	}
+	wasWon := g.won
 	if g.highest() >= 2048 {
 		g.won = true
 	}
@@ -151,6 +169,19 @@ func (g *g2048) move(dir direction) bool {
 		g.moves++
 		g.addTile()
 		g.over = !g.canMove()
+	}
+
+	switch {
+	case biggest > 0:
+		g.snd.Play(sfxMerge(biggest)...)
+	case moved:
+		g.snd.Play(sfxSlide()...)
+	}
+	if g.won && !wasWon {
+		g.snd.Play(sfxWin()...)
+	}
+	if g.over {
+		g.snd.Play(sfxGameOver()...)
 	}
 	return moved
 }

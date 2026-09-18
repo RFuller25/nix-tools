@@ -23,6 +23,11 @@ go run ./tools/garden
 go test ./...
 ```
 
+Both `garden` and `gamer` make sound by generating samples and piping raw PCM
+to whatever player is on `PATH` (`pw-play`, `paplay`, `aplay`, `ffplay` or
+sox's `play`). Nothing is linked in, so the builds stay pure Go; with no player
+installed both run silently and say so.
+
 New tools get their own module under `tools/`, a `use` line in `go.work`, and a
 `buildGoModule` package plus app in `flake.nix`. A new package starts with
 `vendorHash = pkgs.lib.fakeHash`; run `nix build .#<tool>` once and paste in the
