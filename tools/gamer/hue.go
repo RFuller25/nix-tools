@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -13,7 +14,18 @@ import (
 const (
 	hueW = 7
 	hueH = 5
+
+	// The victory wave: every frame turns the whole board a little further
+	// round the colour wheel, and each step along a diagonal lags the one
+	// before it, so a band of hue rolls across the finished gradient.
+	hueFrameMS   = 90
+	hueWaveStep  = 7
+	hueWavePitch = 26
 )
+
+// hueTickMsg drives the victory wave. The generation tells a tick from a
+// finished round apart from the round on screen now.
+type hueTickMsg struct{ gen int }
 
 // hue is the shade-sorting puzzle: a smooth colour gradient is cut into tiles
 // and shuffled, with a few pinned in place as reference points. Put every
@@ -35,6 +47,9 @@ type hue struct {
 	moves    int
 	solved   bool
 	recorded bool
+
+	gen   int // which round the victory wave's ticks belong to
+	frame int // how far the victory wave has travelled
 
 	rng *rand.Rand
 	snd sounder
@@ -91,6 +106,40 @@ func hslToRGB(hDeg, s, l float64) rgb {
 	return rgb{r + m, g + m, b + m}
 }
 
+// hsl is the inverse of hslToRGB: hue in degrees plus saturation and
+// lightness in 0..1.
+func (c rgb) hsl() (hDeg, s, l float64) {
+	maxc := math.Max(c.r, math.Max(c.g, c.b))
+	minc := math.Min(c.r, math.Min(c.g, c.b))
+	l = (maxc + minc) / 2
+	d := maxc - minc
+	if d == 0 {
+		return 0, 0, l // grey has no hue to speak of
+	}
+	s = d / (1 - math.Abs(2*l-1))
+	switch maxc {
+	case c.r:
+		hDeg = math.Mod((c.g-c.b)/d, 6)
+	case c.g:
+		hDeg = (c.b-c.r)/d + 2
+	default:
+		hDeg = (c.r-c.g)/d + 4
+	}
+	hDeg *= 60
+	if hDeg < 0 {
+		hDeg += 360
+	}
+	return hDeg, s, l
+}
+
+// rotateHue walks a colour round the colour wheel, leaving how light and how
+// vivid it is alone.
+func rotateHue(c rgb, deg float64) rgb {
+	h, s, l := c.hsl()
+	h = math.Mod(math.Mod(h+deg, 360)+360, 360)
+	return hslToRGB(h, s, l)
+}
+
 // buildGradient interpolates a gradient from four corner colours, which is
 // what gives the board its smooth two-way blend.
 func (h *hue) buildGradient() {
@@ -126,6 +175,8 @@ func (h *hue) Start() tea.Cmd {
 	h.moves = 0
 	h.solved, h.recorded, h.holding = false, false, false
 	h.cx, h.cy = 0, 0
+	h.gen++
+	h.frame = 0
 
 	// The four corners are always pinned, plus a scattering of others to
 	// give the eye something to work from.
@@ -223,21 +274,30 @@ func (h *hue) colorAt(x, y int) rgb {
 	return h.target[idx/hueW][idx%hueW]
 }
 
-// pick picks up a tile, or swaps it with the one already held.
-func (h *hue) pick() {
+// waveColorAt is the colour a slot shows during the victory wave: the
+// finished gradient, with the tiles further along the diagonal lagging behind
+// so the rotation reads as a wave rolling across the board.
+func (h *hue) waveColorAt(x, y int) rgb {
+	shift := float64(h.frame)*hueWaveStep - float64(x+y)*hueWavePitch
+	return rotateHue(h.target[y][x], shift)
+}
+
+// pick picks up a tile, or swaps it with the one already held. The swap that
+// finishes the puzzle returns the command that starts the victory wave.
+func (h *hue) pick() tea.Cmd {
 	if h.solved || !h.movable(h.cx, h.cy) {
-		return
+		return nil
 	}
 	if !h.holding {
 		h.holding = true
 		h.hx, h.hy = h.cx, h.cy
 		h.snd.Play(sfxPick()...)
-		return
+		return nil
 	}
 	if h.hx == h.cx && h.hy == h.cy {
 		h.holding = false // put it back down
 		h.snd.Play(sfxDrop()...)
-		return
+		return nil
 	}
 	h.tiles[h.hy][h.hx], h.tiles[h.cy][h.cx] = h.tiles[h.cy][h.cx], h.tiles[h.hy][h.hx]
 	h.holding = false
@@ -248,8 +308,17 @@ func (h *hue) pick() {
 	}
 	if h.isSolved() {
 		h.solved = true
+		h.frame = 0
 		h.snd.Play(sfxWin()...)
+		return h.tick()
 	}
+	return nil
+}
+
+// tick schedules the next frame of the victory wave.
+func (h *hue) tick() tea.Cmd {
+	gen := h.gen
+	return tea.Tick(hueFrameMS*time.Millisecond, func(time.Time) tea.Msg { return hueTickMsg{gen} })
 }
 
 // placed counts how many tiles are already where they belong.
@@ -266,10 +335,23 @@ func (h *hue) placed() int {
 }
 
 func (h *hue) Update(msg tea.Msg) tea.Cmd {
-	key, ok := msg.(tea.KeyMsg)
-	if !ok {
-		return nil
+	switch msg := msg.(type) {
+	case hueTickMsg:
+		// The wave runs until the player starts a new puzzle or leaves; a
+		// tick from an earlier round is stale and dies here.
+		if msg.gen != h.gen || !h.solved {
+			return nil
+		}
+		h.frame++
+		return h.tick()
+
+	case tea.KeyMsg:
+		return h.key(msg)
 	}
+	return nil
+}
+
+func (h *hue) key(key tea.KeyMsg) tea.Cmd {
 	switch key.String() {
 	case "r":
 		return h.Start()
@@ -284,7 +366,7 @@ func (h *hue) Update(msg tea.Msg) tea.Cmd {
 	case "down", "j":
 		h.cy = min(hueH-1, h.cy+1)
 	case "enter", " ":
-		h.pick()
+		return h.pick()
 	}
 	return nil
 }
@@ -310,15 +392,24 @@ func (h *hue) View(width, height int) string {
 	for y := 0; y < hueH; y++ {
 		lines := make([]string, tileH)
 		for x := 0; x < hueW; x++ {
-			style := lipgloss.NewStyle().Background(lipgloss.Color(h.colorAt(x, y).hex()))
+			col := h.colorAt(x, y)
+			if h.solved {
+				col = h.waveColorAt(x, y)
+			}
+			style := lipgloss.NewStyle().Background(lipgloss.Color(col.hex()))
+
+			// Once the puzzle is out, nothing is left to mark or point at:
+			// the board is bare colour until the player restarts or leaves.
 			mark := spaces(tileW)
-			switch {
-			case h.holding && x == h.hx && y == h.hy:
-				mark = center("↕", tileW)
-			case h.fixed[y][x]:
-				mark = center("·", tileW)
-			case h.locked[y][x]:
-				mark = center("✓", tileW)
+			if !h.solved {
+				switch {
+				case h.holding && x == h.hx && y == h.hy:
+					mark = center("↕", tileW)
+				case h.fixed[y][x]:
+					mark = center("·", tileW)
+				case h.locked[y][x]:
+					mark = center("✓", tileW)
+				}
 			}
 			for i := range lines {
 				content := spaces(tileW)
@@ -326,7 +417,7 @@ func (h *hue) View(width, height int) string {
 					content = mark
 				}
 				cell := style.Render(content)
-				if x == h.cx && y == h.cy {
+				if x == h.cx && y == h.cy && !h.solved {
 					cell = cursorCell(style, content, i, tileW, tileH)
 				}
 				lines[i] += cell
@@ -339,11 +430,13 @@ func (h *hue) View(width, height int) string {
 	side := []string{
 		labelStyle.Render("moves"), accentStyle.Render(fmt.Sprintf("%d", h.moves)), "",
 		labelStyle.Render("in place"), valueStyle.Render(fmt.Sprintf("%d/%d", h.placed(), hueW*hueH)), "",
-		subtleStyle.Render("· pinned"), subtleStyle.Render("✓ settled, now fixed"), subtleStyle.Render("↕ held tile"),
 	}
 	if h.solved {
-		side = append(side, "", okStyle.Render("solved!"),
+		side = append(side, okStyle.Render("solved!"),
 			subtleStyle.Render(fmt.Sprintf("%d moves", h.moves)), subtleStyle.Render("r for a new puzzle"))
+	} else {
+		side = append(side,
+			subtleStyle.Render("· pinned"), subtleStyle.Render("✓ settled, now fixed"), subtleStyle.Render("↕ held tile"))
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, board, "  ", strings.Join(side, "\n"))
 }

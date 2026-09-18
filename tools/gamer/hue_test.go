@@ -2,7 +2,10 @@ package main
 
 import (
 	"math"
+	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestHueStartsScrambledWithAnchors(t *testing.T) {
@@ -392,6 +395,159 @@ func TestEverySwapMakesProgress(t *testing.T) {
 
 		if h.placed() <= before {
 			t.Fatalf("a swap sending a tile home left %d in place, was %d", h.placed(), before)
+		}
+	}
+}
+
+// solveHue plays a puzzle out and returns the command the winning swap gave
+// back, which is what starts the victory wave.
+func solveHue(t *testing.T, h *hue) tea.Cmd {
+	t.Helper()
+	var last tea.Cmd
+	for guard := 0; !h.isSolved() && guard < hueW*hueH*4; guard++ {
+		for y := 0; y < hueH; y++ {
+			for x := 0; x < hueW; x++ {
+				want := y*hueW + x
+				if h.tiles[y][x] == want {
+					continue
+				}
+				for sy := 0; sy < hueH; sy++ {
+					for sx := 0; sx < hueW; sx++ {
+						if h.tiles[sy][sx] != want {
+							continue
+						}
+						h.cx, h.cy = sx, sy
+						h.pick()
+						h.cx, h.cy = x, y
+						last = h.pick()
+					}
+				}
+			}
+		}
+	}
+	if !h.solved {
+		t.Fatal("could not solve the puzzle")
+	}
+	return last
+}
+
+func TestWinHidesTheMarksAndTheCursor(t *testing.T) {
+	h := newHue(31)
+	h.Start()
+
+	before := h.View(80, 30)
+	if !strings.ContainsAny(before, "·✓") {
+		t.Fatal("an unsolved board shows no pinned or settled marks")
+	}
+
+	solveHue(t, h)
+	after := h.View(80, 30)
+	for _, mark := range []string{"·", "✓", "↕", "▛", "▜", "▙", "▟", "▌", "▐"} {
+		if strings.Contains(after, mark) {
+			t.Errorf("the winning board still shows %q", mark)
+		}
+	}
+	if !strings.Contains(after, "solved!") {
+		t.Error("the winning board does not say it is solved")
+	}
+}
+
+func TestWinStartsAWaveThatKeepsGoing(t *testing.T) {
+	h := newHue(32)
+	h.Start()
+
+	if cmd := h.Update(hueTickMsg{gen: h.gen}); cmd != nil || h.frame != 0 {
+		t.Error("the wave is running before the puzzle is solved")
+	}
+
+	if solveHue(t, h) == nil {
+		t.Fatal("the winning swap did not start the wave")
+	}
+
+	for i := 1; i <= 3; i++ {
+		cmd := h.Update(hueTickMsg{gen: h.gen})
+		if cmd == nil {
+			t.Fatalf("the wave stopped after %d frames", i)
+		}
+		if h.frame != i {
+			t.Fatalf("frame = %d after %d ticks", h.frame, i)
+		}
+	}
+}
+
+func TestWaveStopsOnRestart(t *testing.T) {
+	h := newHue(33)
+	h.Start()
+	solveHue(t, h)
+	stale := h.gen
+
+	h.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	if h.solved {
+		t.Fatal("r did not start a new puzzle")
+	}
+	if h.frame != 0 {
+		t.Errorf("the new puzzle starts on wave frame %d", h.frame)
+	}
+	if cmd := h.Update(hueTickMsg{gen: stale}); cmd != nil {
+		t.Error("a tick from the finished round kept the wave alive")
+	}
+	if h.frame != 0 {
+		t.Error("a stale tick advanced the new puzzle's wave")
+	}
+}
+
+// The wave moves the colours round the wheel over time and along the board,
+// but leaves the gradient's shape alone: every tile keeps its saturation and
+// lightness, so the board still reads as the finished picture.
+func TestWaveRollsTheHuesWithoutFlatteningThem(t *testing.T) {
+	h := newHue(34)
+	h.Start()
+	solveHue(t, h)
+
+	still := h.waveColorAt(1, 1)
+	h.frame = 4
+	moved := h.waveColorAt(1, 1)
+	if still == moved {
+		t.Error("the wave does not move over time")
+	}
+
+	a, b := h.waveColorAt(0, 0), h.waveColorAt(hueW-1, hueH-1)
+	if a == b {
+		t.Error("every tile shifts by the same amount, so there is no wave")
+	}
+
+	for y := 0; y < hueH; y++ {
+		for x := 0; x < hueW; x++ {
+			_, wantS, wantL := h.target[y][x].hsl()
+			_, gotS, gotL := h.waveColorAt(x, y).hsl()
+			if math.Abs(gotS-wantS) > 0.01 || math.Abs(gotL-wantL) > 0.01 {
+				t.Errorf("tile %d,%d: saturation/lightness %.3f/%.3f, want %.3f/%.3f", x, y, gotS, gotL, wantS, wantL)
+			}
+		}
+	}
+}
+
+func TestRotateHueGoesRoundTheWheel(t *testing.T) {
+	c := hslToRGB(200, 0.6, 0.5)
+	full := rotateHue(c, 360)
+	if math.Abs(full.r-c.r) > 0.001 || math.Abs(full.g-c.g) > 0.001 || math.Abs(full.b-c.b) > 0.001 {
+		t.Errorf("a full turn changed the colour: %v, want %v", full, c)
+	}
+	back := rotateHue(rotateHue(c, 90), -90)
+	if math.Abs(back.r-c.r) > 0.001 || math.Abs(back.g-c.g) > 0.001 || math.Abs(back.b-c.b) > 0.001 {
+		t.Errorf("rotating back gave %v, want %v", back, c)
+	}
+	if got, _, _ := rotateHue(c, 40).hsl(); math.Abs(got-240) > 0.5 {
+		t.Errorf("hue after a 40 degree turn = %.2f, want 240", got)
+	}
+}
+
+func TestHSLRoundTrip(t *testing.T) {
+	for _, c := range []rgb{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {0.2, 0.4, 0.8}, {0.5, 0.5, 0.5}, {0, 0, 0}, {1, 1, 1}} {
+		hDeg, s, l := c.hsl()
+		got := hslToRGB(hDeg, s, l)
+		if math.Abs(got.r-c.r) > 0.001 || math.Abs(got.g-c.g) > 0.001 || math.Abs(got.b-c.b) > 0.001 {
+			t.Errorf("%v round-tripped to %v", c, got)
 		}
 	}
 }
