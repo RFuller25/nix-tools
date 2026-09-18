@@ -18,7 +18,7 @@
             src = ./tools/garden;
             # Placeholder: run `nix build .#garden` once and paste in the hash
             # nix reports.
-            vendorHash = pkgs.lib.fakeHash;
+            vendorHash = "sha256-TUbaUoqDZoQTkcOMtoE/FlAiqkWN+x49JeGkDguh2UU=";
           };
 
           gamer = pkgs.buildGoModule {
@@ -27,7 +27,7 @@
             src = ./tools/gamer;
             # Placeholder: run `nix build .#gamer` once and paste in the hash
             # nix reports.
-            vendorHash = pkgs.lib.fakeHash;
+            vendorHash = "sha256-uwBJAqN4sIepiiJf9lCDumLqfKJEowQO2tOiSWD3Fig=";
           };
 
           talc = pkgs.buildGoModule {
