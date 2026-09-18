@@ -119,16 +119,41 @@ func colorizeLine(sp *Species, pal Palette, line string) string {
 // top and nothing at all at the base, so the plant bends rather than slides,
 // and it is clamped to the space left inside the bed so nothing is clipped.
 func renderArt(sp *Species, pal Palette, stage, width, height int, sway float64) []string {
-	frame := sp.Stage(stage)
+	return renderArtWith(sp, pal, stage, width, height, sway, nil)
+}
+
+// renderArtWith is renderArt with things drawn over the top of the plant: a
+// bee working the flowers, a bird on the seed heads. The overlay is keyed by
+// row and column within the box, and each entry is already styled.
+func renderArtWith(sp *Species, pal Palette, stage, width, height int, sway float64, overlay map[[2]int]string) []string {
+	grid := artGrid(sp, stage, width, height, sway)
+
 	out := make([]string, 0, height)
-	for i := 0; i < height-len(frame); i++ {
-		out = append(out, strings.Repeat(" ", width))
+	for row, runes := range grid {
+		out = append(out, paintRow(sp, pal, runes, row, overlay))
 	}
-	start := 0
+	return out
+}
+
+// artGrid lays the frame out as plain runes, one row per line of the box.
+func artGrid(sp *Species, stage, width, height int, sway float64) [][]rune {
+	blank := func() []rune {
+		row := make([]rune, width)
+		for i := range row {
+			row[i] = ' '
+		}
+		return row
+	}
+
+	frame := sp.Stage(stage)
 	if len(frame) > height {
-		start = len(frame) - height // keep the base of an over-tall frame
+		frame = frame[len(frame)-height:] // keep the base of an over-tall frame
 	}
-	frame = frame[start:]
+
+	grid := make([][]rune, 0, height)
+	for i := 0; i < height-len(frame); i++ {
+		grid = append(grid, blank())
+	}
 
 	frameWidth := 0
 	for _, line := range frame {
@@ -148,19 +173,60 @@ func renderArt(sp *Species, pal Palette, stage, width, height int, sway float64)
 	}
 
 	for i, line := range frame {
-		if lipgloss.Width(line) > width {
-			line = trimToWidth(line, width)
-		}
+		row := blank()
 		shift := 0
 		if room > 0 && len(frame) > 1 {
-			// 1 at the tip, 0 at the base.
-			height := float64(len(frame)-1-i) / float64(len(frame)-1)
-			shift = int(math.Round(sway * float64(room) * height))
+			lean := float64(len(frame)-1-i) / float64(len(frame)-1) // 1 at the tip, 0 at the base
+			shift = int(math.Round(sway * float64(room) * lean))
 		}
-		padded := strings.Repeat(" ", max(0, left+shift)) + colorizeLine(sp, pal, line)
-		out = append(out, pad(padded, width))
+		col := max(0, left+shift)
+		for _, r := range line {
+			if col >= width {
+				break
+			}
+			row[col] = r
+			col++
+		}
+		grid = append(grid, row)
 	}
-	return out
+	return grid
+}
+
+// paintRow colours one row of the grid, letting any overlay take precedence.
+func paintRow(sp *Species, pal Palette, runes []rune, row int, overlay map[[2]int]string) string {
+	var b strings.Builder
+	var run []rune
+	runClass := clPlain
+
+	flush := func() {
+		if len(run) == 0 {
+			return
+		}
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color(colorFor(pal, runClass)))
+		b.WriteString(style.Render(string(run)))
+		run = run[:0]
+	}
+
+	for col, r := range runes {
+		if glyph, ok := overlay[[2]int{row, col}]; ok {
+			flush()
+			b.WriteString(glyph)
+			continue
+		}
+		if r == ' ' {
+			flush()
+			b.WriteRune(' ')
+			continue
+		}
+		c := classOf(sp, r)
+		if len(run) > 0 && c != runClass {
+			flush()
+		}
+		runClass = c
+		run = append(run, r)
+	}
+	flush()
+	return b.String()
 }
 
 func trimToWidth(line string, width int) string {

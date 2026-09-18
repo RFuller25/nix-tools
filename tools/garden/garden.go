@@ -176,8 +176,10 @@ type Garden struct {
 	Gathered   int    `json:"gathered"`   // lifetime seeds gathered
 	Volunteers int    `json:"volunteers"` // plants that sowed themselves
 	Music      bool   `json:"music"`      // was the music playing when we last closed
-	// Herbarium records the first time each species was brought into flower.
+	// Herbarium records the first time each species was brought into flower,
+	// and Sightings the first time each creature came to visit.
 	Herbarium map[string]time.Time `json:"herbarium,omitempty"`
+	Sightings map[string]time.Time `json:"sightings,omitempty"`
 	Journal   []JournalEntry       `json:"journal"`
 	LastTick  time.Time            `json:"last_tick"`
 	LastVisit time.Time            `json:"last_visit"`
@@ -296,6 +298,19 @@ func (g *Garden) collect(sp *Species, at time.Time) {
 	g.Herbarium[sp.ID] = at
 	g.Log(at, "Pressed %s (%s) into the herbarium — %d of %d.",
 		sp.Common, sp.Latin, len(g.Herbarium), len(AllSpecies()))
+}
+
+// sight records a creature's first visit to the garden.
+func (g *Garden) sight(name, note string, at time.Time) bool {
+	if g.Sightings == nil {
+		g.Sightings = map[string]time.Time{}
+	}
+	if _, seen := g.Sightings[name]; seen {
+		return false
+	}
+	g.Sightings[name] = at
+	g.Log(at, "%s", note)
+	return true
 }
 
 // Collected reports whether a species has ever flowered in this garden.

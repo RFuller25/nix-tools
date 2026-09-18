@@ -182,6 +182,8 @@ func (m model) ambient() string {
 		return fmt.Sprintf("%d bed(s) could use weeding.", weedy)
 	case empty == len(m.g.Plots):
 		return "Bare soil, waiting. Press p to sow something."
+	case m.visitorLine() != "":
+		return m.visitorLine()
 	case m.nightScent() != "":
 		return m.nightScent()
 	case m.wind.strongest() > 0.65:
@@ -272,10 +274,22 @@ func (m model) renderCell(idx int) string {
 		// Taller plants catch more of the gust than a seedling does.
 		sway := m.wind.swayAt(idx%plotCols) * (0.45 + 0.55*p.Growth)
 		stage, pal := appearance(sp, p, m.g.Season(m.now), m.phase())
-		lines = append(lines, renderArt(sp, pal, stage, cellInner, artHeight, sway)...)
+		visitors := m.life.overlayFor(idx, cellInner, artHeight)
+		lines = append(lines, renderArtWith(sp, pal, stage, cellInner, artHeight, sway, visitors)...)
 	} else {
-		for i := 0; i < artHeight; i++ {
-			lines = append(lines, strings.Repeat(" ", cellInner))
+		// Bare ground still gets visitors passing over it.
+		visitors := m.life.overlayFor(idx, cellInner, artHeight)
+		for row := 0; row < artHeight; row++ {
+			line := []rune(strings.Repeat(" ", cellInner))
+			out := ""
+			for col := range line {
+				if glyph, ok := visitors[[2]int{row, col}]; ok {
+					out += glyph
+					continue
+				}
+				out += " "
+			}
+			lines = append(lines, out)
 		}
 	}
 	if p.Pond {

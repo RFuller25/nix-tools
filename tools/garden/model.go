@@ -65,6 +65,7 @@ type model struct {
 
 	audio *Audio
 	wind  windState
+	life  wildlife
 
 	status      string
 	statusStyle lipgloss.Style
@@ -87,6 +88,7 @@ func newModel(g *Garden, path string, now time.Time) model {
 		almanac: AllSpecies(),
 		audio:   NewAudio(sampleRate),
 		wind:    newWind(g.Seed ^ now.UnixNano()),
+		life:    newWildlife(g.Seed ^ now.UnixNano() ^ 0x1F0C),
 		width:   80,
 		height:  30,
 	}
@@ -123,6 +125,26 @@ func (m *model) plot() *Plot { return &m.g.Plots[m.cursor] }
 // phase is where the real clock has got to in the day.
 func (m model) phase() phase { return phaseAt(m.now) }
 
+// visitorLine names whatever has come to call, for the status line.
+func (m model) visitorLine() string {
+	c, ok := m.life.present()
+	if !ok {
+		return ""
+	}
+	return upperFirst(c.kind().name) + " in the garden."
+}
+
+func upperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	if r[0] >= 'a' && r[0] <= 'z' {
+		r[0] -= 32
+	}
+	return string(r)
+}
+
 // nightScent is the line shown when something is perfuming the dark.
 func (m model) nightScent() string {
 	ph := m.phase()
@@ -157,6 +179,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case windTickMsg:
 		m.wind.advance(windTick.Seconds(), m.g.Weather(m.now), m.gridCols())
+		m.life.advance(windTick.Seconds(), m.g, m.now, m.g.Weather(m.now), func(c creature) {
+			k := c.kind()
+			if m.g.sight(k.name, k.note, m.now) {
+				m.dirty = true
+			}
+		})
 		return m, blow()
 
 	case saveMsg:
