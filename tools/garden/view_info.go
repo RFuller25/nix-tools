@@ -69,7 +69,7 @@ func (m model) viewInfo() string {
 		field("height", sp.Height, width),
 		field("season", sp.SeasonNames(), width),
 		field("life", lifeNote(sp), width),
-		field("planted", p.PlantedAt.Format("Mon 2 Jan, 15:04"), width),
+		field("planted", plantedWhen(p), width),
 	}, "\n")
 
 	tip := lipgloss.NewStyle().Width(width).Render(subtleStyle.Render("✎ " + sp.Note))
@@ -100,15 +100,30 @@ func (m model) viewInfo() string {
 	parts = append(parts, tip, pods)
 	card := strings.Join(compact(parts), "\n")
 
-	keys := "w water · c weed · f gather · n name · u lift · ←→ other beds · esc back"
+	// The card is usually taller than a small terminal, so it is windowed
+	// rather than allowed to push the top of the screen out of reach.
+	avail := max(3, m.height-4) // the card's border, plus the two footer lines
+	visible, above, below := window(strings.Split(card, "\n"), m.cardScroll, avail)
+	body := cardBorder.Render(strings.Join(visible, "\n"))
+
 	if m.naming {
 		return strings.Join([]string{
-			cardBorder.Render(card),
+			body,
 			m.input.View(),
 			helpStyle.Render("enter to confirm · esc to cancel"),
 		}, "\n")
 	}
-	return strings.Join([]string{cardBorder.Render(card), m.footer(keys)}, "\n")
+
+	keys := scrollHint(above, below, "w water · c weed · f gather · n name · u lift · ←→ other beds · esc back")
+	return strings.Join([]string{body, m.footer(keys)}, "\n")
+}
+
+// plantedWhen reads the planting date, or admits it does not know.
+func plantedWhen(p *Plot) string {
+	if p.PlantedAt.IsZero() {
+		return "some time ago"
+	}
+	return p.PlantedAt.Format("Mon 2 Jan, 15:04")
 }
 
 // lifeNote says what kind of life the plant leads, and what that means for

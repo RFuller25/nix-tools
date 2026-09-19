@@ -10,8 +10,8 @@ func (m model) viewJournal() string {
 	if active := m.g.ActiveTasks(); len(active) > 0 {
 		tasks = append(tasks, labelStyle.Render("WORTH DOING"))
 		for _, t := range active {
-			tasks = append(tasks, "  "+okStyle.Render("○ ")+valueStyle.Render(t.String())+
-				subtleStyle.Render(fmt.Sprintf("  · %d seeds", t.Reward)))
+			tasks = append(tasks, fit("  "+okStyle.Render("○ ")+valueStyle.Render(t.String())+
+				subtleStyle.Render(fmt.Sprintf("  · %d seeds", t.Reward)), m.width))
 		}
 		tasks = append(tasks, "")
 	}
@@ -28,7 +28,7 @@ func (m model) viewJournal() string {
 	for i := len(entries) - 1 - m.journalScroll; i >= 0 && len(lines) < rows; i-- {
 		e := entries[i]
 		stamp := subtleStyle.Render(e.At.Format("2 Jan 15:04"))
-		lines = append(lines, stamp+"  "+valueStyle.Render(e.Text))
+		lines = append(lines, fit(stamp+"  "+valueStyle.Render(e.Text), m.width))
 	}
 	if len(lines) == 0 {
 		lines = append(lines, subtleStyle.Render("Nothing written down yet."))
@@ -39,7 +39,7 @@ func (m model) viewJournal() string {
 		m.g.Planted, m.g.Matured, m.g.Gathered, m.g.Volunteers, len(m.g.Herbarium), m.g.TasksDone(),
 		m.g.Created.Format("2 Jan 2006")))
 
-	head := titleStyle.Render("✎ journal") + "  " + fit(stats, max(10, m.width-12))
+	head := fit(titleStyle.Render("✎ journal")+"  "+stats, m.width)
 	keys := "↑↓ scroll · esc back · q garden"
 
 	body := strings.Join(lines, "\n")

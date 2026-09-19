@@ -150,9 +150,11 @@ func (p *Plot) Mood() string {
 	}
 }
 
-// Age returns how long the plant has been in the ground.
+// Age returns how long the plant has been in the ground. A bed with no
+// planting date — a save written by hand, or one from before the dates were
+// kept — reads as brand new rather than as several centuries old.
 func (p *Plot) Age(now time.Time) time.Duration {
-	if p.Empty() {
+	if p.Empty() || p.PlantedAt.IsZero() {
 		return 0
 	}
 	return now.Sub(p.PlantedAt)

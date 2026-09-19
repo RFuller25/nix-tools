@@ -59,6 +59,7 @@ type model struct {
 	almanacStage  int
 
 	journalScroll int
+	cardScroll    int // scrolling inside the info card and the help screen
 
 	naming bool
 	input  textinput.Model
@@ -259,7 +260,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.screen == screenHelp {
 			m.screen = screenGarden
 		} else {
-			m.screen = screenHelp
+			m.screen, m.cardScroll = screenHelp, 0
 		}
 		return m, nil
 	case "tab":
@@ -287,7 +288,20 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case screenJournal:
 		return m.handleJournalKey(key)
 	case screenHelp:
-		m.screen = screenGarden
+		switch key {
+		case "up", "k":
+			m.cardScroll = max(0, m.cardScroll-1)
+		case "down", "j":
+			m.cardScroll++
+		case "pgup":
+			m.cardScroll = max(0, m.cardScroll-10)
+		case "pgdown":
+			m.cardScroll += 10
+		case "home", "g":
+			m.cardScroll = 0
+		default:
+			m.screen = screenGarden
+		}
 	}
 	return m, nil
 }
@@ -333,11 +347,11 @@ func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
 			m.screen = screenShop
 			m.refreshShop()
 		} else {
-			m.screen = screenInfo
+			m.screen, m.cardScroll = screenInfo, 0
 		}
 	case "i", " ":
 		if !m.plot().Empty() {
-			m.screen = screenInfo
+			m.screen, m.cardScroll = screenInfo, 0
 		}
 	case "w":
 		if m.g.Water(m.cursor, m.now) {
@@ -554,10 +568,22 @@ func (m model) handleInfoKey(key string) (tea.Model, tea.Cmd) {
 		}
 	case "n", "r":
 		m.startNaming()
-	case "left", "h", "up", "k":
+	case "up", "k":
+		m.cardScroll = max(0, m.cardScroll-1)
+	case "down", "j":
+		m.cardScroll++
+	case "pgup":
+		m.cardScroll = max(0, m.cardScroll-10)
+	case "pgdown":
+		m.cardScroll += 10
+	case "home":
+		m.cardScroll = 0
+	case "left", "h":
 		m.cursor = (m.cursor + len(m.g.Plots) - 1) % len(m.g.Plots)
-	case "right", "l", "down", "j":
+		m.cardScroll = 0
+	case "right", "l":
 		m.cursor = (m.cursor + 1) % len(m.g.Plots)
+		m.cardScroll = 0
 	case "u":
 		if m.g.Uproot(m.cursor, m.now) {
 			m.dirty = true
@@ -613,20 +639,22 @@ func (m model) handleJournalKey(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	var view string
 	switch m.screen {
 	case screenShop:
-		return m.viewShop()
+		view = m.viewShop()
 	case screenInfo:
-		return m.viewInfo()
+		view = m.viewInfo()
 	case screenAlmanac:
-		return m.viewAlmanac()
+		view = m.viewAlmanac()
 	case screenJournal:
-		return m.viewJournal()
+		view = m.viewJournal()
 	case screenHelp:
-		return m.viewHelp()
+		view = m.viewHelp()
 	default:
-		return m.viewGarden()
+		view = m.viewGarden()
 	}
+	return fitScreen(view, m.width, m.height)
 }
 
 func max(a, b int) int {

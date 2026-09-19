@@ -241,10 +241,18 @@ func (m model) viewGarden() string {
 		}, "\n")
 	}
 
+	// On a window too short even for one row of beds, the beds give way
+	// rather than the header and the status line, which are what a gardener
+	// in a small terminal most needs to read.
+	grid := strings.Split(strings.Join(body, "\n"), "\n")
+	if room := m.height - 5; room > 0 && len(grid) > room {
+		grid = grid[:room]
+	}
+
 	return strings.Join([]string{
 		head,
 		m.divider(),
-		strings.Join(body, "\n"),
+		strings.Join(grid, "\n"),
 		m.divider(),
 		m.footer(keys),
 	}, "\n")

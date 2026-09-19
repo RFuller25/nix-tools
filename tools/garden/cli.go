@@ -24,23 +24,36 @@ func renderPostcard(g *Garden, now time.Time, width int) string {
 	if g.Gardener != "" {
 		title = "❀ " + g.Gardener + "'s garden"
 	}
-	head := titleStyle.Render(title) + subtleStyle.Render(fmt.Sprintf("  ·  %s, %s  ·  %s  ·  %s",
-		now.Format("2 January 2006"), ph, season, weather.Name()))
+	head := fit(titleStyle.Render(title)+subtleStyle.Render(fmt.Sprintf("  ·  %s, %s  ·  %s  ·  %s",
+		now.Format("2 January 2006"), ph, season, weather.Name())), width)
+
+	// The garden is five beds across, which wants 79 columns. Asked for
+	// less, the postcard wraps the beds into narrower blocks rather than
+	// cropping the garden.
+	perBlock := (width + cellGap) / (cellWidth + cellGap)
+	if perBlock < 1 {
+		perBlock = 1
+	}
+	if perBlock > plotCols {
+		perBlock = plotCols
+	}
 
 	var rows []string
 	for row := 0; row < g.Rows(); row++ {
-		var cells []string
-		for col := 0; col < plotCols; col++ {
-			idx := row*plotCols + col
-			if idx >= len(g.Plots) {
-				break
+		for start := 0; start < plotCols; start += perBlock {
+			var cells []string
+			for col := start; col < start+perBlock && col < plotCols; col++ {
+				idx := row*plotCols + col
+				if idx >= len(g.Plots) {
+					break
+				}
+				cells = append(cells, m.renderCell(idx))
 			}
-			cells = append(cells, m.renderCell(idx))
+			if len(cells) == 0 {
+				continue
+			}
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, joinWithGap(cells)...))
 		}
-		if len(cells) == 0 {
-			continue
-		}
-		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, joinWithGap(cells)...))
 	}
 
 	growing, flowering := 0, 0
@@ -54,9 +67,9 @@ func renderPostcard(g *Garden, now time.Time, width int) string {
 			flowering++
 		}
 	}
-	foot := subtleStyle.Render(fmt.Sprintf(
+	foot := fit(subtleStyle.Render(fmt.Sprintf(
 		"%d growing  ·  %d in flower  ·  %d species pressed  ·  tending since %s",
-		growing, flowering, len(g.Herbarium), g.Created.Format("2 January 2006")))
+		growing, flowering, len(g.Herbarium), g.Created.Format("2 January 2006"))), width)
 
 	return strings.Join(append([]string{head, ""}, append(rows, "", foot)...), "\n")
 }

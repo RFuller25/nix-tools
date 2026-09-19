@@ -44,6 +44,7 @@ nix run .#garden      # or: go run ./tools/garden
 | `b` | break new ground: one more bed |
 | `d` | dig a pond here, or fill it back in |
 | `m` | calming music on or off |
+| `↑↓` | scroll the info card and the help screen |
 | `?` | help |
 | `q` | quit (the garden saves itself) |
 
@@ -139,6 +140,15 @@ from sweet basil to the sacred lotus, by way of the Venus flytrap and a bonsai
 black pine. Bring one into flower and it is pressed into the herbarium, marked
 with a tick and the date it first flowered.
 
+## Small terminals
+
+Every screen is built to the window it is given. The garden scrolls both ways
+rather than reflowing, so beds keep their neighbours; the info card and the
+help screen scroll with `↑↓`; and the seed shed and almanac drop their side
+card when the window is too narrow to hold one, leaving the list the full
+width. Nothing is ever drawn taller or wider than the terminal, because a view
+that overflows scrolls its own header out of reach.
+
 ## Saved state
 
 `$XDG_DATA_HOME/garden/garden.json`, or `~/.local/share/garden/garden.json`.
@@ -152,6 +162,7 @@ garden --status     # one line for a prompt or a status bar
 garden --version
 ```
 
-`--postcard` draws the beds with no cursor and no chrome; `--width` sets how
-wide. `--status` prints something like
+`--postcard` draws the beds with no cursor and no chrome. The garden is five
+beds across, which wants 79 columns; `--width` narrower than that wraps the
+beds into blocks rather than cropping them. `--status` prints something like
 `❀ 7/15 growing · 3 in flower · 2 thirsty · 21 seeds`.

@@ -9,11 +9,16 @@ import (
 
 func (m model) viewShop() string {
 	season := m.g.Season(m.now)
+
+	// The detail card only appears when there is room for it beside the
+	// list; otherwise the list has the window to itself.
 	listWidth := 34
-	if m.width < 70 {
-		listWidth = max(24, m.width-4)
+	narrow := m.width-listWidth-6 < 30
+	if narrow {
+		listWidth = max(20, m.width-2)
 	}
-	rows := max(3, m.height-8)
+	avail := max(3, m.height-5)
+	rows := avail
 
 	if m.shopCursor < m.shopScroll {
 		m.shopScroll = m.shopCursor
@@ -49,21 +54,34 @@ func (m model) viewShop() string {
 	list := strings.Join(lines, "\n")
 
 	var detail string
-	if len(m.shop) > 0 {
-		detail = m.shopDetail(m.shop[m.shopCursor], listWidth)
-	} else {
+	clipped := false
+	switch {
+	case len(m.shop) == 0:
 		detail = subtleStyle.Render("No seeds match this filter.")
+	case narrow:
+		// Too narrow for the card: a line about the selection instead.
+		sp := m.shop[m.shopCursor]
+		rows--
+		lines = append(lines, "", fit(latinStyle.Render(sp.Latin)+subtleStyle.Render("  "+sp.SeasonNames()), listWidth))
+	default:
+		detail, clipped = m.shopDetail(m.shop[m.shopCursor], listWidth, avail)
 	}
 
 	filter := "whole rack"
 	if m.shopSeason {
 		filter = season.String() + " only"
 	}
-	head := titleStyle.Render("✦ seed shed") + subtleStyle.Render(fmt.Sprintf("  ·  %s  ·  %d seeds in the tin  ·  %d/%d species",
-		filter, m.g.Seeds, m.unlockedCount(), len(AllSpecies())))
+	head := fit(titleStyle.Render("✦ seed shed")+subtleStyle.Render(fmt.Sprintf(
+		"  ·  %s  ·  %d seeds  ·  %d/%d species", filter, m.g.Seeds, m.unlockedCount(), len(AllSpecies()))), m.width)
 
-	body := lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
+	body := list
+	if detail != "" {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
+	}
 	keys := "↑↓ browse · enter sow · t season filter · esc back · q garden"
+	if clipped {
+		keys = "↑↓ browse · enter sow · t season filter · a taller window shows more · esc back"
+	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
 }
 
@@ -77,12 +95,16 @@ func (m model) unlockedCount() int {
 	return n
 }
 
-func (m model) shopDetail(sp *Species, listWidth int) string {
+func (m model) shopDetail(sp *Species, listWidth, avail int) (string, bool) {
 	width := m.width - listWidth - 6
 	if width < 24 {
 		width = 24
 	}
-	art := strings.Join(renderArt(sp, sp.Palette, StageMature, min(width, 24), 6, 0), "\n")
+	artRows := 6
+	if avail < 26 {
+		artRows = 4
+	}
+	art := strings.Join(renderArt(sp, sp.Palette, StageMature, min(width, 24), artRows, 0), "\n")
 
 	rows := []string{
 		titleStyle.Render(sp.Common),
@@ -104,7 +126,10 @@ func (m model) shopDetail(sp *Species, listWidth int) string {
 	if !m.g.Unlocked(sp) {
 		rows = append(rows, "", warnStyle.Render(fmt.Sprintf("Unlocks after %d plants reach maturity (you have %d).", sp.Unlock, m.g.Matured)))
 	}
-	return cardBorder.Width(width).Render(strings.Join(rows, "\n"))
+
+	lines := strings.Split(strings.Join(rows, "\n"), "\n")
+	visible, _, below := window(lines, 0, max(1, avail-2)) // less the card's border
+	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), below
 }
 
 func field(label, value string, width int) string {

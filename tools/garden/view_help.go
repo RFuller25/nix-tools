@@ -54,6 +54,9 @@ func (m model) viewHelp() string {
 		lines = append(lines, "")
 	}
 	lines = append(lines, subtleStyle.Render("saved to "+m.path))
-	lines = append(lines, helpStyle.Render("any key returns to the garden"))
-	return strings.Join(lines, "\n")
+
+	// Help is long; on a short terminal it scrolls instead of running off it.
+	visible, above, below := window(lines, m.cardScroll, max(2, m.height-1))
+	keys := scrollHint(above, below, "any other key returns to the garden")
+	return strings.Join(append(visible, helpStyle.Render(keys)), "\n")
 }

@@ -9,10 +9,13 @@ import (
 
 func (m model) viewAlmanac() string {
 	listWidth := 30
-	if m.width < 66 {
-		listWidth = max(20, m.width-4)
+	narrow := m.width-listWidth-6 < 30
+	if narrow {
+		listWidth = max(20, m.width-2)
 	}
-	rows := max(3, m.height-8)
+	// Everything between the header and the footer.
+	avail := max(3, m.height-5)
+	rows := avail
 
 	if m.almanacCursor < m.almanacScroll {
 		m.almanacScroll = m.almanacCursor
@@ -46,31 +49,51 @@ func (m model) viewAlmanac() string {
 	}
 
 	detail := ""
-	if len(m.almanac) > 0 {
-		detail = m.almanacDetail(m.almanac[m.almanacCursor], listWidth)
+	clipped := false
+	if len(m.almanac) > 0 && !narrow {
+		detail, clipped = m.almanacDetail(m.almanac[m.almanacCursor], listWidth, avail)
+	} else if len(m.almanac) > 0 {
+		sp := m.almanac[m.almanacCursor]
+		lines = append(lines, "", fit(latinStyle.Render(sp.Latin), listWidth))
 	}
 
-	head := titleStyle.Render("❦ almanac") + subtleStyle.Render(fmt.Sprintf(
-		"  ·  %d species  ·  %d unlocked  ·  ", len(AllSpecies()), m.unlockedCount())) +
-		okStyle.Render(fmt.Sprintf("%d pressed", len(m.g.Herbarium)))
-	body := lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(lines, "\n"), "  ", detail)
+	head := fit(titleStyle.Render("❦ almanac")+subtleStyle.Render(fmt.Sprintf(
+		"  ·  %d species  ·  %d unlocked  ·  ", len(AllSpecies()), m.unlockedCount()))+
+		okStyle.Render(fmt.Sprintf("%d pressed", len(m.g.Herbarium))), m.width)
+	body := strings.Join(lines, "\n")
+	if detail != "" {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, body, "  ", detail)
+	}
 	keys := "↑↓ species · ←→ life stage · space cycle stages · ✓ grown here · esc back"
+	if clipped {
+		keys = "↑↓ species · ←→ life stage · a taller window shows more · esc back"
+	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
 }
 
 // almanacDetail shows every drawn stage of a species side by side, with the
-// selected stage highlighted, above its botany.
-func (m model) almanacDetail(sp *Species, listWidth int) string {
+// selected stage highlighted, above its botany. On a short terminal the
+// drawings shrink first, so the botany — which is the point of an almanac —
+// stays on screen. It reports whether anything had to be left off.
+func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 	width := m.width - listWidth - 6
 	if width < 30 {
 		width = 30
+	}
+
+	artRows := 6
+	switch {
+	case avail < 22:
+		artRows = 3
+	case avail < 30:
+		artRows = 4
 	}
 
 	stageW := 11
 	fit := max(1, (width-2)/(stageW+1))
 	var frames []string
 	for i := 0; i < StageCount && i < fit; i++ {
-		art := renderArt(sp, sp.Palette, i, stageW, 6, 0)
+		art := renderArt(sp, sp.Palette, i, stageW, artRows, 0)
 		label := stageNames[i]
 		style := subtleStyle
 		if i == m.almanacStage {
@@ -112,7 +135,10 @@ func (m model) almanacDetail(sp *Species, listWidth int) string {
 	if !m.g.Unlocked(sp) {
 		rows = append(rows, warnStyle.Render(fmt.Sprintf("Unlocks at %d matured plants.", sp.Unlock)))
 	}
-	return cardBorder.Width(width).Render(strings.Join(rows, "\n"))
+
+	lines := strings.Split(strings.Join(rows, "\n"), "\n")
+	visible, _, below := window(lines, 0, max(1, avail-2)) // less the card's border
+	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), below
 }
 
 func center(s string, width int) string {
