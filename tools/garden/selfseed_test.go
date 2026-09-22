@@ -22,7 +22,7 @@ func TestSelfSeedersFillTheGapsBesideThem(t *testing.T) {
 	sp := SpeciesByID("poppy")
 	now := inSeason(sp)
 	g := newTestGarden(now)
-	if err := g.Plant(6, sp, now); err != nil { // a bed with neighbours all round
+	if err := g.Plant(6, sp, 0, now); err != nil { // a bed with neighbours all round
 		t.Fatal(err)
 	}
 
@@ -59,7 +59,7 @@ func TestPlantsThatDoNotSelfSeedStayPut(t *testing.T) {
 	sp := SpeciesByID("tulip") // a bulb; it spreads by division, not by seeding about
 	now := inSeason(sp)
 	g := newTestGarden(now)
-	if err := g.Plant(6, sp, now); err != nil {
+	if err := g.Plant(6, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -82,7 +82,7 @@ func TestVolunteersNeverLandInAPond(t *testing.T) {
 	for _, n := range []int{5, 7, 1, 11} { // everything around bed 7
 		g.Plots[n].Pond = true
 	}
-	if err := g.Plant(6, sp, now); err != nil {
+	if err := g.Plant(6, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -99,7 +99,7 @@ func TestSeedingCostsTheParentAPod(t *testing.T) {
 	sp := SpeciesByID("chamomile")
 	now := inSeason(sp)
 	g := newTestGarden(now)
-	if err := g.Plant(6, sp, now); err != nil {
+	if err := g.Plant(6, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -122,10 +122,10 @@ func TestSelfSeedingIsTheSameOnlineAndOff(t *testing.T) {
 
 	live := newTestGarden(now)
 	offline := newTestGarden(now)
-	if err := live.Plant(6, sp, now); err != nil {
+	if err := live.Plant(6, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := offline.Plant(6, sp, now); err != nil {
+	if err := offline.Plant(6, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -160,7 +160,7 @@ func TestVolunteersCostNoSeeds(t *testing.T) {
 	sp := SpeciesByID("nasturtium")
 	now := inSeason(sp)
 	g := newTestGarden(now)
-	if err := g.Plant(6, sp, now); err != nil {
+	if err := g.Plant(6, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 	seeds := g.Seeds

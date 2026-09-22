@@ -44,6 +44,7 @@ func (r almanacRow) title() string {
 }
 
 func (m model) viewAlmanac() string {
+	formsGrown, formsTotal := m.g.FormsGrown()
 	listWidth := 30
 	narrow := m.width-listWidth-6 < 30
 	if narrow {
@@ -112,13 +113,14 @@ func (m model) viewAlmanac() string {
 	head := fit(titleStyle.Render("❦ almanac")+subtleStyle.Render(fmt.Sprintf(
 		"  ·  %d species  ·  ", len(AllSpecies())))+
 		okStyle.Render(fmt.Sprintf("%d pressed", len(m.g.Herbarium)))+
+		subtleStyle.Render(fmt.Sprintf(" (%d of %d forms)", formsGrown, formsTotal))+
 		subtleStyle.Render("  ·  ")+
 		okStyle.Render(fmt.Sprintf("%d of %d visitors seen", len(m.g.Sightings), len(creatureOrder))), m.width)
 	body := strings.Join(lines, "\n")
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, "  ", detail)
 	}
-	keys := "↑↓ species · ←→ stage · space cycle · ✓ grown here · esc back"
+	keys := "↑↓ species · ←→ stage · v variety · ✓ grown here · esc back"
 	if len(m.almanac) > 0 && !m.almanac[m.almanacCursor].IsPlant {
 		keys = "↑↓ browse · ✓ seen in this garden · esc back"
 	}
@@ -150,7 +152,7 @@ func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 	fit := max(1, (width-2)/(stageW+1))
 	var frames []string
 	for i := 0; i < StageCount && i < fit; i++ {
-		art := renderArt(sp, sp.Palette, i, stageW, artRows, 0)
+		art := renderVariety(sp, m.almanacVariety, i, sp.PaletteFor(m.almanacVariety, nil), stageW, artRows, 0, nil)
 		label := stageNames[i]
 		style := subtleStyle
 		if i == m.almanacStage {
@@ -183,6 +185,23 @@ func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 		field("height", sp.Height, width),
 		"",
 	}
+	// The forms this species comes in, ticked once grown.
+	rows = append(rows, labelStyle.Render("VARIETIES")+subtleStyle.Render("  v to flick through"))
+	for i, v := range sp.Varieties() {
+		mark := subtleStyle.Render("· ")
+		if m.g.GrownForm(sp, i) {
+			mark = okStyle.Render("✓ ")
+		}
+		name := valueStyle.Render("‘" + v.Name + "’")
+		if i == m.almanacVariety {
+			name = titleStyle.Render("‘" + v.Name + "’")
+		}
+		rows = append(rows, mark+name)
+		for _, line := range wrapText(v.Note, max(16, width-4)) {
+			rows = append(rows, subtleStyle.Render("  "+line))
+		}
+	}
+	rows = append(rows, "")
 	rows = append(rows, effectLines(sp, width)...)
 	rows = append(rows, "",
 		lipgloss.NewStyle().Width(max(20, width-2)).Render(subtleStyle.Render("✎ "+sp.Note)),

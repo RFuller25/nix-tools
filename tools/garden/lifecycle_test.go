@@ -33,7 +33,7 @@ func TestAnnualsGoToSeedAndPerennialsDoNot(t *testing.T) {
 	for _, c := range cases {
 		now := inSeason(SpeciesByID(c.id))
 		g := newTestGarden(now)
-		if err := g.Plant(0, SpeciesByID(c.id), now); err != nil {
+		if err := g.Plant(0, SpeciesByID(c.id), 0, now); err != nil {
 			t.Fatalf("planting %s: %v", c.id, err)
 		}
 
@@ -62,7 +62,7 @@ func TestAnnualsGoToSeedAndPerennialsDoNot(t *testing.T) {
 func TestSpentPlantsStandStillAndStopRipening(t *testing.T) {
 	now := inSeason(SpeciesByID("radish"))
 	g := newTestGarden(now)
-	if err := g.Plant(0, SpeciesByID("radish"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("radish"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -160,7 +160,7 @@ func TestHerbariumRecordsFirstFlowering(t *testing.T) {
 		t.Fatal("a new garden already has a herbarium entry")
 	}
 
-	if err := g.Plant(0, SpeciesByID("radish"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("radish"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	at := now
@@ -183,7 +183,7 @@ func TestHerbariumRecordsFirstFlowering(t *testing.T) {
 
 	// Growing a second one does not file it twice.
 	g.Uproot(0, at) //nolint:errcheck // the yield is tested elsewhere
-	if err := g.Plant(0, SpeciesByID("radish"), at); err != nil {
+	if err := g.Plant(0, SpeciesByID("radish"), 0, at); err != nil {
 		t.Fatal(err)
 	}
 	g.Plots[0].Growth = 0.99
@@ -200,7 +200,7 @@ func TestHerbariumSurvivesASave(t *testing.T) {
 	now := testStart()
 	path := t.TempDir() + "/garden.json"
 	g := newTestGarden(now)
-	g.collect(SpeciesByID("peony"), now)
+	g.collect(SpeciesByID("peony"), 0, now)
 
 	if err := Save(path, g); err != nil {
 		t.Fatal(err)

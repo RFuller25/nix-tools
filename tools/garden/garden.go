@@ -36,6 +36,7 @@ const (
 // Plot is one bed in the garden: empty, or holding a single plant.
 type Plot struct {
 	SpeciesID string    `json:"species_id,omitempty"`
+	Variety   int       `json:"variety,omitempty"`
 	Name      string    `json:"name,omitempty"`
 	PlantedAt time.Time `json:"planted_at,omitempty"`
 	Growth    float64   `json:"growth"`   // 0..1 toward mature
@@ -114,6 +115,24 @@ func (p *Plot) DisplayName() string {
 	return "empty bed"
 }
 
+// FullName includes the variety: Sunflower ‘Velvet Queen’.
+func (p *Plot) FullName() string {
+	sp := p.Species()
+	if sp == nil {
+		return "empty bed"
+	}
+	return sp.VarietyName(p.Variety)
+}
+
+// VarietyName is just the form's name.
+func (p *Plot) VarietyName() string {
+	sp := p.Species()
+	if sp == nil {
+		return ""
+	}
+	return sp.Variety(p.Variety).Name
+}
+
 // Thirsty reports whether the plant would appreciate the watering can.
 func (p *Plot) Thirsty() bool { return !p.Empty() && p.Moisture < 0.35 }
 
@@ -183,6 +202,8 @@ type Garden struct {
 	// and Sightings the first time each creature came to visit.
 	Herbarium map[string]time.Time `json:"herbarium,omitempty"`
 	Sightings map[string]time.Time `json:"sightings,omitempty"`
+	// Forms records which varieties have been grown, keyed species#variety.
+	Forms map[string]bool `json:"forms,omitempty"`
 	// Tasks are the gentle suggestions the journal keeps.
 	Tasks     []TaskState    `json:"tasks,omitempty"`
 	Journal   []JournalEntry `json:"journal"`
@@ -294,7 +315,12 @@ func (g *Garden) DigPond(idx int, now time.Time) error {
 }
 
 // collect files a species in the herbarium the first time it flowers.
-func (g *Garden) collect(sp *Species, at time.Time) {
+func (g *Garden) collect(sp *Species, variety int, at time.Time) {
+	if g.Forms == nil {
+		g.Forms = map[string]bool{}
+	}
+	g.Forms[varietyKey(sp.ID, variety)] = true
+
 	if g.Herbarium == nil {
 		g.Herbarium = map[string]time.Time{}
 	}
@@ -323,6 +349,19 @@ func (g *Garden) sight(name, note string, at time.Time) bool {
 func (g *Garden) Collected(sp *Species) (time.Time, bool) {
 	at, ok := g.Herbarium[sp.ID]
 	return at, ok
+}
+
+// GrownForm reports whether one particular variety has been grown.
+func (g *Garden) GrownForm(sp *Species, variety int) bool {
+	return g.Forms[varietyKey(sp.ID, variety)]
+}
+
+// FormsGrown counts the varieties brought into flower, of all there are.
+func (g *Garden) FormsGrown() (grown, total int) {
+	for _, sp := range AllSpecies() {
+		total += len(sp.Varieties())
+	}
+	return len(g.Forms), total
 }
 
 // Log appends a journal entry, keeping the log to a sane length.
@@ -430,7 +469,7 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 		p.Matured = true
 		p.MaturedAt = at
 		g.Matured++
-		g.collect(sp, at)
+		g.collect(sp, p.Variety, at)
 		// Journal the moment, dated when it actually happened.
 		when := at
 		if when.After(now) {
@@ -459,8 +498,8 @@ func growthFactor(p *Plot, sp *Species, w Weather, season Season) float64 {
 	return moisture * weeds * seasonal * w.Growth * soilFactor(sp, p)
 }
 
-// Plant sows a species into a bed, charging its seed cost.
-func (g *Garden) Plant(idx int, sp *Species, now time.Time) error {
+// Plant sows one variety of a species into a bed, charging its seed cost.
+func (g *Garden) Plant(idx int, sp *Species, variety int, now time.Time) error {
 	if idx < 0 || idx >= len(g.Plots) {
 		return fmt.Errorf("no such bed")
 	}
@@ -482,8 +521,12 @@ func (g *Garden) Plant(idx int, sp *Species, now time.Time) error {
 	}
 	g.Seeds -= sp.SeedCost
 	g.Planted++
+	if variety < 0 || variety >= len(sp.Varieties()) {
+		variety = 0
+	}
 	*p = Plot{
 		SpeciesID: sp.ID,
+		Variety:   variety,
 		PlantedAt: now,
 		Moisture:  0.65, // a watering-in, as any gardener would
 		Weeds:     0,
@@ -491,7 +534,7 @@ func (g *Garden) Plant(idx int, sp *Species, now time.Time) error {
 		PH:        p.PH,
 		Richness:  p.Richness,
 	}
-	g.Log(now, "Sowed %s (%s) in bed %d.", sp.Common, sp.Latin, idx+1)
+	g.Log(now, "Sowed %s (%s) in bed %d.", sp.VarietyName(variety), sp.Latin, idx+1)
 	return nil
 }
 
@@ -696,6 +739,7 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 		bed := &g.Plots[target]
 		*bed = Plot{
 			SpeciesID: sp.ID,
+			Variety:   p.Variety, // open-pollinated, and it comes true enough
 			PlantedAt: when,
 			Moisture:  bed.Moisture,
 			PH:        bed.PH,
@@ -704,7 +748,7 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 		p.Pods--
 		g.Planted++
 		g.Volunteers++
-		g.Log(when, "A %s has sown itself into bed %d.", sp.Common, target+1)
+		g.Log(when, "A %s has sown itself into bed %d.", sp.VarietyName(p.Variety), target+1)
 		return
 	}
 }

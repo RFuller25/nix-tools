@@ -119,14 +119,20 @@ func colorizeLine(sp *Species, pal Palette, line string) string {
 // top and nothing at all at the base, so the plant bends rather than slides,
 // and it is clamped to the space left inside the bed so nothing is clipped.
 func renderArt(sp *Species, pal Palette, stage, width, height int, sway float64) []string {
-	return renderArtWith(sp, pal, stage, width, height, sway, nil)
+	return renderFrame(sp, pal, sp.Stage(stage), width, height, sway, nil)
+}
+
+// renderVariety draws one form of a species, which may have drawings of its
+// own where it genuinely grows to another shape.
+func renderVariety(sp *Species, variety, stage int, pal Palette, width, height int, sway float64, overlay map[[2]int]string) []string {
+	return renderFrame(sp, pal, sp.StageFor(variety, stage), width, height, sway, overlay)
 }
 
 // renderArtWith is renderArt with things drawn over the top of the plant: a
 // bee working the flowers, a bird on the seed heads. The overlay is keyed by
 // row and column within the box, and each entry is already styled.
-func renderArtWith(sp *Species, pal Palette, stage, width, height int, sway float64, overlay map[[2]int]string) []string {
-	grid := artGrid(sp, stage, width, height, sway)
+func renderFrame(sp *Species, pal Palette, frame []string, width, height int, sway float64, overlay map[[2]int]string) []string {
+	grid := artGrid(frame, width, height, sway)
 
 	out := make([]string, 0, height)
 	for row, runes := range grid {
@@ -136,7 +142,7 @@ func renderArtWith(sp *Species, pal Palette, stage, width, height int, sway floa
 }
 
 // artGrid lays the frame out as plain runes, one row per line of the box.
-func artGrid(sp *Species, stage, width, height int, sway float64) [][]rune {
+func artGrid(frame []string, width, height int, sway float64) [][]rune {
 	blank := func() []rune {
 		row := make([]rune, width)
 		for i := range row {
@@ -145,7 +151,6 @@ func artGrid(sp *Species, stage, width, height int, sway float64) [][]rune {
 		return row
 	}
 
-	frame := sp.Stage(stage)
 	if len(frame) > height {
 		frame = frame[len(frame)-height:] // keep the base of an over-tall frame
 	}

@@ -11,12 +11,12 @@ func TestPostcardShowsTheWholeGarden(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
 	g.Gardener = "Rhys"
-	if err := g.Plant(0, SpeciesByID("sunflower"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("sunflower"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	g.Plots[0].Growth = 1
 	g.Plots[0].Matured = true
-	g.collect(SpeciesByID("sunflower"), now)
+	g.collect(SpeciesByID("sunflower"), 0, now)
 
 	card := renderPostcard(g, now, 90)
 
@@ -60,12 +60,12 @@ func TestStatusLineSaysWhatNeedsDoing(t *testing.T) {
 		t.Errorf("an empty garden reports %q", got)
 	}
 
-	if err := g.Plant(0, SpeciesByID("basil"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("basil"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	g.Plots[0].Moisture = 0.1
 	g.Plots[0].Weeds = 0.9
-	if err := g.Plant(1, SpeciesByID("cosmos"), now); err != nil {
+	if err := g.Plant(1, SpeciesByID("cosmos"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	g.Plots[1].Growth = 1

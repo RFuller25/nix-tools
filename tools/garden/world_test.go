@@ -111,15 +111,15 @@ func TestPondsHoldWaterAndTakeOnlyWaterPlants(t *testing.T) {
 		t.Error("a freshly dug pond is not full of water")
 	}
 
-	if err := g.Plant(0, SpeciesByID("sunflower"), now); err == nil {
+	if err := g.Plant(0, SpeciesByID("sunflower"), 0, now); err == nil {
 		t.Error("a sunflower was planted in a pond")
 	}
-	if err := g.Plant(0, SpeciesByID("waterlily"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("waterlily"), 0, now); err != nil {
 		t.Errorf("planting a water lily in a pond: %v", err)
 	}
 
 	// A dry bed is no place for a water lily.
-	if err := g.Plant(1, SpeciesByID("waterlily"), now); err == nil {
+	if err := g.Plant(1, SpeciesByID("waterlily"), 0, now); err == nil {
 		t.Error("a water lily was planted on dry land")
 	}
 
@@ -151,7 +151,7 @@ func TestPondCanBeFilledInAgain(t *testing.T) {
 	}
 
 	// A planted bed has to be cleared first.
-	if err := g.Plant(3, SpeciesByID("basil"), now); err != nil {
+	if err := g.Plant(3, SpeciesByID("basil"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	if err := g.DigPond(3, now); err == nil {
@@ -214,7 +214,7 @@ func TestCompostingEnrichesTheBed(t *testing.T) {
 	g := newTestGarden(now)
 	g.Plots[0].PH = 8
 	g.Plots[0].Richness = 0.1
-	if err := g.Plant(0, SpeciesByID("basil"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("basil"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -234,7 +234,7 @@ func TestGrowingPlantsDrawOnTheSoil(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
 	g.Plots[0].Richness = 1
-	if err := g.Plant(0, SpeciesByID("pumpkin"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("pumpkin"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 

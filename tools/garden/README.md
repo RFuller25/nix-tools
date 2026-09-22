@@ -18,6 +18,10 @@ nix run .#garden      # or: go run ./tools/garden
 * **Nothing dies.** Dry soil and weeds slow a plant down and make it sulk; they
   never kill it. Come back after a fortnight and your garden is overgrown, not
   gone.
+* **Composting.** Lifting a plant with `u` collapses it into the soil over a
+  second or so, and the bed says what it gained. A tree returns twice what a
+  seedling does and a plant gone to seed most of all; beds wear their richness
+  in the soil line, from thin and dotted to dark and solid.
 * **Weather and seasons** are derived from the calendar and your garden's seed,
   so they are the same every time the missing hours are replayed. Rain waters
   the beds for you; a plant out of season takes its time.
@@ -45,6 +49,9 @@ nix run .#garden      # or: go run ./tools/garden
 | `d` | dig a pond here, or fill it back in |
 | `m` | calming music on or off |
 | `↑↓` | scroll the info card and the help screen |
+| `←→` | choose a variety in the seed shed |
+| `v` | flick through the varieties in the almanac |
+| `PgUp`/`PgDn` | read a long card in the shed or almanac |
 | `?` | help |
 | `q` | quit (the garden saves itself) |
 
@@ -99,7 +106,9 @@ catching up on a fortnight it spent closed grow exactly the same plants.
 Bees work the flowers on a dry day, butterflies follow the nectar, finches drop
 in on seed heads, dragonflies patrol a pond, and after dark moths come to the
 night-scented flowers while a fox or a hedgehog crosses the beds. Nothing
-visits a garden with nothing in it. The journal notes each one's first visit.
+visits a garden with nothing in it. The journal notes each one's first visit,
+and the almanac gives all seven a page of their own — what brings them, when
+they come, how long they stay, and a tick with the date once you have seen one.
 
 ## Wind
 
@@ -132,9 +141,32 @@ The journal keeps three gentle suggestions — grow three things that flower in
 autumn, put a marigold beside a tomato, wait for a moth — each worth a few
 seeds. Never a timer, never a failure; finish one and another appears.
 
+## Varieties
+
+No species is one plant. Each comes in two to five real forms — cultivars
+where the plant has famous ones, honest colour forms where it does not — and
+they differ in flower colour, foliage, or, where the plant really does grow
+to another shape, in their drawings. A sunflower can be a four-metre Russian
+Giant, a mahogany Velvet Queen or a knee-high shaggy Teddy Bear; hydrangea
+varieties differ by the shape of the head rather than its colour, because a
+hydrangea takes its colour from the soil.
+
+Pick one with `←→` in the seed shed before sowing. Self-sown volunteers come
+true to their parent. The almanac lists every form with a tick against the
+ones you have grown, and `v` flicks the drawings through them.
+
+## What a plant does
+
+Both the almanac page and the info card carry an **in the garden** block: what
+the plant needs, how its year goes, whether it sows itself about, what it gives
+to and takes from its neighbours with the actual percentages, whether it keeps
+night hours, which creatures it draws, and what it costs and unlocks. The
+companion lines are generated from the rules the simulation runs on, so the
+text cannot drift away from the behaviour.
+
 ## The almanac
 
-88 real species, each with its Latin binomial, family, origin, flowering time,
+88 real species in 264 varieties, each species with its Latin binomial, family, origin, flowering time,
 sun and water needs, eventual height, a gardener's note and a description —
 from sweet basil to the sacred lotus, by way of the Venus flytrap and a bonsai
 black pine. Bring one into flower and it is pressed into the herbarium, marked

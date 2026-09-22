@@ -20,7 +20,7 @@ func demoModel(t *testing.T, w, h int) model {
 		"aloe", "crocus", "venusflytrap", "strawberry", "bamboo"}
 	for i, id := range ids {
 		sp := SpeciesByID(id)
-		if err := g.Plant(i, sp, now.Add(-time.Duration(i)*time.Hour)); err != nil {
+		if err := g.Plant(i, sp, i%len(sp.Varieties()), now.Add(-time.Duration(i)*time.Hour)); err != nil {
 			t.Fatalf("planting %s: %v", id, err)
 		}
 		g.Plots[i].Growth = float64(i%5) * 0.25

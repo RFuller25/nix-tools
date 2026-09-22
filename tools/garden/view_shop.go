@@ -78,9 +78,9 @@ func (m model) viewShop() string {
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
 	}
-	keys := "↑↓ browse · enter sow · t season · esc back · q garden"
+	keys := "↑↓ browse · ←→ variety · enter sow · t season · esc back"
 	if clipped {
-		keys = "↑↓ browse · enter sow · pgup/pgdn read the card · t season · esc back"
+		keys = "↑↓ browse · ←→ variety · enter sow · pgup/pgdn read the card · esc"
 	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
 }
@@ -104,13 +104,29 @@ func (m model) shopDetail(sp *Species, listWidth, avail int) (string, bool) {
 	if avail < 26 {
 		artRows = 4
 	}
-	art := strings.Join(renderArt(sp, sp.Palette, StageMature, min(width, 24), artRows, 0), "\n")
+	art := strings.Join(renderVariety(sp, m.shopVariety, StageMature, sp.PaletteFor(m.shopVariety, nil),
+		min(width, 24), artRows, 0, nil), "\n")
+
+	forms := sp.Varieties()
+	v := sp.Variety(m.shopVariety)
+	grown := "  "
+	if m.g.GrownForm(sp, m.shopVariety) {
+		grown = okStyle.Render("✓ ")
+	}
 
 	rows := []string{
 		titleStyle.Render(sp.Common),
 		latinStyle.Render(sp.Latin),
 		"",
 		art,
+		"",
+		grown + valueStyle.Render("‘"+v.Name+"’") +
+			subtleStyle.Render(fmt.Sprintf("  %d of %d  ←→", m.shopVariety+1, len(forms))),
+	}
+	for _, line := range wrapText(v.Note, max(16, width-2)) {
+		rows = append(rows, subtleStyle.Render(line))
+	}
+	rows = append(rows, []string{
 		"",
 		field("family", sp.Family, width),
 		field("blooms", sp.Bloom, width),
@@ -119,7 +135,7 @@ func (m model) shopDetail(sp *Species, listWidth, avail int) (string, bool) {
 		field("height", sp.Height, width),
 		field("rarity", rarityStyle(sp.Rarity).Render(sp.Rarity.String()), width),
 		"",
-	}
+	}...)
 	rows = append(rows, effectLines(sp, width)...)
 	if !m.g.Unlocked(sp) {
 		rows = append(rows, "", warnStyle.Render(fmt.Sprintf("Unlocks after %d plants reach maturity (you have %d).", sp.Unlock, m.g.Matured)))

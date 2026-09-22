@@ -296,7 +296,7 @@ func (m model) renderCell(idx int) string {
 		sway := m.wind.swayAt(idx%plotCols) * (0.45 + 0.55*p.Growth)
 		stage, pal := appearance(sp, p, m.g.Season(m.now), m.phase())
 		visitors := m.life.overlayFor(idx, cellInner, artHeight)
-		lines = append(lines, renderArtWith(sp, pal, stage, cellInner, artHeight, sway, visitors)...)
+		lines = append(lines, renderVariety(sp, p.Variety, stage, pal, cellInner, artHeight, sway, visitors)...)
 	} else {
 		// Bare ground still gets visitors passing over it.
 		visitors := m.life.overlayFor(idx, cellInner, artHeight)

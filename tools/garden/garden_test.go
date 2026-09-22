@@ -34,7 +34,7 @@ func TestWellTendedMaturesOnSchedule(t *testing.T) {
 		if sp.Kind == KindAquatic {
 			g.Plots[0].Pond = true // water plants need water
 		}
-		if err := g.Plant(0, sp, now); err != nil {
+		if err := g.Plant(0, sp, 0, now); err != nil {
 			t.Fatalf("planting %s: %v", sp.ID, err)
 		}
 
@@ -78,7 +78,7 @@ func TestNeglectNeverKills(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
 	sp := SpeciesByID("basil")
-	if err := g.Plant(0, sp, now); err != nil {
+	if err := g.Plant(0, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -107,10 +107,10 @@ func TestThirstSlowsGrowth(t *testing.T) {
 
 	wet := newTestGarden(now)
 	dry := newTestGarden(now)
-	if err := wet.Plant(0, sp, now); err != nil {
+	if err := wet.Plant(0, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := dry.Plant(0, sp, now); err != nil {
+	if err := dry.Plant(0, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,7 +137,7 @@ func TestThirstSlowsGrowth(t *testing.T) {
 func TestRainWatersTheGarden(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(0, SpeciesByID("mint"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("mint"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	g.Plots[0].Moisture = 0.1
@@ -170,10 +170,10 @@ func TestOfflineCatchUpMatchesLiveGrowth(t *testing.T) {
 
 	live := newTestGarden(now)
 	offline := newTestGarden(now)
-	if err := live.Plant(0, sp, now); err != nil {
+	if err := live.Plant(0, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := offline.Plant(0, sp, now); err != nil {
+	if err := offline.Plant(0, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -195,7 +195,7 @@ func TestOfflineCatchUpMatchesLiveGrowth(t *testing.T) {
 func TestCatchUpIsCapped(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(0, SpeciesByID("thyme"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("thyme"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -221,7 +221,7 @@ func TestPlantingCostsAndLocks(t *testing.T) {
 	g.Matured = 0
 
 	cheap := SpeciesByID("basil") // cost 2, unlock 0
-	if err := g.Plant(0, cheap, now); err != nil {
+	if err := g.Plant(0, cheap, 0, now); err != nil {
 		t.Fatalf("planting basil: %v", err)
 	}
 	if g.Seeds != 3 {
@@ -231,17 +231,17 @@ func TestPlantingCostsAndLocks(t *testing.T) {
 		t.Errorf("lifetime planted = %d, want 1", g.Planted)
 	}
 
-	if err := g.Plant(0, cheap, now); err == nil {
+	if err := g.Plant(0, cheap, 0, now); err == nil {
 		t.Error("planting into an occupied bed should fail")
 	}
 
 	locked := SpeciesByID("lotus")
 	g.Plots[1].Pond = true
-	if err := g.Plant(1, locked, now); err == nil {
+	if err := g.Plant(1, locked, 0, now); err == nil {
 		t.Error("planting a locked species should fail")
 	}
 	g.Matured = locked.Unlock
-	if err := g.Plant(1, locked, now); err == nil {
+	if err := g.Plant(1, locked, 0, now); err == nil {
 		t.Error("planting without enough seeds should fail")
 	}
 }
@@ -249,7 +249,7 @@ func TestPlantingCostsAndLocks(t *testing.T) {
 func TestTendingRewards(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(0, SpeciesByID("sunflower"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("sunflower"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -291,7 +291,7 @@ func TestTendingRewards(t *testing.T) {
 func TestUprootAndRename(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(0, SpeciesByID("tulip"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("tulip"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -366,7 +366,7 @@ func TestStageThresholds(t *testing.T) {
 func TestPodsAccumulateAndCap(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(0, SpeciesByID("cosmos"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("cosmos"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	g.Plots[0].Growth = 1

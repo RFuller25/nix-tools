@@ -29,12 +29,13 @@ func (m model) viewInfo() string {
 
 	season := m.g.Season(m.now)
 	stage, pal := appearance(sp, p, season, m.phase())
-	art := renderArt(sp, pal, stage, 24, 7, m.wind.swayAt(m.cursor%plotCols))
+	art := renderVariety(sp, p.Variety, stage, pal, 24, 7, m.wind.swayAt(m.cursor%plotCols), nil)
 	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true, m.phase(), p.Richness)
 
 	headline := []string{
 		titleStyle.Render(p.DisplayName()),
 		latinStyle.Render(sp.Latin),
+		subtleStyle.Render("‘" + p.VarietyName() + "’ — " + sp.Variety(p.Variety).Note),
 		subtleStyle.Render(sp.Family + " · " + sp.Kind.String() + " · " + rarityStyle(sp.Rarity).Render(sp.Rarity.String())),
 		"",
 		field("stage", fmt.Sprintf("%s (%d of %d)", p.StageName(), p.Stage()+1, StageCount), width-28),

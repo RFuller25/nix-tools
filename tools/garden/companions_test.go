@@ -36,7 +36,7 @@ func TestCompanionRulesMatchRealPlants(t *testing.T) {
 func TestMarigoldsLookAfterTomatoes(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(6, SpeciesByID("tomato"), now); err != nil {
+	if err := g.Plant(6, SpeciesByID("tomato"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -45,7 +45,7 @@ func TestMarigoldsLookAfterTomatoes(t *testing.T) {
 		t.Errorf("a tomato with nothing beside it has factor %.3f, want 1", plain)
 	}
 
-	if err := g.Plant(5, SpeciesByID("marigold"), now); err != nil {
+	if err := g.Plant(5, SpeciesByID("marigold"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	helped := g.companionFactor(6, SpeciesByID("tomato"))
@@ -65,10 +65,10 @@ func TestMarigoldsLookAfterTomatoes(t *testing.T) {
 func TestMintCrowdsItsNeighbours(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(6, SpeciesByID("basil"), now); err != nil {
+	if err := g.Plant(6, SpeciesByID("basil"), 0, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := g.Plant(7, SpeciesByID("mint"), now); err != nil {
+	if err := g.Plant(7, SpeciesByID("mint"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,10 +84,10 @@ func TestMintCrowdsItsNeighbours(t *testing.T) {
 func TestLegumesFeedWhateverIsBesideThem(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(6, SpeciesByID("sweetcorn"), now); err != nil {
+	if err := g.Plant(6, SpeciesByID("sweetcorn"), 0, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := g.Plant(1, SpeciesByID("broadbean"), now); err != nil {
+	if err := g.Plant(1, SpeciesByID("broadbean"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -104,13 +104,13 @@ func TestCompanionEffectsAreCapped(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
 	sp := SpeciesByID("tomato")
-	if err := g.Plant(6, sp, now); err != nil {
+	if err := g.Plant(6, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
 	// Surround it with every good neighbour going.
 	for i, id := range []string{"marigold", "basil", "pea", "nasturtium"} {
 		bed := g.Neighbours(6)[i]
-		if err := g.Plant(bed, SpeciesByID(id), now); err != nil {
+		if err := g.Plant(bed, SpeciesByID(id), 0, now); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -120,7 +120,7 @@ func TestCompanionEffectsAreCapped(t *testing.T) {
 
 	// And the other way: nothing should ever stall a plant completely.
 	g2 := newTestGarden(now)
-	if err := g2.Plant(6, SpeciesByID("basil"), now); err != nil {
+	if err := g2.Plant(6, SpeciesByID("basil"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	for _, bed := range g2.Neighbours(6) {
@@ -134,11 +134,11 @@ func TestCompanionEffectsAreCapped(t *testing.T) {
 func TestCompanionsOnlyCountNeighbours(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	if err := g.Plant(0, SpeciesByID("tomato"), now); err != nil {
+	if err := g.Plant(0, SpeciesByID("tomato"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	// A marigold on the far side of the garden helps nobody.
-	if err := g.Plant(14, SpeciesByID("marigold"), now); err != nil {
+	if err := g.Plant(14, SpeciesByID("marigold"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	if f := g.companionFactor(0, SpeciesByID("tomato")); f != 1 {
@@ -152,13 +152,13 @@ func TestCompanionsChangeHowFastThingsGrow(t *testing.T) {
 
 	alone := newTestGarden(now)
 	paired := newTestGarden(now)
-	if err := alone.Plant(6, SpeciesByID("tomato"), now); err != nil {
+	if err := alone.Plant(6, SpeciesByID("tomato"), 0, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := paired.Plant(6, SpeciesByID("tomato"), now); err != nil {
+	if err := paired.Plant(6, SpeciesByID("tomato"), 0, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := paired.Plant(5, SpeciesByID("marigold"), now); err != nil {
+	if err := paired.Plant(5, SpeciesByID("marigold"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 

@@ -48,15 +48,17 @@ type model struct {
 	lastSave time.Time
 	dirty    bool
 
-	shop       []*Species
-	shopCursor int
-	shopScroll int
-	shopSeason bool // limit the shop to species happy in this season
+	shop        []*Species
+	shopCursor  int
+	shopScroll  int
+	shopVariety int  // the form selected for the highlighted species
+	shopSeason  bool // limit the shop to species happy in this season
 
-	almanac       []almanacRow
-	almanacCursor int
-	almanacScroll int
-	almanacStage  int
+	almanac        []almanacRow
+	almanacCursor  int
+	almanacScroll  int
+	almanacStage   int
+	almanacVariety int
 
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
@@ -520,21 +522,30 @@ func (m model) handleShopKey(key string) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		if m.shopCursor > 0 {
 			m.shopCursor--
-			m.cardScroll = 0
+			m.cardScroll, m.shopVariety = 0, 0
 		}
 	case "down", "j":
 		if m.shopCursor < len(m.shop)-1 {
 			m.shopCursor++
-			m.cardScroll = 0
+			m.cardScroll, m.shopVariety = 0, 0
+		}
+	case "left", "h":
+		if len(m.shop) > 0 {
+			forms := len(m.shop[m.shopCursor].Varieties())
+			m.shopVariety = (m.shopVariety + forms - 1) % forms
+		}
+	case "right", "l":
+		if len(m.shop) > 0 {
+			m.shopVariety = (m.shopVariety + 1) % len(m.shop[m.shopCursor].Varieties())
 		}
 	case "pgup":
 		m.cardScroll = max(0, m.cardScroll-6)
 	case "pgdown":
 		m.cardScroll += 6
 	case "home", "g":
-		m.shopCursor, m.cardScroll = 0, 0
+		m.shopCursor, m.cardScroll, m.shopVariety = 0, 0, 0
 	case "end", "G":
-		m.shopCursor, m.cardScroll = max(0, len(m.shop)-1), 0
+		m.shopCursor, m.cardScroll, m.shopVariety = max(0, len(m.shop)-1), 0, 0
 	case "t":
 		m.shopSeason = !m.shopSeason
 		m.refreshShop()
@@ -553,14 +564,14 @@ func (m model) handleShopKey(key string) (tea.Model, tea.Cmd) {
 			m.setStatus(warnStyle, "Every bed is full — lift something first (u).")
 			return m, nil
 		}
-		if err := m.g.Plant(idx, sp, m.now); err != nil {
+		if err := m.g.Plant(idx, sp, m.shopVariety, m.now); err != nil {
 			m.setStatus(errStyle, "%s", err.Error())
 			return m, nil
 		}
 		m.cursor = idx
 		m.dirty = true
 		m.screen = screenGarden
-		m.setStatus(okStyle, "Sowed %s in bed %d.%s", sp.Common, idx+1, companionAside(m.g, idx, sp))
+		m.setStatus(okStyle, "Sowed %s in bed %d.%s", sp.VarietyName(m.shopVariety), idx+1, companionAside(m.g, idx, sp))
 		return m, m.save()
 	}
 	return m, nil
@@ -630,12 +641,12 @@ func (m model) handleAlmanacKey(key string) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		if m.almanacCursor > 0 {
 			m.almanacCursor--
-			m.cardScroll = 0
+			m.cardScroll, m.almanacVariety = 0, 0
 		}
 	case "down", "j":
 		if m.almanacCursor < len(m.almanac)-1 {
 			m.almanacCursor++
-			m.cardScroll = 0
+			m.cardScroll, m.almanacVariety = 0, 0
 		}
 	case "pgup":
 		m.cardScroll = max(0, m.cardScroll-6)
@@ -651,6 +662,10 @@ func (m model) handleAlmanacKey(key string) (tea.Model, tea.Cmd) {
 		m.almanacStage = min(StageCount-1, m.almanacStage+1)
 	case " ":
 		m.almanacStage = (m.almanacStage + 1) % StageCount
+	case "v":
+		if row := m.almanac[m.almanacCursor]; row.IsPlant {
+			m.almanacVariety = (m.almanacVariety + 1) % len(row.Species.Varieties())
+		}
 	}
 	return m, nil
 }

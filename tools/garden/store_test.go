@@ -13,7 +13,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	now := testStart()
 
 	g := newTestGarden(now)
-	if err := g.Plant(2, SpeciesByID("foxglove"), now); err != nil {
+	if err := g.Plant(2, SpeciesByID("foxglove"), 0, now); err != nil {
 		t.Fatal(err)
 	}
 	g.Rename(2, "Bertha", now)
