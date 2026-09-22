@@ -30,7 +30,7 @@ func (m model) viewInfo() string {
 	season := m.g.Season(m.now)
 	stage, pal := appearance(sp, p, season, m.phase())
 	art := renderArt(sp, pal, stage, 24, 7, m.wind.swayAt(m.cursor%plotCols))
-	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true, m.phase())
+	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true, m.phase(), p.Richness)
 
 	headline := []string{
 		titleStyle.Render(p.DisplayName()),
@@ -50,6 +50,7 @@ func (m model) viewInfo() string {
 		labelStyle.Render(pad("growth", 9)) + meter(p.Growth, 24, okStyle) + subtleStyle.Render(fmt.Sprintf("  %3.0f%%", p.Growth*100)),
 		labelStyle.Render(pad("water", 9)) + meter(p.Moisture, 24, waterStyle) + subtleStyle.Render(fmt.Sprintf("  %3.0f%%", p.Moisture*100)),
 		labelStyle.Render(pad("weeds", 9)) + meter(p.Weeds, 24, weedStyle) + subtleStyle.Render(fmt.Sprintf("  %3.0f%%", p.Weeds*100)),
+		labelStyle.Render(pad("soil", 9)) + meter(p.Richness, 24, compostStyle) + subtleStyle.Render(fmt.Sprintf("  %3.0f%%", p.Richness*100)),
 	}, "\n")
 
 	desc := lipgloss.NewStyle().Width(width).Render(valueStyle.Render(sp.Desc))
@@ -97,7 +98,9 @@ func (m model) viewInfo() string {
 	if len(neighbours) > 0 {
 		parts = append(parts, "")
 	}
-	parts = append(parts, tip, pods)
+	// What this species does in a garden, the same block the almanac shows.
+	parts = append(parts, effectLines(sp, width)...)
+	parts = append(parts, "", tip, pods)
 	card := strings.Join(compact(parts), "\n")
 
 	// The card is usually taller than a small terminal, so it is windowed
@@ -179,7 +182,7 @@ func compact(lines []string) []string {
 // rate it is growing right now.
 func (m model) nextStageNote(p *Plot, sp *Species) string {
 	if p.Spent {
-		return "finished for the year — lift it (u) to compost the bed"
+		return fmt.Sprintf("finished for the year — lifting it (u) returns %.0f%% richness to the bed", compostYield(sp, p)*100)
 	}
 	if dormant(sp, m.g.Season(m.now)) && p.Growth >= 1 {
 		return "asleep until spring"

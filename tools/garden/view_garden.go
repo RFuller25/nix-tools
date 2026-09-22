@@ -278,6 +278,19 @@ func (m model) renderCell(idx int) string {
 	selected := idx == m.cursor
 
 	var lines []string
+	if fx, ok := m.compost[idx]; ok && !fx.done(m.now) {
+		// A plant on its way into the soil.
+		lines = append(lines, fx.frame(cellInner, artHeight, m.now)...)
+		lines = append(lines, soilLine(cellInner, p.Weeds, true, m.phase(), p.Richness))
+		lines = append(lines, pad(compostStyle.Render(truncate("composting…", cellInner)), cellInner))
+		lines = append(lines, pad(okStyle.Render(fmt.Sprintf("+%.0f%% soil", fx.Gain*100)), cellInner))
+
+		border := plainBorder
+		if idx == m.cursor {
+			border = selBorder
+		}
+		return border.Render(strings.Join(lines, "\n"))
+	}
 	if sp := p.Species(); sp != nil {
 		// Taller plants catch more of the gust than a seedling does.
 		sway := m.wind.swayAt(idx%plotCols) * (0.45 + 0.55*p.Growth)
@@ -303,7 +316,7 @@ func (m model) renderCell(idx int) string {
 	if p.Pond {
 		lines = append(lines, litStyle("74", m.phase()).Render(strings.Repeat("≈", cellInner)))
 	} else {
-		lines = append(lines, soilLine(cellInner, p.Weeds, !p.Empty(), m.phase()))
+		lines = append(lines, soilLine(cellInner, p.Weeds, !p.Empty(), m.phase(), p.Richness))
 	}
 
 	name := p.DisplayName()

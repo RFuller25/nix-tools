@@ -239,8 +239,9 @@ func trimToWidth(line string, width int) string {
 
 // soilLine draws the strip of earth a plant stands on, dusted with weeds as
 // they take hold, and lit by the time of day.
-func soilLine(width int, weeds float64, planted bool, ph phase) string {
-	ground := []rune(strings.Repeat("▁", width))
+func soilLine(width int, weeds float64, planted bool, ph phase, richness float64) string {
+	base, soilColor := richnessGlyph(richness)
+	ground := []rune(strings.Repeat(base, width))
 	switch {
 	case weeds > 0.75:
 		for i := 1; i < width; i += 2 {
@@ -260,8 +261,8 @@ func soilLine(width int, weeds float64, planted bool, ph phase) string {
 	case weeds > 0.2:
 		return litStyle("101", ph).Render(line)
 	case planted:
-		return litStyle("94", ph).Render(line)
+		return litStyle(soilColor, ph).Render(line)
 	default:
-		return litStyle("240", ph).Render(line)
+		return litStyle(soilColor, ph).Render(line)
 	}
 }

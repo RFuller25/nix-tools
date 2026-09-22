@@ -14,6 +14,7 @@ var (
 
 	seedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("180")).Bold(true)
 	weedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("101"))
+	compostStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("137"))
 	bareSoilStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	waterStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("74"))
 	warnStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("215"))

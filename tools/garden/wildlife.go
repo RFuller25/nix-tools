@@ -35,17 +35,69 @@ type creatureKind struct {
 	speed float64 // beds crossed per second
 	life  float64 // seconds before it moves on
 	note  string  // what the journal says the first time
+
+	// For the almanac: what brings it, when it comes, and something true
+	// about it worth knowing.
+	comes string
+	when  string
+	fact  string
 }
 
 var creatures = map[creature]creatureKind{
-	bee:       {"bee", "✽", "220", 1.1, 9, "A bee found the garden."},
-	butterfly: {"butterfly", "❖", "213", 0.7, 12, "A butterfly is working the flowers."},
-	finch:     {"finch", "ᐤ", "179", 1.6, 7, "A finch came down for the seed heads."},
-	moth:      {"moth", "✺", "189", 0.9, 10, "A moth is out among the night flowers."},
-	dragonfly: {"dragonfly", "⋈", "80", 2.0, 8, "A dragonfly is patrolling the pond."},
-	fox:       {"fox", "ᗢ", "173", 0.5, 14, "A fox crossed the garden."},
-	hedgehog:  {"hedgehog", "ᴥ", "138", 0.35, 16, "A hedgehog is snuffling through the beds."},
+	bee: {
+		name: "bee", glyph: "✽", color: "220", speed: 1.1, life: 9,
+		note:  "A bee found the garden.",
+		comes: "any plant in open flower, except the ferns, grasses and carnivores",
+		when:  "daylight, and not while it is raining",
+		fact:  "A honeybee visits a few hundred flowers in one trip and tells the hive where they were by dancing the direction and distance on the comb.",
+	},
+	butterfly: {
+		name: "butterfly", glyph: "❖", color: "213", speed: 0.7, life: 12,
+		note:  "A butterfly is working the flowers.",
+		comes: "daisies, mints, carrot-family umbels, honeysuckles and the climbers",
+		when:  "bright weather only — sun, clear skies or a heatwave",
+		fact:  "Butterflies taste with their feet: standing on a leaf is how a female knows whether it is the right plant to lay on.",
+	},
+	finch: {
+		name: "finch", glyph: "ᐤ", color: "179", speed: 1.6, life: 7,
+		note:  "A finch came down for the seed heads.",
+		comes: "daisy-family seed heads left standing — sunflower, coneflower, cosmos and their kin, once a pod has ripened",
+		when:  "daylight, any weather",
+		fact:  "This is why the almanac keeps telling you to leave the dead heads up: a standing sunflower feeds goldfinches all autumn.",
+	},
+	moth: {
+		name: "moth", glyph: "✺", color: "189", speed: 0.9, life: 10,
+		note:  "A moth is out among the night flowers.",
+		comes: "night-scented and night-opening flowers — moonflower, evening primrose, night-scented stock, honeysuckle, lily of the valley",
+		when:  "after dark",
+		fact:  "Night-flowering plants are pale and heavily scented because a moth finds them by smell and by what little light there is, not by colour.",
+	},
+	dragonfly: {
+		name: "dragonfly", glyph: "⋈", color: "80", speed: 2.0, life: 8,
+		comes: "a pond — dig one with d",
+		note:  "A dragonfly is patrolling the pond.",
+		when:  "daylight, and not in the wet",
+		fact:  "A dragonfly spends most of its life underwater as a nymph; the flying adult you see may last only a few weeks.",
+	},
+	fox: {
+		name: "fox", glyph: "ᗢ", color: "173", speed: 0.5, life: 14,
+		note:  "A fox crossed the garden.",
+		comes: "nothing in particular — it is passing through",
+		when:  "after dark",
+		fact:  "Urban foxes hunt by sound more than sight, and can hear a worm moving under the soil.",
+	},
+	hedgehog: {
+		name: "hedgehog", glyph: "ᴥ", color: "138", speed: 0.35, life: 16,
+		note:  "A hedgehog is snuffling through the beds.",
+		comes: "an untidy garden — it wants a bed or two left weedy",
+		when:  "after dark",
+		fact:  "A hedgehog covers a mile or two a night eating slugs and beetles, which makes a weedy corner the most useful thing in a vegetable garden.",
+	},
 }
+
+// creatureOrder is the order the almanac lists them in: the ones you are
+// likeliest to see first.
+var creatureOrder = []creature{bee, butterfly, finch, dragonfly, moth, hedgehog, fox}
 
 func (c creature) kind() creatureKind { return creatures[c] }
 func (c creature) String() string     { return creatures[c].name }

@@ -7,6 +7,42 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// almanacRow is one line of the almanac: a plant, or one of the creatures
+// that comes to visit them.
+type almanacRow struct {
+	Species  *Species
+	Creature creature
+	IsPlant  bool
+}
+
+// almanacRows is the whole book: every species, then the visitors.
+func almanacRows() []almanacRow {
+	rows := make([]almanacRow, 0, len(AllSpecies())+len(creatureOrder))
+	for _, sp := range AllSpecies() {
+		rows = append(rows, almanacRow{Species: sp, IsPlant: true})
+	}
+	for _, c := range creatureOrder {
+		rows = append(rows, almanacRow{Creature: c})
+	}
+	return rows
+}
+
+// group is the heading a row sits under.
+func (r almanacRow) group() string {
+	if r.IsPlant {
+		return r.Species.Kind.String()
+	}
+	return "visitors"
+}
+
+// title is how the row reads in the list.
+func (r almanacRow) title() string {
+	if r.IsPlant {
+		return r.Species.Common
+	}
+	return upperFirst(r.Creature.kind().name)
+}
+
 func (m model) viewAlmanac() string {
 	listWidth := 30
 	narrow := m.width-listWidth-6 < 30
@@ -25,12 +61,12 @@ func (m model) viewAlmanac() string {
 	}
 
 	var lines []string
-	lastKind := Kind(-1)
+	lastGroup := ""
 	for i := m.almanacScroll; i < len(m.almanac) && i < m.almanacScroll+rows; i++ {
-		sp := m.almanac[i]
-		if sp.Kind != lastKind {
-			lastKind = sp.Kind
-			lines = append(lines, labelStyle.Render(strings.ToUpper(sp.Kind.String())))
+		row := m.almanac[i]
+		if g := row.group(); g != lastGroup {
+			lastGroup = g
+			lines = append(lines, labelStyle.Render(strings.ToUpper(g)))
 		}
 		marker := "  "
 		style := valueStyle
@@ -38,35 +74,56 @@ func (m model) viewAlmanac() string {
 			marker = titleStyle.Render("› ")
 			style = titleStyle
 		}
-		if !m.g.Unlocked(sp) {
-			style = lockedStyle
+
+		seen := "  "
+		if row.IsPlant {
+			if !m.g.Unlocked(row.Species) {
+				style = lockedStyle
+			}
+			if _, ok := m.g.Collected(row.Species); ok {
+				seen = okStyle.Render("✓ ")
+			}
+		} else {
+			if _, ok := m.g.Sightings[row.Creature.kind().name]; ok {
+				seen = okStyle.Render("✓ ")
+			} else {
+				style = lockedStyle
+			}
 		}
-		pressed := "  "
-		if _, ok := m.g.Collected(sp); ok {
-			pressed = okStyle.Render("✓ ")
-		}
-		lines = append(lines, marker+pressed+style.Render(truncate(sp.Common, listWidth-6)))
+		lines = append(lines, marker+seen+style.Render(truncate(row.title(), listWidth-6)))
 	}
 
 	detail := ""
 	clipped := false
-	if len(m.almanac) > 0 && !narrow {
-		detail, clipped = m.almanacDetail(m.almanac[m.almanacCursor], listWidth, avail)
-	} else if len(m.almanac) > 0 {
-		sp := m.almanac[m.almanacCursor]
-		lines = append(lines, "", fit(latinStyle.Render(sp.Latin), listWidth))
+	if len(m.almanac) > 0 {
+		row := m.almanac[m.almanacCursor]
+		switch {
+		case narrow && row.IsPlant:
+			lines = append(lines, "", fit(latinStyle.Render(row.Species.Latin), listWidth))
+		case narrow:
+			lines = append(lines, "", fit(subtleStyle.Render(row.Creature.kind().when), listWidth))
+		case row.IsPlant:
+			detail, clipped = m.almanacDetail(row.Species, listWidth, avail)
+		default:
+			detail, clipped = m.creatureDetail(row.Creature, listWidth, avail)
+		}
 	}
 
 	head := fit(titleStyle.Render("❦ almanac")+subtleStyle.Render(fmt.Sprintf(
-		"  ·  %d species  ·  %d unlocked  ·  ", len(AllSpecies()), m.unlockedCount()))+
-		okStyle.Render(fmt.Sprintf("%d pressed", len(m.g.Herbarium))), m.width)
+		"  ·  %d species  ·  ", len(AllSpecies())))+
+		okStyle.Render(fmt.Sprintf("%d pressed", len(m.g.Herbarium)))+
+		subtleStyle.Render("  ·  ")+
+		okStyle.Render(fmt.Sprintf("%d of %d visitors seen", len(m.g.Sightings), len(creatureOrder))), m.width)
 	body := strings.Join(lines, "\n")
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, "  ", detail)
 	}
-	keys := "↑↓ species · ←→ life stage · space cycle stages · ✓ grown here · esc back"
+	keys := "↑↓ species · ←→ stage · space cycle · ✓ grown here · esc back"
+	if len(m.almanac) > 0 && !m.almanac[m.almanacCursor].IsPlant {
+		keys = "↑↓ browse · ✓ seen in this garden · esc back"
+	}
 	if clipped {
-		keys = "↑↓ species · ←→ life stage · a taller window shows more · esc back"
+		keys += " · pgup/pgdn read the card"
 	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
 }
@@ -99,7 +156,7 @@ func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 		if i == m.almanacStage {
 			style = okStyle
 		}
-		block := strings.Join(art, "\n") + "\n" + soilLine(stageW, 0, true, phaseNoon) + "\n" + pad(style.Render(center(label, stageW)), stageW)
+		block := strings.Join(art, "\n") + "\n" + soilLine(stageW, 0, true, phaseNoon, 0.5) + "\n" + pad(style.Render(center(label, stageW)), stageW)
 		frames = append(frames, block)
 	}
 	strip := lipgloss.JoinHorizontal(lipgloss.Top, joinWithGap(frames)...)
@@ -117,28 +174,26 @@ func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 		"",
 		strip,
 		"",
-		lipgloss.NewStyle().Width(width).Render(valueStyle.Render(sp.Desc)),
+		lipgloss.NewStyle().Width(max(20, width-2)).Render(valueStyle.Render(sp.Desc)),
 		"",
 		field("origin", sp.Origin, width),
 		field("blooms", sp.Bloom, width),
 		field("sun", sp.Sun, width),
 		field("water", sp.Water, width),
 		field("height", sp.Height, width),
-		field("season", sp.SeasonNames(), width),
-		field("life", lifeNote(sp), width),
-		field("soil", sp.PrefersSoil().String(), width),
-		field("matures", "about "+hours(sp.Hours), width),
-		field("cost", fmt.Sprintf("%d seeds", sp.SeedCost), width),
 		"",
-		lipgloss.NewStyle().Width(width).Render(subtleStyle.Render("✎ " + sp.Note)),
 	}
+	rows = append(rows, effectLines(sp, width)...)
+	rows = append(rows, "",
+		lipgloss.NewStyle().Width(max(20, width-2)).Render(subtleStyle.Render("✎ "+sp.Note)),
+	)
 	if !m.g.Unlocked(sp) {
 		rows = append(rows, warnStyle.Render(fmt.Sprintf("Unlocks at %d matured plants.", sp.Unlock)))
 	}
 
 	lines := strings.Split(strings.Join(rows, "\n"), "\n")
-	visible, _, below := window(lines, 0, max(1, avail-2)) // less the card's border
-	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), below
+	visible, above, below := window(lines, m.cardScroll, max(1, avail-2)) // less the card's border
+	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), above || below
 }
 
 func center(s string, width int) string {
@@ -148,4 +203,54 @@ func center(s string, width int) string {
 	}
 	left := (width - w) / 2
 	return strings.Repeat(" ", left) + s + strings.Repeat(" ", width-w-left)
+}
+
+// creatureDetail is the almanac page for one of the garden's visitors: what
+// brings it, when it comes, and whether it has been here yet.
+func (m model) creatureDetail(c creature, listWidth, avail int) (string, bool) {
+	width := m.width - listWidth - 6
+	if width < 30 {
+		width = 30
+	}
+	k := c.kind()
+	glyph := lipgloss.NewStyle().Foreground(lipgloss.Color(k.color))
+
+	seen := subtleStyle.Render("not yet seen in this garden")
+	if at, ok := m.g.Sightings[k.name]; ok {
+		seen = okStyle.Render("✓ first seen " + at.Format("2 January 2006, 15:04"))
+	}
+
+	// A little motif rather than a plant drawing.
+	motif := []string{
+		"   " + glyph.Render(k.glyph) + "      " + glyph.Render(k.glyph),
+		"      " + glyph.Render(k.glyph) + "   ",
+		"   " + glyph.Render(k.glyph) + "      " + glyph.Render(k.glyph),
+	}
+
+	rows := []string{
+		titleStyle.Render(upperFirst(k.name)),
+		subtleStyle.Render("a visitor, not a plant"),
+		seen,
+		"",
+	}
+	rows = append(rows, motif...)
+	rows = append(rows, "")
+	rows = append(rows, labelStyle.Render("COMES FOR"))
+	for _, line := range wrapText(k.comes, max(16, width-2)) {
+		rows = append(rows, valueStyle.Render(line))
+	}
+	rows = append(rows, "", labelStyle.Render("WHEN"))
+	for _, line := range wrapText(k.when, max(16, width-2)) {
+		rows = append(rows, valueStyle.Render(line))
+	}
+	rows = append(rows, "", labelStyle.Render("STAYS"))
+	rows = append(rows, valueStyle.Render(fmt.Sprintf("about %.0f seconds, crossing a bed in %.1fs", k.life, 1/k.speed)))
+	rows = append(rows, "")
+	for _, line := range wrapText(k.fact, max(16, width-2)) {
+		rows = append(rows, subtleStyle.Render(line))
+	}
+
+	lines := strings.Split(strings.Join(rows, "\n"), "\n")
+	visible, above, below := window(lines, m.cardScroll, max(1, avail-2))
+	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), above || below
 }

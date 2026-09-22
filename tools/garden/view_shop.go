@@ -78,9 +78,9 @@ func (m model) viewShop() string {
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
 	}
-	keys := "↑↓ browse · enter sow · t season filter · esc back · q garden"
+	keys := "↑↓ browse · enter sow · t season · esc back · q garden"
 	if clipped {
-		keys = "↑↓ browse · enter sow · t season filter · a taller window shows more · esc back"
+		keys = "↑↓ browse · enter sow · pgup/pgdn read the card · t season · esc back"
 	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
 }
@@ -113,23 +113,21 @@ func (m model) shopDetail(sp *Species, listWidth, avail int) (string, bool) {
 		art,
 		"",
 		field("family", sp.Family, width),
-		field("kind", sp.Kind.String(), width),
-		field("season", sp.SeasonNames(), width),
 		field("blooms", sp.Bloom, width),
 		field("sun", sp.Sun, width),
 		field("water", sp.Water, width),
 		field("height", sp.Height, width),
-		field("matures", fmt.Sprintf("about %s of good care", hours(sp.Hours)), width),
-		field("cost", fmt.Sprintf("%d seeds", sp.SeedCost), width),
 		field("rarity", rarityStyle(sp.Rarity).Render(sp.Rarity.String()), width),
+		"",
 	}
+	rows = append(rows, effectLines(sp, width)...)
 	if !m.g.Unlocked(sp) {
 		rows = append(rows, "", warnStyle.Render(fmt.Sprintf("Unlocks after %d plants reach maturity (you have %d).", sp.Unlock, m.g.Matured)))
 	}
 
 	lines := strings.Split(strings.Join(rows, "\n"), "\n")
-	visible, _, below := window(lines, 0, max(1, avail-2)) // less the card's border
-	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), below
+	visible, above, below := window(lines, m.cardScroll, max(1, avail-2)) // less the card's border
+	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), above || below
 }
 
 func field(label, value string, width int) string {

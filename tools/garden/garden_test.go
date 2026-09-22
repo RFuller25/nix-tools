@@ -307,7 +307,7 @@ func TestUprootAndRename(t *testing.T) {
 	}
 
 	g.Plots[0].Weeds = 0.5
-	if !g.Uproot(0, now) {
+	if _, ok := g.Uproot(0, now); !ok {
 		t.Fatal("uproot failed")
 	}
 	if !g.Plots[0].Empty() {
@@ -316,7 +316,7 @@ func TestUprootAndRename(t *testing.T) {
 	if g.Plots[0].Weeds != 0.5 {
 		t.Error("uprooting should leave the soil's weeds alone")
 	}
-	if g.Uproot(0, now) {
+	if _, ok := g.Uproot(0, now); ok {
 		t.Error("uprooting an empty bed should report nothing done")
 	}
 	if g.Rename(0, "Ghost", now) {

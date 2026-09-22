@@ -92,7 +92,7 @@ func TestSpentPlantsStandStillAndStopRipening(t *testing.T) {
 	}
 
 	// And it can still be lifted and composted.
-	if !g.Uproot(0, at) {
+	if _, ok := g.Uproot(0, at); !ok {
 		t.Error("a spent plant could not be lifted")
 	}
 }
@@ -182,7 +182,7 @@ func TestHerbariumRecordsFirstFlowering(t *testing.T) {
 	}
 
 	// Growing a second one does not file it twice.
-	g.Uproot(0, at)
+	g.Uproot(0, at) //nolint:errcheck // the yield is tested elsewhere
 	if err := g.Plant(0, SpeciesByID("radish"), at); err != nil {
 		t.Fatal(err)
 	}

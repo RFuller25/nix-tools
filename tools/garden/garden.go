@@ -177,6 +177,7 @@ type Garden struct {
 	Planted    int    `json:"planted"`    // lifetime plants sown
 	Gathered   int    `json:"gathered"`   // lifetime seeds gathered
 	Volunteers int    `json:"volunteers"` // plants that sowed themselves
+	Composted  int    `json:"composted"`  // plants lifted and worked back in
 	Music      bool   `json:"music"`      // was the music playing when we last closed
 	// Herbarium records the first time each species was brought into flower,
 	// and Sightings the first time each creature came to visit.
@@ -547,20 +548,29 @@ func (g *Garden) Gather(idx int, now time.Time) int {
 	return got
 }
 
-// Uproot clears a bed, composting whatever was growing there.
-func (g *Garden) Uproot(idx int, now time.Time) bool {
+// Uproot lifts a plant and composts it into the bed it grew in. It reports
+// how much richness the bed gained, and whether there was anything to lift.
+func (g *Garden) Uproot(idx int, now time.Time) (float64, bool) {
 	p := &g.Plots[idx]
-	if p.Empty() {
-		return false
+	sp := p.Species()
+	if p.Empty() || sp == nil {
+		return 0, false
 	}
+
 	name := p.DisplayName()
+	gain := compostYield(sp, p)
+
 	// The lifted plant goes back into the ground it came from: the bed gets
-	// richer, and its pH drifts towards neutral as compost buffers it.
-	richness := math.Min(1, p.Richness+0.18)
-	ph := p.PH + (6.5-p.PH)*0.12
+	// richer, and its pH drifts towards neutral as the compost buffers it.
+	before := p.Richness
+	richness := math.Min(1, p.Richness+gain)
+	ph := p.PH + (6.5-p.PH)*0.12*(gain/0.2)
 	*p = Plot{Moisture: p.Moisture, Weeds: p.Weeds, Pond: p.Pond, PH: ph, Richness: richness}
-	g.Log(now, "Lifted %s and composted it into bed %d.", name, idx+1)
-	return true
+
+	g.Composted++
+	g.Log(now, "Composted %s into bed %d: the soil goes from %s to %s.",
+		name, idx+1, richnessWord(before), richnessWord(richness))
+	return round2(richness - before), true
 }
 
 // Rename gives a plant the gardener's own name for it.

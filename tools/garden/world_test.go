@@ -218,7 +218,7 @@ func TestCompostingEnrichesTheBed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	g.Uproot(0, now)
+	g.Uproot(0, now) //nolint:errcheck // the yield is tested elsewhere
 	if g.Plots[0].Richness <= 0.1 {
 		t.Errorf("composting left the bed at %.2f richness", g.Plots[0].Richness)
 	}

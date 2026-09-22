@@ -53,7 +53,7 @@ type model struct {
 	shopScroll int
 	shopSeason bool // limit the shop to species happy in this season
 
-	almanac       []*Species
+	almanac       []almanacRow
 	almanacCursor int
 	almanacScroll int
 	almanacStage  int
@@ -64,9 +64,10 @@ type model struct {
 	naming bool
 	input  textinput.Model
 
-	audio *Audio
-	wind  windState
-	life  wildlife
+	audio   *Audio
+	wind    windState
+	life    wildlife
+	compost map[int]compostFX // beds with a plant on its way into the soil
 
 	status      string
 	statusStyle lipgloss.Style
@@ -86,10 +87,11 @@ func newModel(g *Garden, path string, now time.Time) model {
 		path:    path,
 		now:     now,
 		input:   ti,
-		almanac: AllSpecies(),
+		almanac: almanacRows(),
 		audio:   NewAudio(sampleRate),
 		wind:    newWind(g.Seed ^ now.UnixNano()),
 		life:    newWildlife(g.Seed ^ now.UnixNano() ^ 0x1F0C),
+		compost: map[int]compostFX{},
 		width:   80,
 		height:  30,
 	}
@@ -125,6 +127,26 @@ func (m *model) plot() *Plot { return &m.g.Plots[m.cursor] }
 
 // phase is where the real clock has got to in the day.
 func (m model) phase() phase { return phaseAt(m.now) }
+
+// lift takes a plant out of its bed and starts it collapsing into the soil.
+func (m *model) lift(idx int) (float64, bool) {
+	p := &m.g.Plots[idx]
+	sp := p.Species()
+	if sp == nil {
+		return 0, false
+	}
+	stage, _ := appearance(sp, p, m.g.Season(m.now), m.phase())
+
+	gain, ok := m.g.Uproot(idx, m.now)
+	if !ok {
+		return 0, false
+	}
+	m.dirty = true
+	if m.compost != nil {
+		m.compost[idx] = compostFX{Species: sp, Stage: stage, Gain: gain, Started: m.now}
+	}
+	return gain, true
+}
 
 // visitorLine names whatever has come to call, for the status line.
 func (m model) visitorLine() string {
@@ -180,6 +202,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case windTickMsg:
 		m.wind.advance(windTick.Seconds(), m.g.Weather(m.now), m.gridCols())
+		for bed, fx := range m.compost {
+			if fx.done(m.now) {
+				delete(m.compost, bed)
+			}
+		}
 		m.life.advance(windTick.Seconds(), m.g, m.now, m.g.Weather(m.now), func(c creature) {
 			k := c.kind()
 			if m.g.sight(k.name, k.note, m.now) {
@@ -420,9 +447,10 @@ func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
 			m.setStatus(subtleStyle, "Plant something first.")
 		}
 	case "u":
-		if m.g.Uproot(m.cursor, m.now) {
-			m.dirty = true
-			m.setStatus(warnStyle, "Lifted the plant in bed %d.", m.cursor+1)
+		if gain, ok := m.lift(m.cursor); ok {
+			m.setStatus(okStyle, "Composted %s into bed %d — the soil is %s now (+%.0f%% richness).",
+				m.compost[m.cursor].Species.Common, m.cursor+1,
+				richnessWord(m.g.Plots[m.cursor].Richness), gain*100)
 		} else {
 			m.setStatus(subtleStyle, "Bed %d is already empty.", m.cursor+1)
 		}
@@ -447,9 +475,9 @@ func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
 			}
 		}
 	case "a":
-		m.screen = screenAlmanac
+		m.screen, m.cardScroll = screenAlmanac, 0
 	case "s":
-		m.screen = screenShop
+		m.screen, m.cardScroll = screenShop, 0
 		m.refreshShop()
 	}
 	m.ensureVisible()
@@ -492,19 +520,21 @@ func (m model) handleShopKey(key string) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		if m.shopCursor > 0 {
 			m.shopCursor--
+			m.cardScroll = 0
 		}
 	case "down", "j":
 		if m.shopCursor < len(m.shop)-1 {
 			m.shopCursor++
+			m.cardScroll = 0
 		}
 	case "pgup":
-		m.shopCursor = max(0, m.shopCursor-10)
+		m.cardScroll = max(0, m.cardScroll-6)
 	case "pgdown":
-		m.shopCursor = min(len(m.shop)-1, m.shopCursor+10)
+		m.cardScroll += 6
 	case "home", "g":
-		m.shopCursor = 0
+		m.shopCursor, m.cardScroll = 0, 0
 	case "end", "G":
-		m.shopCursor = max(0, len(m.shop)-1)
+		m.shopCursor, m.cardScroll = max(0, len(m.shop)-1), 0
 	case "t":
 		m.shopSeason = !m.shopSeason
 		m.refreshShop()
@@ -585,10 +615,11 @@ func (m model) handleInfoKey(key string) (tea.Model, tea.Cmd) {
 		m.cursor = (m.cursor + 1) % len(m.g.Plots)
 		m.cardScroll = 0
 	case "u":
-		if m.g.Uproot(m.cursor, m.now) {
-			m.dirty = true
+		if gain, ok := m.lift(m.cursor); ok {
 			m.screen = screenGarden
-			m.setStatus(warnStyle, "Lifted the plant in bed %d.", m.cursor+1)
+			m.setStatus(okStyle, "Composted %s into bed %d — the soil is %s now (+%.0f%% richness).",
+				m.compost[m.cursor].Species.Common, m.cursor+1,
+				richnessWord(m.g.Plots[m.cursor].Richness), gain*100)
 		}
 	}
 	return m, nil
@@ -599,19 +630,21 @@ func (m model) handleAlmanacKey(key string) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		if m.almanacCursor > 0 {
 			m.almanacCursor--
+			m.cardScroll = 0
 		}
 	case "down", "j":
 		if m.almanacCursor < len(m.almanac)-1 {
 			m.almanacCursor++
+			m.cardScroll = 0
 		}
 	case "pgup":
-		m.almanacCursor = max(0, m.almanacCursor-10)
+		m.cardScroll = max(0, m.cardScroll-6)
 	case "pgdown":
-		m.almanacCursor = min(len(m.almanac)-1, m.almanacCursor+10)
+		m.cardScroll += 6
 	case "home", "g":
-		m.almanacCursor = 0
+		m.almanacCursor, m.cardScroll = 0, 0
 	case "end", "G":
-		m.almanacCursor = len(m.almanac) - 1
+		m.almanacCursor, m.cardScroll = len(m.almanac)-1, 0
 	case "left", "h":
 		m.almanacStage = max(0, m.almanacStage-1)
 	case "right", "l":
