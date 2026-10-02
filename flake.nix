@@ -23,7 +23,7 @@
 
           gamer = pkgs.buildGoModule {
             pname = "gamer";
-            version = "0.1.0";
+            version = "0.2.0";
             src = ./tools/gamer;
             # Placeholder: run `nix build .#gamer` once and paste in the hash
             # nix reports.
