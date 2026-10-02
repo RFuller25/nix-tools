@@ -140,32 +140,99 @@ func rotateHue(c rgb, deg float64) rgb {
 	return hslToRGB(h, s, l)
 }
 
-// buildGradient interpolates a gradient from four corner colours, which is
-// what gives the board its smooth two-way blend.
-func (h *hue) buildGradient() {
-	base := h.rng.Float64() * 360
-	spread := 40 + h.rng.Float64()*80 // how far the hue travels across the board
+// hueMinGap is how far apart, in RGB distance, any two tiles on the board must
+// be. It is what makes every shade unique: no two tiles may be near-twins.
+const hueMinGap = 0.07
 
-	corners := [4]rgb{
-		hslToRGB(base, 0.75, 0.68),
-		hslToRGB(math.Mod(base+spread, 360), 0.75, 0.62),
-		hslToRGB(math.Mod(base+spread/2, 360), 0.70, 0.34),
-		hslToRGB(math.Mod(base+spread*1.5, 360), 0.70, 0.30),
+// hueMaxTries bounds the search for a board that meets hueMinGap.
+const hueMaxTries = 200
+
+// cornerHues picks the hue at each corner. Several schemes are on offer so one
+// board can be a quiet analogous blend and the next a full rainbow.
+func (h *hue) cornerHues() [4]float64 {
+	base := h.rng.Float64() * 360
+	jitter := func(deg float64) float64 { return (h.rng.Float64()*2 - 1) * deg }
+	var offs [4]float64
+	switch h.rng.Intn(6) {
+	case 0: // analogous: a narrow stretch of the wheel
+		span := 60 + h.rng.Float64()*60
+		offs = [4]float64{0, span, span / 2, span * 1.5}
+	case 1: // complementary: two opposite poles
+		offs = [4]float64{0, 180 + jitter(30), 180 + jitter(30), jitter(30)}
+	case 2: // triadic
+		offs = [4]float64{0, 120 + jitter(15), 240 + jitter(15), 120 + jitter(40)}
+	case 3: // tetradic: four evenly spaced corners
+		offs = [4]float64{0, 90 + jitter(15), 270 + jitter(15), 180 + jitter(15)}
+	case 4: // split complementary
+		offs = [4]float64{0, 150 + jitter(15), 210 + jitter(15), jitter(25)}
+	default: // anything goes
+		for i := range offs {
+			offs[i] = h.rng.Float64() * 360
+		}
+	}
+	var hues [4]float64
+	for i, o := range offs {
+		hues[i] = base + o // left unwrapped so the blend never jumps the long way round
+	}
+	return hues
+}
+
+// minGap is the smallest RGB distance between any two target tiles.
+func minGap(t *[hueH][hueW]rgb) float64 {
+	best := math.MaxFloat64
+	for i := 0; i < hueW*hueH; i++ {
+		for j := i + 1; j < hueW*hueH; j++ {
+			a, b := t[i/hueW][i%hueW], t[j/hueW][j%hueW]
+			d := math.Sqrt((a.r-b.r)*(a.r-b.r) + (a.g-b.g)*(a.g-b.g) + (a.b-b.b)*(a.b-b.b))
+			best = math.Min(best, d)
+		}
+	}
+	return best
+}
+
+// gradient builds one candidate board by blending four random corner colours,
+// each with its own hue, saturation and lightness. Hue, saturation and
+// lightness are each blended in two directions, so the board stays vivid in the
+// middle instead of sagging to grey the way an RGB blend of opposite hues does.
+func (h *hue) gradient() [hueH][hueW]rgb {
+	hues := h.cornerHues()
+	var sat, light [4]float64
+	for i := range sat {
+		sat[i] = 0.45 + h.rng.Float64()*0.5
+		light[i] = 0.22 + h.rng.Float64()*0.58
+	}
+	bilerp := func(v [4]float64, fx, fy float64) float64 {
+		top := v[0] + (v[1]-v[0])*fx
+		bottom := v[2] + (v[3]-v[2])*fx
+		return top + (bottom-top)*fy
 	}
 
+	var g [hueH][hueW]rgb
 	for y := 0; y < hueH; y++ {
 		for x := 0; x < hueW; x++ {
 			fx := float64(x) / float64(hueW-1)
 			fy := float64(y) / float64(hueH-1)
-			top := mix(corners[0], corners[1], fx)
-			bottom := mix(corners[2], corners[3], fx)
-			h.target[y][x] = mix(top, bottom, fy)
+			hd := math.Mod(math.Mod(bilerp(hues, fx, fy), 360)+360, 360)
+			g[y][x] = hslToRGB(hd, bilerp(sat, fx, fy), bilerp(light, fx, fy))
 		}
 	}
+	return g
 }
 
-func mix(a, b rgb, t float64) rgb {
-	return rgb{a.r + (b.r-a.r)*t, a.g + (b.g-a.g)*t, a.b + (b.b-a.b)*t}
+// buildGradient draws random boards until one has every shade clearly distinct
+// from every other, falling back to the most distinct it saw.
+func (h *hue) buildGradient() {
+	bestGap := -1.0
+	for try := 0; try < hueMaxTries; try++ {
+		g := h.gradient()
+		gap := minGap(&g)
+		if gap > bestGap {
+			bestGap, h.target = gap, g
+		}
+		if gap >= hueMinGap {
+			return
+		}
+	}
 }
 
 func (h *hue) Start() tea.Cmd {

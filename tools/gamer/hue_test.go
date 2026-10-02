@@ -551,3 +551,57 @@ func TestHSLRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// Every shade on the board must be its own: no two tiles may be near-twins.
+func TestEveryShadeIsUnique(t *testing.T) {
+	for seed := int64(0); seed < 200; seed++ {
+		h := newHue(seed)
+		h.Start()
+
+		seen := map[string]bool{}
+		for y := 0; y < hueH; y++ {
+			for x := 0; x < hueW; x++ {
+				hex := h.target[y][x].hex()
+				if seen[hex] {
+					t.Fatalf("seed %d: colour %s appears twice", seed, hex)
+				}
+				seen[hex] = true
+			}
+		}
+		if gap := minGap(&h.target); gap < hueMinGap {
+			t.Fatalf("seed %d: two tiles only %.3f apart, want at least %.3f", seed, gap, hueMinGap)
+		}
+	}
+}
+
+// Boards should differ a lot from one another: across seeds the hue travelled
+// by a board should range from narrow to the whole wheel.
+func TestBoardsVaryWidely(t *testing.T) {
+	narrow, wide := 0, 0
+	seenBase := map[int]bool{}
+	for seed := int64(0); seed < 200; seed++ {
+		h := newHue(seed)
+		h.Start()
+		minH, maxH := 360.0, 0.0
+		for y := 0; y < hueH; y++ {
+			for x := 0; x < hueW; x++ {
+				hd, _, _ := h.target[y][x].hsl()
+				minH, maxH = math.Min(minH, hd), math.Max(maxH, hd)
+			}
+		}
+		hd, _, _ := h.target[0][0].hsl()
+		seenBase[int(hd/30)] = true
+		if maxH-minH < 120 {
+			narrow++
+		}
+		if maxH-minH > 240 {
+			wide++
+		}
+	}
+	if narrow == 0 || wide == 0 {
+		t.Errorf("not enough variety: %d narrow boards, %d wide boards out of 200", narrow, wide)
+	}
+	if len(seenBase) < 10 {
+		t.Errorf("only %d of 12 hue regions used for the first corner", len(seenBase))
+	}
+}
