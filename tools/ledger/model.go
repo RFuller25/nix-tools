@@ -11,6 +11,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const (
+	tabBoard = iota
+	tabWon
+)
+
 type screen int
 
 const (
@@ -40,6 +45,11 @@ const (
 // Network results. Nothing here ever fires on a timer: every request is the
 // direct result of launching, or of a key the user pressed.
 type boardMsg struct {
+	resp *boardResp
+	err  error
+}
+
+type winsMsg struct {
 	resp *boardResp
 	err  error
 }
@@ -83,6 +93,11 @@ type model struct {
 	balance int
 	bets    []Bet
 	cursor  int
+
+	tab       int // tabBoard or tabWon
+	won       []Bet
+	wonLoaded bool
+	wonCursor int
 
 	busy   bool
 	spin   spinner.Model
@@ -151,6 +166,14 @@ func (m model) fetchBoard() tea.Cmd {
 	})
 }
 
+func (m model) fetchWins() tea.Cmd {
+	c := m.client
+	return tea.Batch(m.spin.Tick, func() tea.Msg {
+		r, err := c.Wins()
+		return winsMsg{r, err}
+	})
+}
+
 func (m model) fetchDetail(id int) tea.Cmd {
 	c := m.client
 	return tea.Batch(m.spin.Tick, func() tea.Msg {
@@ -209,10 +232,14 @@ func (m *model) betIndex(id int) int {
 }
 
 func (m model) selected() *Bet {
-	if m.cursor < 0 || m.cursor >= len(m.bets) {
+	list, cur := m.bets, m.cursor
+	if m.tab == tabWon {
+		list, cur = m.won, m.wonCursor
+	}
+	if cur < 0 || cur >= len(list) {
 		return nil
 	}
-	return &m.bets[m.cursor]
+	return &list[cur]
 }
 
 func (m model) isMine(b *Bet) bool { return b != nil && m.cfg != nil && b.Creator == m.cfg.Username }
@@ -244,12 +271,12 @@ func (m *model) applyStake(id, option, amount int) {
 	}
 }
 
-func (m *model) applyResolve(id, option, status int) {
+func (m *model) applyResolve(id, option, status, paid int) {
 	win := -1
 	if status == statusResolved {
 		win = option
 	}
-	set := func(b *Bet) { b.Status, b.Winner = status, win }
+	set := func(b *Bet) { b.Status, b.Winner, b.Paid, b.Resolved = status, win, paid, time.Now().Unix() }
 	if i := m.betIndex(id); i >= 0 {
 		set(&m.bets[i])
 	}
@@ -310,6 +337,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.persist()
 		return m, nil
 
+	case winsMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.fail(msg.err)
+			return m, nil
+		}
+		m.balance, m.won, m.wonLoaded = msg.resp.Balance, msg.resp.Bets, true
+		m.wonCursor = min(m.wonCursor, max(len(m.won)-1, 0))
+		m.flash = ""
+		return m, nil
+
 	case detailMsg:
 		m.busy, m.histWait = false, false
 		if msg.err != nil {
@@ -341,7 +379,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		b := Bet{ID: msg.resp.ID, Title: msg.title, Creator: m.cfg.Username, Pool: msg.amount,
 			Options: opts, Mine: mine, Winner: -1, Created: time.Now().Unix()}
 		m.bets = append([]Bet{b}, m.bets...)
-		m.balance, m.cursor, m.screen = msg.resp.Balance, 0, scBoard
+		m.balance, m.cursor, m.screen, m.tab = msg.resp.Balance, 0, scBoard, tabBoard
 		m.ok("bet created")
 		m.persist()
 		return m, nil
@@ -367,7 +405,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.balance = msg.resp.Balance
-		m.applyResolve(msg.id, msg.option, msg.resp.Status)
+		m.applyResolve(msg.id, msg.option, msg.resp.Status, msg.resp.Paid)
+		m.wonLoaded = false // a win may have just been added
 		m.screen = scDetail
 		if msg.resp.Status == statusVoid {
 			m.ok("bet voided, stakes refunded")
@@ -404,12 +443,39 @@ func (m model) keyBoard(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "q":
 		return m, tea.Quit
+	case "tab", "shift+tab", "1", "2":
+		next := tabBoard
+		switch k.String() {
+		case "tab", "shift+tab":
+			next = 1 - m.tab
+		case "2":
+			next = tabWon
+		}
+		if next == m.tab {
+			return m, nil
+		}
+		m.tab, m.flash = next, ""
+		if m.tab == tabWon && !m.wonLoaded {
+			m.busy = true
+			return m, m.fetchWins()
+		}
 	case "up", "k":
-		m.cursor = max(m.cursor-1, 0)
+		if m.tab == tabWon {
+			m.wonCursor = max(m.wonCursor-1, 0)
+		} else {
+			m.cursor = max(m.cursor-1, 0)
+		}
 	case "down", "j":
-		m.cursor = min(m.cursor+1, max(len(m.bets)-1, 0))
+		if m.tab == tabWon {
+			m.wonCursor = min(m.wonCursor+1, max(len(m.won)-1, 0))
+		} else {
+			m.cursor = min(m.cursor+1, max(len(m.bets)-1, 0))
+		}
 	case "r":
 		m.busy, m.flash = true, ""
+		if m.tab == tabWon {
+			return m, m.fetchWins()
+		}
 		return m, m.fetchBoard()
 	case "n":
 		m.screen, m.cStep, m.cTitle, m.cLabels, m.cSide, m.flash = scCreate, csTitle, "", nil, 0, ""

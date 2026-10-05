@@ -23,6 +23,7 @@ const (
 	pathCreate  = "/api/v/p2wr/"
 	pathStake   = "/api/v/h6nc/"
 	pathResolve = "/api/v/j9ud/"
+	pathWins    = "/api/v/r5vk/"
 )
 
 const userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
@@ -69,6 +70,10 @@ type Bet struct {
 	Mine    []int    `json:"m"`
 	Winner  int      `json:"r"`
 	Created int64    `json:"d"`
+	// Paid is what the bet returned to this user (payout or refund), zero
+	// while it is open or if they lost. Resolved is when it closed.
+	Paid     int   `json:"y"`
+	Resolved int64 `json:"z"`
 }
 
 // clone copies the slices, so the board's copy of a bet and the open detail
@@ -115,6 +120,7 @@ type actionResp struct {
 	Balance int `json:"w"`
 	ID      int `json:"i"`
 	Status  int `json:"s"`
+	Paid    int `json:"y"`
 }
 
 // APIError carries the server's numeric code.
@@ -205,6 +211,15 @@ func (c *APIClient) post(path string, req map[string]any, out any) error {
 func (c *APIClient) Board() (*boardResp, error) {
 	var out boardResp
 	if err := c.post(pathBoard, map[string]any{}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Wins lists every bet this user has won, newest first.
+func (c *APIClient) Wins() (*boardResp, error) {
+	var out boardResp
+	if err := c.post(pathWins, map[string]any{}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

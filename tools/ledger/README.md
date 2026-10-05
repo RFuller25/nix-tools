@@ -18,8 +18,16 @@ First run asks for an API key and a username (the same flow as
 
 | screen | keys |
 | --- | --- |
-| board | `↑↓` move · `enter` open a bet · `n` new bet · `r` refresh · `q` quit |
+| board | `↑↓` move · `enter` open a bet · `tab` or `1`/`2` switch tab · `n` new bet · `r` refresh · `q` quit |
 | bet | `b` bet · `r` resolve (creator only, while open) · `esc` back |
+
+The **Won** tab lists every bet you backed to a win, newest first, with what
+each staked and paid. It is fetched the first time you open it (and on `r`),
+not on a timer.
+
+On the board a closed bet shows how it went for *you*: `you won +40`,
+`you lost 10`, `refunded 5`, or `no stake`. A bet page also names the outcome
+that happened, which is the same for everyone.
 
 A bet page shows every outcome's money, its share of the pool, what a BB on it
 returns right now (`x2.50`), and a graph of those shares over time.
