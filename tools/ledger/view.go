@@ -34,7 +34,7 @@ func (m model) View() string {
 	case scResolve:
 		body = m.viewResolve()
 	}
-	return m.header() + "\n\n" + body + "\n" + m.footer()
+	return m.header() + "\n" + m.tabBar() + "\n\n" + body + "\n" + m.footer()
 }
 
 func (m model) header() string {
@@ -42,6 +42,22 @@ func (m model) header() string {
 	left := titleSt.Render("ledger")
 	gap := max(m.width-lipgloss.Width(left)-lipgloss.Width(right)-2, 1)
 	return left + strings.Repeat(" ", gap) + hl.Render(right)
+}
+
+func (m model) tabBar() string {
+	if m.screen != scBoard {
+		return ""
+	}
+	names := []string{"1 Board", "2 Won"}
+	out := make([]string, len(names))
+	for i, n := range names {
+		if i == m.tab {
+			out[i] = selSt.Render("[" + n + "]")
+		} else {
+			out[i] = dim.Render(" " + n + " ")
+		}
+	}
+	return strings.Join(out, " ")
 }
 
 func (m model) footer() string {
@@ -60,7 +76,7 @@ func (m model) footer() string {
 func (m model) help() string {
 	switch m.screen {
 	case scBoard:
-		return "↑↓ move · enter open · n new bet · r refresh · q quit"
+		return "↑↓ move · enter open · tab switch · n new bet · r refresh · q quit"
 	case scDetail:
 		h := "esc back"
 		if m.detail != nil && m.detail.Status == statusOpen {
@@ -80,20 +96,46 @@ func (m model) help() string {
 	}
 }
 
-func statusTag(b Bet) string {
+func stakedTotal(b Bet) int { return sum(b.Mine) }
+
+// outcomeTag says what happened to the bet, the same for everyone.
+func outcomeTag(b Bet) string {
 	switch b.Status {
 	case statusResolved:
 		if b.Winner >= 0 && b.Winner < len(b.Options) {
-			return goodSt.Render("won: " + b.Options[b.Winner].Label)
+			return "outcome: " + b.Options[b.Winner].Label
 		}
-		return goodSt.Render("resolved")
+		return "resolved"
 	case statusVoid:
-		return dim.Render("void")
+		return "void"
 	}
 	return ""
 }
 
+// resultTag says how a closed bet went for this user, and nothing for an
+// open one. Winning the bet is not the same as winning the outcome: it is
+// only a win if the user backed it.
+func resultTag(b Bet) string {
+	if b.Status == statusOpen {
+		return ""
+	}
+	staked := stakedTotal(b)
+	switch {
+	case staked == 0:
+		return dim.Render("no stake")
+	case b.Status == statusVoid:
+		return dim.Render(fmt.Sprintf("refunded %d", b.Paid))
+	case b.Paid > 0:
+		return goodSt.Render(fmt.Sprintf("you won %+d", b.Paid-staked))
+	default:
+		return badSt.Render(fmt.Sprintf("you lost %d", staked))
+	}
+}
+
 func (m model) viewBoard() string {
+	if m.tab == tabWon {
+		return m.viewWon()
+	}
 	if len(m.bets) == 0 {
 		if m.busy {
 			return dim.Render("loading the board...")
@@ -115,10 +157,11 @@ func (m model) viewBoard() string {
 		if m.isMine(&bet) {
 			mark = "★"
 		}
-		tag := statusTag(bet)
 		meta := fmt.Sprintf("%d BBs", bet.Pool)
-		if tag != "" {
+		if tag := resultTag(bet); tag != "" {
 			meta += " · " + tag
+		} else if bet.Status == statusOpen && stakedTotal(bet) > 0 {
+			meta += fmt.Sprintf(" · in for %d", stakedTotal(bet))
 		}
 		room := max(w-lipgloss.Width(meta)-6, 8)
 		title := truncate(bet.Title, room)
@@ -134,6 +177,47 @@ func (m model) viewBoard() string {
 	}
 	if len(m.bets) > visible {
 		b.WriteString(dim.Render(fmt.Sprintf("  %d/%d", m.cursor+1, len(m.bets))) + "\n")
+	}
+	return b.String()
+}
+
+// viewWon lists the bets this user backed to a win, with what each paid.
+func (m model) viewWon() string {
+	if len(m.won) == 0 {
+		if m.busy {
+			return dim.Render("loading your wins...")
+		}
+		return dim.Render("no wins yet.")
+	}
+	total := 0
+	for _, b := range m.won {
+		total += b.Paid - stakedTotal(b)
+	}
+	visible := max(m.height-11, 3)
+	start := 0
+	if m.wonCursor >= visible {
+		start = m.wonCursor - visible + 1
+	}
+	end := min(start+visible, len(m.won))
+	w := max(m.width-4, 20)
+
+	var b strings.Builder
+	b.WriteString(dim.Render(fmt.Sprintf("%d wins · %+d BBs net", len(m.won), total)) + "\n\n")
+	for i := start; i < end; i++ {
+		bet := m.won[i]
+		when := ""
+		if bet.Resolved > 0 {
+			when = time.Unix(bet.Resolved, 0).Format("Jan 2")
+		}
+		meta := fmt.Sprintf("%s  staked %d → paid %d (%+d)", when, stakedTotal(bet), bet.Paid, bet.Paid-stakedTotal(bet))
+		room := max(w-lipgloss.Width(meta)-6, 8)
+		line := truncate(bet.Title, room)
+		pad := max(w-lipgloss.Width(line)-lipgloss.Width(meta), 2)
+		if i == m.wonCursor {
+			b.WriteString(selSt.Render("▸ ") + hl.Render(line) + strings.Repeat(" ", pad) + goodSt.Render(meta) + "\n")
+		} else {
+			b.WriteString("  " + line + strings.Repeat(" ", pad) + dim.Render(meta) + "\n")
+		}
 	}
 	return b.String()
 }
@@ -157,10 +241,14 @@ func (m model) viewDetail() string {
 	var b strings.Builder
 	b.WriteString(hl.Render(d.Title) + "\n")
 	by := "by " + d.Creator + " · " + time.Unix(d.Created, 0).Format("Jan 2 15:04")
-	if t := statusTag(d.Bet); t != "" {
+	if t := outcomeTag(d.Bet); t != "" {
 		by += " · " + t
 	}
-	b.WriteString(dim.Render(by) + "\n\n")
+	b.WriteString(dim.Render(by) + "\n")
+	if r := resultTag(d.Bet); r != "" {
+		b.WriteString(r + "\n")
+	}
+	b.WriteString("\n")
 
 	for i, o := range d.Options {
 		mine := ""

@@ -56,7 +56,10 @@ func isolate(t *testing.T) {
 
 const boardJSON = `{"w":120,"b":[
  {"i":7,"t":"Rain tomorrow?","c":"alice","s":0,"p":30,"o":[["yes",10],["no",20]],"m":[10,0],"r":-1,"d":1700000000},
- {"i":8,"t":"Old one","c":"bob","s":1,"p":50,"o":[["a",25],["b",25]],"m":[0,0],"r":1,"d":1690000000}]}`
+ {"i":8,"t":"Old one","c":"bob","s":1,"p":50,"o":[["a",25],["b",25]],"m":[10,0],"r":1,"d":1690000000,"y":0,"z":1690001000},
+ {"i":9,"t":"Cheap win","c":"bob","s":1,"p":60,"o":[["a",20],["b",40]],"m":[0,20],"r":1,"d":1690000000,"y":60,"z":1690002000},
+ {"i":10,"t":"Sat out","c":"bob","s":1,"p":10,"o":[["a",5],["b",5]],"m":[0,0],"r":0,"d":1690000000,"y":0,"z":1690003000},
+ {"i":11,"t":"Voided","c":"bob","s":2,"p":10,"o":[["a",5],["b",5]],"m":[5,0],"r":-1,"d":1690000000,"y":5,"z":1690004000}]}`
 
 func TestBoardDecodesScrambledKeys(t *testing.T) {
 	f, c := newFake(t)
@@ -65,7 +68,7 @@ func TestBoardDecodesScrambledKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.Balance != 120 || len(b.Bets) != 2 {
+	if b.Balance != 120 || len(b.Bets) != 5 {
 		t.Fatalf("board = %+v", b)
 	}
 	if got := b.Bets[0]; got.Title != "Rain tomorrow?" || got.Options[1] != (Option{"no", 20}) || got.Mine[0] != 10 {
@@ -198,13 +201,96 @@ func loaded(t *testing.T) (model, *fake) {
 func TestBoardViewAndCache(t *testing.T) {
 	m, _ := loaded(t)
 	v := m.View()
-	for _, want := range []string{"Rain tomorrow?", "120 BBs", "won: b", "★"} {
+	for _, want := range []string{"Rain tomorrow?", "120 BBs", "you won +40", "you lost 10", "no stake", "refunded 5", "in for 10", "★"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("board missing %q:\n%s", want, v)
 		}
 	}
 	if loadCache("alice") == nil {
 		t.Error("board was not cached")
+	}
+}
+
+func TestBoardNeverSaysWonUnlessYouBackedTheWinner(t *testing.T) {
+	m, _ := loaded(t)
+	if strings.Count(m.View(), "you won") != 1 {
+		t.Fatalf("exactly one bet was won:\n%s", m.View())
+	}
+	for _, c := range []struct {
+		id   int
+		want string
+		not  string
+	}{
+		{8, "you lost 10", "you won"},
+		{9, "you won +40", "you lost"},
+		{10, "no stake", "you won"},
+		{11, "refunded 5", "you won"},
+	} {
+		m = send(m, key("esc"))
+		m.cursor = m.betIndex(c.id)
+		m = send(m, key("enter"), detailMsg{id: c.id, d: &Detail{Bet: m.bets[m.cursor]}})
+		v := m.View()
+		if !strings.Contains(v, c.want) || strings.Contains(v, c.not) {
+			t.Errorf("bet %d detail: want %q, not %q:\n%s", c.id, c.want, c.not, v)
+		}
+		if strings.Contains(v, "won:") {
+			t.Errorf("bet %d still labels the outcome as won:\n%s", c.id, v)
+		}
+	}
+}
+
+func TestWonTab(t *testing.T) {
+	m, f := loaded(t)
+	f.reply[pathWins] = `{"w":120,"b":[{"i":9,"t":"Cheap win","c":"bob","s":1,"p":60,"o":[["a",20],["b",40]],"m":[0,20],"r":1,"d":1,"y":60,"z":1690002000},
+	 {"i":3,"t":"Earlier win","c":"bob","s":1,"p":30,"o":[["a",10],["b",20]],"m":[10,0],"r":0,"d":1,"y":30,"z":1680000000}]}`
+	next, cmd := m.Update(key("2"))
+	m = next.(model)
+	if m.tab != tabWon || !m.busy || cmd == nil {
+		t.Fatal("opening the Won tab should fetch once")
+	}
+	var wins boardResp
+	if err := json.Unmarshal([]byte(f.reply[pathWins]), &wins); err != nil {
+		t.Fatal(err)
+	}
+	m = send(m, winsMsg{resp: &wins})
+	v := m.View()
+	for _, want := range []string{"Won", "2 wins", "+60 BBs net", "Cheap win", "staked 20 → paid 60 (+40)", "Earlier win", "staked 10 → paid 30 (+20)"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("won tab missing %q:\n%s", want, v)
+		}
+	}
+	// going back and forth must not refetch
+	m = send(m, key("1"))
+	next, cmd = m.Update(key("2"))
+	m = next.(model)
+	if cmd != nil || m.busy {
+		t.Fatal("won tab refetched without being asked")
+	}
+	// cursor + enter open the highlighted win
+	m = send(m, key("down"))
+	next, cmd = m.Update(key("enter"))
+	m = next.(model)
+	if m.screen != scDetail || m.detail.ID != 3 || cmd == nil {
+		t.Fatalf("enter opened %+v", m.detail)
+	}
+	// r on the tab refetches the wins, not the board
+	m = send(m, detailMsg{id: 3, d: &Detail{Bet: m.detail.Bet}}, key("esc"))
+	_, cmd = m.Update(key("r"))
+	if cmd == nil {
+		t.Fatal("r should refresh")
+	}
+}
+
+func TestWinsInvalidatedByResolving(t *testing.T) {
+	m, _ := loaded(t)
+	m.wonLoaded = true
+	m = send(m, key("enter"), detailMsg{id: 7, d: &Detail{Bet: m.bets[0]}})
+	m = send(m, resolveMsg{7, 0, &actionResp{Balance: 150, Status: statusResolved, Paid: 30}, nil})
+	if m.wonLoaded {
+		t.Fatal("won list should be refetched next visit")
+	}
+	if m.detail.Paid != 30 || !strings.Contains(m.View(), "you won +20") {
+		t.Fatalf("detail after resolve:\n%s", m.View())
 	}
 }
 
