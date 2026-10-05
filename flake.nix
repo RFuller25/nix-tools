@@ -37,6 +37,13 @@
             vendorHash = "sha256-P3iFBhlDRS+bTfGRwy2bTPmi83HgIOMPKI364SRUouI=";
           };
 
+          ledger = pkgs.buildGoModule {
+            pname = "ledger";
+            version = "0.1.0";
+            src = ./tools/ledger;
+            vendorHash = "sha256-HsV9tFxW9vLAFHgVFrBopSqgdN/wAN1ss734rPQMbNM=";
+          };
+
           default = self.packages.${system}.talc;
         };
 
@@ -54,6 +61,11 @@
           talc = {
             type = "app";
             program = "${self.packages.${system}.talc}/bin/talc";
+          };
+
+          ledger = {
+            type = "app";
+            program = "${self.packages.${system}.ledger}/bin/ledger";
           };
 
           default = self.apps.${system}.talc;
