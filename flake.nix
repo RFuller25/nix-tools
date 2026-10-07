@@ -39,7 +39,7 @@
 
           ledger = pkgs.buildGoModule {
             pname = "ledger";
-            version = "0.2.0";
+            version = "0.3.0";
             src = ./tools/ledger;
             vendorHash = "sha256-HsV9tFxW9vLAFHgVFrBopSqgdN/wAN1ss734rPQMbNM=";
           };

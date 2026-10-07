@@ -48,7 +48,7 @@ func (m model) tabBar() string {
 	if m.screen != scBoard {
 		return ""
 	}
-	names := []string{"1 Board", "2 Won"}
+	names := []string{"1 Board", "2 Won", "3 Leaderboard"}
 	out := make([]string, len(names))
 	for i, n := range names {
 		if i == m.tab {
@@ -76,6 +76,9 @@ func (m model) footer() string {
 func (m model) help() string {
 	switch m.screen {
 	case scBoard:
+		if m.tab == tabLeaders {
+			return "↑↓ scroll · tab switch · n new bet · r refresh · q quit"
+		}
 		return "↑↓ move · enter open · tab switch · n new bet · r refresh · q quit"
 	case scDetail:
 		h := "esc back"
@@ -133,26 +136,30 @@ func resultTag(b Bet) string {
 }
 
 func (m model) viewBoard() string {
-	if m.tab == tabWon {
+	switch m.tab {
+	case tabWon:
 		return m.viewWon()
+	case tabLeaders:
+		return m.viewLeaders()
 	}
-	if len(m.bets) == 0 {
+	act := m.active()
+	if len(act) == 0 {
 		if m.busy {
 			return dim.Render("loading the board...")
 		}
-		return dim.Render("no bets yet. press n to start one.")
+		return dim.Render("no open bets. press n to start one.")
 	}
 	visible := max(m.height-9, 3)
 	start := 0
 	if m.cursor >= visible {
 		start = m.cursor - visible + 1
 	}
-	end := min(start+visible, len(m.bets))
+	end := min(start+visible, len(act))
 	w := max(m.width-4, 20)
 
 	var b strings.Builder
 	for i := start; i < end; i++ {
-		bet := m.bets[i]
+		bet := m.bets[act[i]]
 		mark := " "
 		if m.isMine(&bet) {
 			mark = "★"
@@ -175,10 +182,85 @@ func (m model) viewBoard() string {
 		}
 		b.WriteString(row + "\n")
 	}
-	if len(m.bets) > visible {
-		b.WriteString(dim.Render(fmt.Sprintf("  %d/%d", m.cursor+1, len(m.bets))) + "\n")
+	if len(act) > visible {
+		b.WriteString(dim.Render(fmt.Sprintf("  %d/%d", m.cursor+1, len(act))) + "\n")
 	}
 	return b.String()
+}
+
+// viewLeaders is everyone's balance, richest first, with the player marked.
+func (m model) viewLeaders() string {
+	if len(m.leaders) == 0 {
+		if m.busy {
+			return dim.Render("loading the leaderboard...")
+		}
+		return dim.Render("nobody on the leaderboard yet.")
+	}
+	me, rank := "", 0
+	if m.cfg != nil {
+		me = m.cfg.Username
+	}
+	for i, l := range m.leaders {
+		if l.Name == me {
+			rank = i + 1
+		}
+	}
+	visible := max(m.height-11, 3)
+	start := min(m.leadCursor, max(len(m.leaders)-visible, 0))
+	end := min(start+visible, len(m.leaders))
+	w := min(max(m.width-4, 24), 60)
+	nameW := 0
+	for _, l := range m.leaders {
+		nameW = max(nameW, lipgloss.Width(l.Name))
+	}
+	nameW = min(nameW, max(w-16, 8))
+
+	medal := []lipgloss.Style{
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#e6b422")).Bold(true),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#b8c0cc")).Bold(true),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#cd7f32")).Bold(true),
+	}
+	var b strings.Builder
+	head := fmt.Sprintf("%d players", len(m.leaders))
+	if rank > 0 {
+		head += fmt.Sprintf(" · you are %s", ordinal(rank))
+	}
+	b.WriteString(dim.Render(head) + "\n\n")
+	for i := start; i < end; i++ {
+		l := m.leaders[i]
+		num := fmt.Sprintf("%2d.", i+1)
+		name := truncate(l.Name, nameW)
+		row := fmt.Sprintf("%s %-*s %8d BBs", num, nameW, name, l.Balance)
+		switch {
+		case l.Name == me:
+			row = selSt.Render("▸ ") + hl.Render(row) + dim.Render("  ← you")
+		case i < len(medal):
+			row = "  " + medal[i].Render(row)
+		default:
+			row = "  " + row
+		}
+		b.WriteString(row + "\n")
+	}
+	if len(m.leaders) > visible {
+		b.WriteString(dim.Render(fmt.Sprintf("  %d-%d of %d", start+1, end, len(m.leaders))) + "\n")
+	}
+	return b.String()
+}
+
+// ordinal writes 1 as 1st, 2 as 2nd, 11 as 11th.
+func ordinal(n int) string {
+	suffix := "th"
+	if n%100 < 11 || n%100 > 13 {
+		switch n % 10 {
+		case 1:
+			suffix = "st"
+		case 2:
+			suffix = "nd"
+		case 3:
+			suffix = "rd"
+		}
+	}
+	return fmt.Sprintf("%d%s", n, suffix)
 }
 
 // viewWon lists the bets this user backed to a win, with what each paid.

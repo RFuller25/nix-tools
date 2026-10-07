@@ -14,6 +14,8 @@ import (
 const (
 	tabBoard = iota
 	tabWon
+	tabLeaders
+	tabCount
 )
 
 type screen int
@@ -51,6 +53,11 @@ type boardMsg struct {
 
 type winsMsg struct {
 	resp *boardResp
+	err  error
+}
+
+type leadersMsg struct {
+	resp *leadersResp
 	err  error
 }
 
@@ -94,10 +101,14 @@ type model struct {
 	bets    []Bet
 	cursor  int
 
-	tab       int // tabBoard or tabWon
+	tab       int // tabBoard, tabWon or tabLeaders
 	won       []Bet
 	wonLoaded bool
 	wonCursor int
+
+	leaders       []Leader
+	leadersLoaded bool
+	leadCursor    int // the first row shown, so the table can scroll
 
 	busy   bool
 	spin   spinner.Model
@@ -174,6 +185,14 @@ func (m model) fetchWins() tea.Cmd {
 	})
 }
 
+func (m model) fetchLeaders() tea.Cmd {
+	c := m.client
+	return tea.Batch(m.spin.Tick, func() tea.Msg {
+		r, err := c.Leaders()
+		return leadersMsg{r, err}
+	})
+}
+
 func (m model) fetchDetail(id int) tea.Cmd {
 	c := m.client
 	return tea.Batch(m.spin.Tick, func() tea.Msg {
@@ -231,15 +250,36 @@ func (m *model) betIndex(id int) int {
 	return -1
 }
 
-func (m model) selected() *Bet {
-	list, cur := m.bets, m.cursor
-	if m.tab == tabWon {
-		list, cur = m.won, m.wonCursor
+// active is the board's list: the bets still open, as indexes into m.bets.
+// A bet that has been resolved or voided is no longer a live wager, so it
+// leaves the board; the Won tab and its own page still show how it went.
+func (m model) active() []int {
+	var idx []int
+	for i := range m.bets {
+		if m.bets[i].Status == statusOpen {
+			idx = append(idx, i)
+		}
 	}
-	if cur < 0 || cur >= len(list) {
+	return idx
+}
+
+// clampCursor keeps the board cursor inside the open bets.
+func (m *model) clampCursor() {
+	m.cursor = min(m.cursor, max(len(m.active())-1, 0))
+}
+
+func (m model) selected() *Bet {
+	if m.tab == tabWon {
+		if m.wonCursor < 0 || m.wonCursor >= len(m.won) {
+			return nil
+		}
+		return &m.won[m.wonCursor]
+	}
+	act := m.active()
+	if m.cursor < 0 || m.cursor >= len(act) {
 		return nil
 	}
-	return &list[cur]
+	return &m.bets[act[m.cursor]]
 }
 
 func (m model) isMine(b *Bet) bool { return b != nil && m.cfg != nil && b.Creator == m.cfg.Username }
@@ -332,7 +372,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.balance, m.bets = msg.resp.Balance, msg.resp.Bets
-		m.cursor = min(m.cursor, max(len(m.bets)-1, 0))
+		m.clampCursor()
 		m.flash = ""
 		m.persist()
 		return m, nil
@@ -345,6 +385,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.balance, m.won, m.wonLoaded = msg.resp.Balance, msg.resp.Bets, true
 		m.wonCursor = min(m.wonCursor, max(len(m.won)-1, 0))
+		m.flash = ""
+		return m, nil
+
+	case leadersMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.fail(msg.err)
+			return m, nil
+		}
+		m.balance, m.leaders, m.leadersLoaded = msg.resp.Balance, msg.resp.Rows, true
+		m.leadCursor = 0
 		m.flash = ""
 		return m, nil
 
@@ -391,6 +442,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.balance = msg.resp.Balance
+		m.leadersLoaded = false
 		m.applyStake(msg.id, msg.option, msg.amount)
 		m.screen = scDetail
 		m.ok(fmt.Sprintf("staked %d BBs", msg.amount))
@@ -406,7 +458,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.balance = msg.resp.Balance
 		m.applyResolve(msg.id, msg.option, msg.resp.Status, msg.resp.Paid)
-		m.wonLoaded = false // a win may have just been added
+		m.wonLoaded = false     // a win may have just been added
+		m.leadersLoaded = false // and balances have moved
 		m.screen = scDetail
 		if msg.resp.Status == statusVoid {
 			m.ok("bet voided, stakes refunded")
@@ -443,38 +496,57 @@ func (m model) keyBoard(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "q":
 		return m, tea.Quit
-	case "tab", "shift+tab", "1", "2":
-		next := tabBoard
+	case "tab", "shift+tab", "1", "2", "3":
+		next := m.tab
 		switch k.String() {
-		case "tab", "shift+tab":
-			next = 1 - m.tab
+		case "tab":
+			next = (m.tab + 1) % tabCount
+		case "shift+tab":
+			next = (m.tab + tabCount - 1) % tabCount
+		case "1":
+			next = tabBoard
 		case "2":
 			next = tabWon
+		case "3":
+			next = tabLeaders
 		}
 		if next == m.tab {
 			return m, nil
 		}
 		m.tab, m.flash = next, ""
-		if m.tab == tabWon && !m.wonLoaded {
+		switch {
+		case m.tab == tabWon && !m.wonLoaded:
 			m.busy = true
 			return m, m.fetchWins()
+		case m.tab == tabLeaders && !m.leadersLoaded:
+			m.busy = true
+			return m, m.fetchLeaders()
 		}
 	case "up", "k":
-		if m.tab == tabWon {
+		switch m.tab {
+		case tabWon:
 			m.wonCursor = max(m.wonCursor-1, 0)
-		} else {
+		case tabLeaders:
+			m.leadCursor = max(m.leadCursor-1, 0)
+		default:
 			m.cursor = max(m.cursor-1, 0)
 		}
 	case "down", "j":
-		if m.tab == tabWon {
+		switch m.tab {
+		case tabWon:
 			m.wonCursor = min(m.wonCursor+1, max(len(m.won)-1, 0))
-		} else {
-			m.cursor = min(m.cursor+1, max(len(m.bets)-1, 0))
+		case tabLeaders:
+			m.leadCursor = min(m.leadCursor+1, max(len(m.leaders)-1, 0))
+		default:
+			m.cursor = min(m.cursor+1, max(len(m.active())-1, 0))
 		}
 	case "r":
 		m.busy, m.flash = true, ""
-		if m.tab == tabWon {
+		switch m.tab {
+		case tabWon:
 			return m, m.fetchWins()
+		case tabLeaders:
+			return m, m.fetchLeaders()
 		}
 		return m, m.fetchBoard()
 	case "n":
@@ -484,6 +556,9 @@ func (m model) keyBoard(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.input.CharLimit = 120
 		return m, m.input.Focus()
 	case "enter":
+		if m.tab == tabLeaders {
+			return m, nil
+		}
 		b := m.selected()
 		if b == nil {
 			return m, nil
@@ -500,6 +575,7 @@ func (m model) keyDetail(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k.String() {
 	case "esc", "backspace", "q":
 		m.screen, m.flash = scBoard, ""
+		m.clampCursor()
 	case "b":
 		if d != nil && d.Status == statusOpen {
 			m.screen, m.sStep, m.sOption, m.flash = scStake, ssOption, 0, ""

@@ -24,6 +24,7 @@ const (
 	pathStake   = "/api/v/h6nc/"
 	pathResolve = "/api/v/j9ud/"
 	pathWins    = "/api/v/r5vk/"
+	pathLeaders = "/api/v/t4yb/"
 )
 
 const userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
@@ -220,6 +221,47 @@ func (c *APIClient) Board() (*boardResp, error) {
 func (c *APIClient) Wins() (*boardResp, error) {
 	var out boardResp
 	if err := c.post(pathWins, map[string]any{}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Leader is [name, balance] on the wire.
+type Leader struct {
+	Name    string
+	Balance int
+}
+
+func (l *Leader) UnmarshalJSON(b []byte) error {
+	var raw [2]json.RawMessage
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(raw[0], &l.Name); err != nil {
+		return err
+	}
+	return json.Unmarshal(raw[1], &l.Balance)
+}
+
+func (l Leader) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]any{l.Name, l.Balance})
+}
+
+type leadersResp struct {
+	Balance int      `json:"w"`
+	Rows    []Leader `json:"l"`
+}
+
+// Leaders is everyone's balance, richest first. If the server does not know
+// the path (it answers 404 without the usual error code), say so plainly
+// instead of "error 404".
+func (c *APIClient) Leaders() (*leadersResp, error) {
+	var out leadersResp
+	if err := c.post(pathLeaders, map[string]any{}, &out); err != nil {
+		var e *APIError
+		if errors.As(err, &e) && e.Code == -1 && e.Status == http.StatusNotFound {
+			return nil, errors.New("this server has no leaderboard yet")
+		}
 		return nil, err
 	}
 	return &out, nil
