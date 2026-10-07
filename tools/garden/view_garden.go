@@ -333,11 +333,17 @@ func (m model) renderCell(idx int) string {
 			nameStyle = titleStyle
 		}
 		lines = append(lines, pad(nameStyle.Render(truncate(name, cellInner)), cellInner))
-		lines = append(lines, pad(m.statStrip(p), cellInner))
+		if m.overlay {
+			lines = append(lines, pad(synergyBadge(m.g.Synergy(idx).Net()), cellInner))
+		} else {
+			lines = append(lines, pad(m.statStrip(p), cellInner))
+		}
 	}
 
 	border := plainBorder
 	switch {
+	case m.overlay && !p.Empty() && !selected:
+		border = synergyBorder(m.g.Synergy(idx).Net())
 	case selected:
 		border = selBorder
 	case m.pollinating && idx == m.pollenTarget:
@@ -408,4 +414,27 @@ func pollenMark(p *Plot) string {
 		return ""
 	}
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(p.Pollen.Hex())).Render("✿")
+}
+
+// synergyBorder colours a bed's frame by how its neighbourhood treats it.
+func synergyBorder(net float64) lipgloss.Style {
+	switch {
+	case net >= 0.03:
+		return goodBorder
+	case net <= -0.03:
+		return badBorder
+	}
+	return plainBorder
+}
+
+// synergyBadge is the figure shown under a bed in the overlay.
+func synergyBadge(net float64) string {
+	pct := net * 100
+	switch {
+	case net >= 0.03:
+		return okStyle.Render(fmt.Sprintf("▲ %+.0f%% growth", pct))
+	case net <= -0.03:
+		return errStyle.Render(fmt.Sprintf("▼ %+.0f%% growth", pct))
+	}
+	return subtleStyle.Render("● neutral")
 }

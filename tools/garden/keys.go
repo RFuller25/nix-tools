@@ -293,6 +293,15 @@ func buildBindings() []binding {
 	add(setGarden, k("u"), "u", "lift a plant and compost it into the bed", "", func(m *model) tea.Cmd { return m.actLift(false) })
 	add(setGarden, k("b"), "b", "break new ground: one more bed", "b new bed", func(m *model) tea.Cmd { return m.actBuyBed() })
 	add(setGarden, k("d"), "d", "dig a pond here, or fill it back in", "d pond", func(m *model) tea.Cmd { return m.actPond() })
+	add(setGarden, k("g"), "g", "neighbour overlay: colour every bed by how well it gets on with the beds around it, green for good company and red for crowding", "g overlay", func(m *model) tea.Cmd {
+		m.overlay = !m.overlay
+		if m.overlay {
+			m.setStatus(okStyle, "Overlay on: green beds help one another, red beds hinder; the figure is the net effect on growth. g again to leave.")
+		} else {
+			m.setStatus(subtleStyle, "Overlay off.")
+		}
+		return nil
+	})
 	add(setGarden, k("x"), "x", "pollinate by hand: brush pollen from another flower of the same species onto this one, so its next seed is that cross", "x pollinate", func(m *model) tea.Cmd { return m.actStartPollinate() })
 	add(setGarden, k("a"), "a", "the almanac", "a almanac", func(m *model) tea.Cmd {
 		m.screen, m.cardScroll = screenAlmanac, 0

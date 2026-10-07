@@ -49,6 +49,7 @@ nix run .#garden      # or: go run ./tools/garden
 | `u` | lift a plant and compost it into the bed |
 | `b` | break new ground: one more bed |
 | `d` | dig a pond here, or fill it back in |
+| `g` | neighbour overlay: colour every bed by how well it gets on with the beds around it, green for good company and red for crowding |
 | `x` | pollinate by hand: brush pollen from another flower of the same species onto this one, so its next seed is that cross |
 | `a` | the almanac |
 | `s` | the seed shed (shop and your own seeds) |

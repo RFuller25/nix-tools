@@ -76,6 +76,7 @@ type model struct {
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
 
+	overlay      bool // colour the beds by how well they get on with their neighbours
 	pollinating  bool // choosing a donor for pollenTarget
 	pollenTarget int
 	naming       bool

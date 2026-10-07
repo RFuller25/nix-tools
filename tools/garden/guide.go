@@ -205,6 +205,13 @@ func chNeighbours() chapter {
 				out = append(out, gk(fmt.Sprintf("%s%.0f%%", sign, c.delta*100),
 					fmt.Sprintf("%s beside %s — %s", describeMatch(c.who), describeMatch(c.from), c.note), w)...)
 			}
+			out = append(out, "", gh("Rules from the genes"))
+			out = append(out, gp("These work on how the actual plants have been bred, so the same species can help or hinder depending on its genes:", w)...)
+			for _, e := range geneRuleDocs() {
+				out = append(out, gk(e.Label, e.Text, w)...)
+			}
+			out = append(out, "")
+			out = append(out, gp("Press g in the garden for the overlay: every bed is outlined green or red by the net of what its neighbours do for it and what it does for them (▲ and ▼ show the figure), so a good arrangement can be seen at a glance.", w)...)
 			return out
 		},
 	}
