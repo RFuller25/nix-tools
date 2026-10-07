@@ -21,6 +21,7 @@ const (
 	setGlobal  keySet = "global"
 	setGarden  keySet = "garden"
 	setShop    keySet = "shed"
+	setMine    keySet = "mine"
 	setInfo    keySet = "card"
 	setAlmanac keySet = "almanac"
 	setJournal keySet = "journal"
@@ -44,7 +45,8 @@ type binding struct {
 var setTitles = map[keySet]string{
 	setGlobal:  "anywhere",
 	setGarden:  "in the garden",
-	setShop:    "in the seed shed",
+	setShop:    "in the shed: the shop shelf",
+	setMine:    "in the shed: my seeds shelf",
 	setInfo:    "on a plant's card",
 	setAlmanac: "in the almanac",
 	setJournal: "in the journal",
@@ -52,7 +54,7 @@ var setTitles = map[keySet]string{
 }
 
 // setOrder is the order sets are listed in.
-var setOrder = []keySet{setGarden, setShop, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
+var setOrder = []keySet{setGarden, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
 
 var (
 	bindingsOnce sync.Once
@@ -85,6 +87,9 @@ func (m model) activeSets() []keySet {
 func (m model) screenSet() keySet {
 	switch m.screen {
 	case screenShop:
+		if m.shelf == shelfMine {
+			return setMine
+		}
 		return setShop
 	case screenInfo:
 		return setInfo
@@ -254,8 +259,7 @@ func buildBindings() []binding {
 	})
 	add(setGarden, k("p", "enter"), "p / enter", "sow in the selected bed (opens the seed shed), or open the card of what is growing", "p plant", func(m *model) tea.Cmd {
 		if m.plot().Empty() {
-			m.screen = screenShop
-			m.refreshShop()
+			m.openShed(true)
 		} else {
 			m.screen, m.cardScroll = screenInfo, 0
 		}
@@ -288,9 +292,8 @@ func buildBindings() []binding {
 		m.screen, m.cardScroll = screenAlmanac, 0
 		return nil
 	})
-	add(setGarden, k("s"), "s", "the seed shed", "", func(m *model) tea.Cmd {
-		m.screen, m.cardScroll = screenShop, 0
-		m.refreshShop()
+	add(setGarden, k("s"), "s", "the seed shed (shop and your own seeds)", "s seeds", func(m *model) tea.Cmd {
+		m.openShed(false)
 		return nil
 	})
 
@@ -342,7 +345,43 @@ func buildBindings() []binding {
 		}
 		return nil
 	})
-	add(setShop, k("enter", "p", " "), "enter / p / space", "sow the chosen seed in the selected bed", "enter sow", func(m *model) tea.Cmd { return m.actSow() })
+	add(setShop, k("enter", "p", " "), "enter / p / space", "buy one seed and sow it in the selected bed", "enter buy & sow", func(m *model) tea.Cmd { return m.actSow() })
+	add(setShop, k("b"), "b", "buy one seed into your shed without sowing it", "b buy", func(m *model) tea.Cmd { return m.actBuySeed() })
+	add(setShop, k("s"), "s", "switch to your own seeds", "s my seeds", func(m *model) tea.Cmd { return m.actShelf(shelfMine) })
+
+	// ---- the seed shed: my seeds ---------------------------------------
+	add(setMine, k("up", "k"), "↑↓ / jk", "browse your packets", "↑↓ browse", func(m *model) tea.Cmd {
+		if m.mineCursor > 0 {
+			m.mineCursor--
+			m.cardScroll = 0
+		}
+		return nil
+	})
+	add(setMine, k("down", "j"), "", "", "", func(m *model) tea.Cmd {
+		if m.mineCursor < len(m.g.Shed)-1 {
+			m.mineCursor++
+			m.cardScroll = 0
+		}
+		return nil
+	})
+	add(setMine, k("pgup"), "pgup / pgdn", "read a long card", "", func(m *model) tea.Cmd { scrollBy(m, -6); return nil })
+	add(setMine, k("pgdown"), "", "", "", func(m *model) tea.Cmd { scrollBy(m, 6); return nil })
+	add(setMine, k("home", "g"), "home / g, end / G", "first / last packet", "", func(m *model) tea.Cmd {
+		m.mineCursor, m.cardScroll = 0, 0
+		return nil
+	})
+	add(setMine, k("end", "G"), "", "", "", func(m *model) tea.Cmd {
+		m.mineCursor, m.cardScroll = max(0, len(m.g.Shed)-1), 0
+		return nil
+	})
+	add(setMine, k("enter", "p", " "), "enter / p / space", "sow one seed from the packet in the selected bed", "enter sow", func(m *model) tea.Cmd { return m.actSowMine() })
+	add(setMine, k("$"), "$ / S", "sell one seed from the packet / the whole packet", "$ sell", func(m *model) tea.Cmd { return m.actSell(1) })
+	add(setMine, k("S"), "", "", "", func(m *model) tea.Cmd { return m.actSell(0) })
+	add(setMine, k("r", "n"), "r / n", "give the packet a name of your own", "r label", func(m *model) tea.Cmd {
+		m.startNamingPacket()
+		return nil
+	})
+	add(setMine, k("s"), "s", "switch to the shop", "s shop", func(m *model) tea.Cmd { return m.actShelf(shelfShop) })
 
 	// ---- a plant's card -------------------------------------------------
 	add(setInfo, k("w"), "w", "water the bed", "w water", func(m *model) tea.Cmd {

@@ -59,10 +59,10 @@ func TestFinishingATaskPaysAndBringsAnother(t *testing.T) {
 
 	// Force a known task to be the only live one.
 	g.Tasks = []TaskState{{ID: "a-bee", Given: now}}
-	seeds := g.Seeds
+	seeds := g.Gold
 
 	g.checkTasks(now)
-	if g.Seeds != seeds {
+	if g.Gold != seeds {
 		t.Error("an unfinished task paid out")
 	}
 
@@ -70,8 +70,8 @@ func TestFinishingATaskPaysAndBringsAnother(t *testing.T) {
 	g.checkTasks(now)
 
 	reward := taskByID("a-bee").Reward
-	if g.Seeds != seeds+reward {
-		t.Errorf("seeds = %d, want %d", g.Seeds, seeds+reward)
+	if g.Gold != seeds+reward {
+		t.Errorf("seeds = %d, want %d", g.Gold, seeds+reward)
 	}
 	if g.TasksDone() != 1 {
 		t.Errorf("%d tasks are marked done", g.TasksDone())
@@ -82,8 +82,8 @@ func TestFinishingATaskPaysAndBringsAnother(t *testing.T) {
 
 	// It pays once, not every tick.
 	g.checkTasks(now)
-	if g.Seeds != seeds+reward {
-		t.Errorf("the same task paid twice: %d seeds", g.Seeds)
+	if g.Gold != seeds+reward {
+		t.Errorf("the same task paid twice: %d seeds", g.Gold)
 	}
 
 	found := false
@@ -186,7 +186,7 @@ func TestEveryTaskCanBeFinished(t *testing.T) {
 	now := testStart()
 	for _, task := range taskList {
 		g := newTestGarden(now)
-		g.Seeds = 100000
+		g.Gold = 100000
 		g.Herbarium = map[string]time.Time{}
 		g.Sightings = map[string]time.Time{}
 

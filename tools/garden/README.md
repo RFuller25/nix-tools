@@ -50,9 +50,9 @@ nix run .#garden      # or: go run ./tools/garden
 | `b` | break new ground: one more bed |
 | `d` | dig a pond here, or fill it back in |
 | `a` | the almanac |
-| `s` | the seed shed |
+| `s` | the seed shed (shop and your own seeds) |
 
-**In the seed shed**
+**In the shed: the shop shelf**
 
 | key | action |
 | --- | --- |
@@ -61,7 +61,21 @@ nix run .#garden      # or: go run ./tools/garden
 | `pgup / pgdn` | read a long card |
 | `home / g, end / G` | first / last |
 | `t` | show only what is happy in this season, or the whole rack |
-| `enter / p / space` | sow the chosen seed in the selected bed |
+| `enter / p / space` | buy one seed and sow it in the selected bed |
+| `b` | buy one seed into your shed without sowing it |
+| `s` | switch to your own seeds |
+
+**In the shed: my seeds shelf**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk` | browse your packets |
+| `pgup / pgdn` | read a long card |
+| `home / g, end / G` | first / last packet |
+| `enter / p / space` | sow one seed from the packet in the selected bed |
+| `$ / S` | sell one seed from the packet / the whole packet |
+| `r / n` | give the packet a name of your own |
+| `s` | switch to the shop |
 
 **On a plant's card**
 

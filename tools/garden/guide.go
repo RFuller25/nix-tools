@@ -28,7 +28,7 @@ func guideChapters() []chapter {
 		chYear(),
 		chGenetics(),
 		chVisitors(),
-		chSeeds(),
+		chGold(),
 		chWorthDoing(),
 		chKeys(),
 		chCommandLine(),
@@ -243,16 +243,30 @@ func chVisitors() chapter {
 	}
 }
 
-func chSeeds() chapter {
+func chGold() chapter {
 	return chapter{
-		Title: "Seeds and the shed",
-		Lede:  "Currency, planting, and unlocking rarer species.",
+		Title: "Gold and the seed shed",
+		Lede:  "What money is for, and where seed is kept.",
 		Build: func(m model, w int) []string {
 			return join(
-				gp(fmt.Sprintf("Seeds are the currency. Collect %d on your first visit each day, earn %d for clearing a properly overgrown bed, gather ripe pods from mature plants (one pod every six hours, up to %d), and finish the suggestions in the journal.", dailyBonus, weedingReward, int(maxPods)), w),
-				gp("Rarer species unlock as more of your plants reach maturity. A locked seed is shown with its requirement.", w),
-				append([]string{gh("In the seed shed")}, keyRows(w, setShop)...),
-				gp("Every species comes in two to five real forms: cultivars where the plant has famous ones, honest colour forms where it does not. Pick one with the left and right arrows before sowing. Self-sown volunteers come true to their parent.", w),
+				gp("Gold buys seed, ground and ponds. Seed is kept in your own shed in packets, and the shed has two shelves: the shop, where named forms are sold for gold, and your own seeds, which holds everything you have bought but not sown and everything you have gathered. Nothing ever takes gold away from you: it can only be spent.", w),
+				append([]string{gh("Where gold comes from")},
+					join(
+						gk(fmt.Sprintf("+%d", dailyStipend), "a stipend from the shed on your first visit each day", w),
+						gk(fmt.Sprintf("+%d", weedingReward), "for clearing a properly overgrown bed (weeds over 45%)", w),
+						gk("sell seed", fmt.Sprintf("seed from your own plants, on the my seeds shelf ($ sells one, S the packet). A plain seed fetches about %.0f%% of its shop price; one that is unlike any named form fetches up to %.0fx more, a seed from a stable line %.0f%% more, and a high yield gene up to %.0f%% more.", sellBase*100, 1+sellNovelty, sellStable*100, sellYield*100), w),
+						gk("tasks", "the suggestions in the journal pay gold", w),
+						gk("orders, fair", "see their chapters", w),
+					)...),
+				append([]string{gh("Where it goes")},
+					join(
+						gk("seed", "the shop price on every card: named forms start at a few gold, rarer species cost more", w),
+						gk(fmt.Sprintf("%d+", bedBaseCost), fmt.Sprintf("a new bed: %d for the first extra, %d more for each after it, to %d beds", bedBaseCost, bedStepCost, maxPlots), w),
+						gk(fmt.Sprintf("%d", pondCost), "a pond", w),
+					)...),
+				append([]string{gh("The shed")}, keyRows(w, setShop, setMine)...),
+				gp("In the shop, enter buys one seed and sows it at once and b only buys it. In your own seeds, enter sows one seed from the highlighted packet in the selected bed. A packet is a family: each seed's genes are decided when it is sown, so sowing several from one packet gives different plants. The card shows the parents, the likely spread of each gene, and a sample of the colours the family could be. Rarer species unlock in the shop as more of your plants reach maturity.", w),
+				gp("If you played the first version of the garden, your old seeds became gold one for one, each plant standing in a bed became a packet of its own form in your shed (with one extra seed for every ripe pod), and the beds were cleared. The ground, ponds, records and herbarium were kept, and the old file was saved beside the new one with .v1.bak on the end.", w),
 			)
 		},
 	}
@@ -350,7 +364,7 @@ func chGenetics() chapter {
 					join(
 						gk("colour", "three genes — hue, saturation and lightness — so a bloom can be any shade your terminal can show. They paint the flowers on most plants, the fruit on tomatoes, chillies and strawberries, and the leaves on lettuce. The card names the shade and shows it.", w),
 						gk("height", fmt.Sprintf("dwarf to giant, spread across the species' own height range. Giants grow up to %.0f%% slower and dwarfs up to %.0f%% quicker. In the garden a tall plant is drawn with a longer stem where the bed has room, and a dwarf with a shorter one; the card and the shed show the real size.", heightSlowdown*100, heightSlowdown*100), w),
-						gk("shape", fmt.Sprintf("slim and upright to full and bushy. Full plants are drawn with a wider head and slim ones with a pinched one, and a full plant catches up to %.0f%% more wind than a slim one.", 100*(1.2/0.8-1)/2), w),
+						gk("shape", fmt.Sprintf("slim and upright to full and bushy. Full plants are drawn with a wider head and slim ones with a pinched one, and a full plant catches up to %.0f%% more wind than a slim one.", 50.0), w),
 						gk("speed", fmt.Sprintf("slow to quick: ×%.2f to ×%.2f growth, and a quick annual finishes its year sooner.", speedLow, speedHigh), w),
 						gk("yield", fmt.Sprintf("sparse to abundant: pods ripen ×%.1f to ×%.1f as fast and a plant holds %.0f to %.0f of them, but a heavy cropper dries its bed up to %.0f%% faster.", yieldPodLow, yieldPodHigh, podCapLow, podCapHigh, yieldThirst*100), w),
 					)...),

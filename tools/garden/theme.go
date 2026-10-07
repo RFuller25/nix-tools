@@ -12,6 +12,7 @@ var (
 	labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("108"))
 	valueStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 
+	goldStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#e6b422")).Bold(true)
 	seedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("180")).Bold(true)
 	weedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("101"))
 	compostStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("137"))

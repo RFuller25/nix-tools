@@ -163,15 +163,15 @@ func TestVolunteersCostNoSeeds(t *testing.T) {
 	if err := g.Plant(6, sp, 0, now); err != nil {
 		t.Fatal(err)
 	}
-	seeds := g.Seeds
+	seeds := g.Gold
 
 	growTo(g, now, 24*5)
 
 	if g.Volunteers == 0 {
 		t.Skip("no volunteer appeared in this run")
 	}
-	if g.Seeds < seeds {
-		t.Errorf("volunteers cost the gardener %d seeds", seeds-g.Seeds)
+	if g.Gold < seeds {
+		t.Errorf("volunteers cost the gardener %d seeds", seeds-g.Gold)
 	}
 	if g.Planted < g.Volunteers {
 		t.Error("volunteers were not counted among the plants sown")

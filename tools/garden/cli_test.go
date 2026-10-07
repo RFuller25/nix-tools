@@ -40,7 +40,7 @@ func TestPostcardShowsTheWholeGarden(t *testing.T) {
 func TestPostcardGrowsWithTheGarden(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	g.Seeds = 100000
+	g.Gold = 100000
 	for i := 0; i < 5; i++ {
 		if err := g.BuyBed(now); err != nil {
 			t.Fatal(err)
@@ -72,7 +72,7 @@ func TestStatusLineSaysWhatNeedsDoing(t *testing.T) {
 	g.Plots[1].Pods = 2
 
 	got := renderStatus(g, now)
-	for _, want := range []string{"2/15 growing", "1 in flower", "1 thirsty", "1 weedy", "1 ripe", "seeds"} {
+	for _, want := range []string{"2/15 growing", "1 in flower", "1 thirsty", "1 weedy", "1 ripe", "gold"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the status line %q does not mention %q", got, want)
 		}

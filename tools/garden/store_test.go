@@ -28,7 +28,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading: %v", err)
 	}
-	if back.Seed != g.Seed || back.Seeds != g.Seeds || back.Planted != g.Planted {
+	if back.Seed != g.Seed || back.Gold != g.Gold || back.Planted != g.Planted {
 		t.Errorf("garden fields did not survive the round trip")
 	}
 	p := back.Plots[2]
@@ -52,7 +52,7 @@ func TestLoadMissingFileStartsFresh(t *testing.T) {
 	if len(g.Plots) != PlotCount {
 		t.Errorf("fresh garden has %d plots, want %d", len(g.Plots), PlotCount)
 	}
-	if g.Seeds <= 0 {
+	if g.Gold <= 0 {
 		t.Error("a new gardener should start with some seeds")
 	}
 }
@@ -82,11 +82,15 @@ func TestLoadToleratesOldSaves(t *testing.T) {
 	if len(g.Plots) != PlotCount {
 		t.Errorf("plots were not padded out: %d", len(g.Plots))
 	}
-	if g.Plots[0].SpeciesID != "sunflower" {
-		t.Error("known species was dropped")
+	// A version 1 save is carried across: the plants become packets of seed.
+	if !g.Plots[0].Empty() || !g.Plots[1].Empty() {
+		t.Error("a migrated garden should have cleared beds")
 	}
-	if !g.Plots[1].Empty() {
-		t.Error("a species no longer in the catalogue should be cleared, not kept")
+	if g.Gold != 4 {
+		t.Errorf("4 old seeds became %d gold", g.Gold)
+	}
+	if g.SeedsInShed() != 1 {
+		t.Errorf("the one known plant became %d seeds in the shed, want 1", g.SeedsInShed())
 	}
 	if g.Seed == 0 {
 		t.Error("a garden with no seed should be given one")
@@ -115,7 +119,7 @@ func TestSaveIsAtomic(t *testing.T) {
 	g := newTestGarden(now)
 
 	for i := 0; i < 5; i++ {
-		g.Seeds = i
+		g.Gold = i
 		if err := Save(path, g); err != nil {
 			t.Fatal(err)
 		}
@@ -137,8 +141,8 @@ func TestSaveIsAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if back.Seeds != 4 {
-		t.Errorf("last save did not win: seeds = %d", back.Seeds)
+	if back.Gold != 4 {
+		t.Errorf("last save did not win: seeds = %d", back.Gold)
 	}
 }
 

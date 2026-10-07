@@ -129,8 +129,26 @@ func (m *model) actPond() tea.Cmd {
 	return nil
 }
 
-// actSow plants the seed chosen in the shed into the selected bed, or the
-// next free one.
+// openShed goes to the seed shed. Choosing a bed to sow opens your own seed if
+// you have any, since that is what you most likely want to plant.
+func (m *model) openShed(sowing bool) {
+	m.screen, m.cardScroll = screenShop, 0
+	if sowing && len(m.g.Shed) > 0 {
+		m.shelf = shelfMine
+	}
+	m.refreshShop()
+}
+
+func (m *model) actShelf(to shelf) tea.Cmd {
+	m.shelf, m.cardScroll = to, 0
+	if to == shelfShop {
+		m.refreshShop()
+	}
+	return nil
+}
+
+// actSow buys the seed chosen in the shop and sows it in the selected bed, or
+// the next free one.
 func (m *model) actSow() tea.Cmd {
 	if len(m.shop) == 0 {
 		return nil
@@ -148,14 +166,80 @@ func (m *model) actSow() tea.Cmd {
 	m.cursor = idx
 	m.dirty = true
 	m.screen = screenGarden
-	m.setStatus(okStyle, "Sowed %s in bed %d.%s", sp.VarietyName(m.shopVariety), idx+1, companionAside(m.g, idx, sp))
+	m.setStatus(okStyle, "Sowed %s in bed %d.%s", m.g.Plots[idx].FullName(), idx+1, companionAside(m.g, idx, sp))
 	return m.save()
 }
 
-// currencyWord is the unit, singular or plural.
-func currencyWord(n int) string {
-	if n == 1 {
-		return "seed"
+// actBuySeed puts a seed in the shed without planting it.
+func (m *model) actBuySeed() tea.Cmd {
+	if len(m.shop) == 0 {
+		return nil
 	}
-	return "seeds"
+	sp := m.shop[m.shopCursor]
+	if err := m.g.Buy(sp, m.shopVariety, 1, m.now); err != nil {
+		m.setStatus(errStyle, "%s", err.Error())
+		return nil
+	}
+	m.dirty = true
+	m.setStatus(okStyle, "One %s seed in the shed. You have %s left.", sp.VarietyName(m.shopVariety), goldLabel(m.g.Gold))
+	return nil
+}
+
+// minePacket is the index in the shed of the highlighted packet, or -1.
+func (m *model) minePacket() int {
+	order := m.g.ShedOrder()
+	if len(order) == 0 {
+		return -1
+	}
+	m.mineCursor = min(m.mineCursor, len(order)-1)
+	return order[m.mineCursor]
+}
+
+// actSowMine sows a seed from the highlighted packet.
+func (m *model) actSowMine() tea.Cmd {
+	pi := m.minePacket()
+	if pi < 0 {
+		return nil
+	}
+	idx := m.firstEmptyFrom(m.cursor)
+	if idx < 0 {
+		m.setStatus(warnStyle, "Every bed is full — lift something first (u).")
+		return nil
+	}
+	sp := m.g.Shed[pi].Species()
+	if err := m.g.SowPacket(idx, pi, m.now); err != nil {
+		m.setStatus(errStyle, "%s", err.Error())
+		return nil
+	}
+	m.cursor = idx
+	m.dirty = true
+	if len(m.g.Shed) == 0 || m.mineCursor >= len(m.g.Shed) {
+		m.mineCursor = max(0, len(m.g.Shed)-1)
+	}
+	m.screen = screenGarden
+	m.setStatus(okStyle, "Sowed %s in bed %d.%s", m.g.Plots[idx].FullName(), idx+1, companionAside(m.g, idx, sp))
+	return m.save()
+}
+
+// actSell sells one seed, or (n = 0) the whole packet.
+func (m *model) actSell(n int) tea.Cmd {
+	pi := m.minePacket()
+	if pi < 0 {
+		return nil
+	}
+	count := m.g.Shed[pi].Count
+	if n == 0 || n > count {
+		n = count
+	}
+	gold, err := m.g.SellSeeds(pi, n, m.now)
+	if err != nil {
+		m.setStatus(errStyle, "%s", err.Error())
+		return nil
+	}
+	m.dirty = true
+	if m.mineCursor >= len(m.g.Shed) {
+		m.mineCursor = max(0, len(m.g.Shed)-1)
+	}
+	m.setStatus(goldStyle, "Sold %d seed(s) for %s.", n, goldLabel(gold))
+	return nil
 }

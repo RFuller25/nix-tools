@@ -262,3 +262,18 @@ type errBadColour string
 func (e errBadColour) Error() string {
 	return "unknown colour mode \"" + string(e) + "\" (want truecolor, 256, 16 or off)"
 }
+
+// circularWeighted is the mean of two hues on the wheel, each weighted, taking
+// the shorter arc. A weight of zero for one side returns the other's hue.
+func circularWeighted(ha, wa, hb, wb float64) float64 {
+	x := wa*math.Cos(ha*math.Pi/180) + wb*math.Cos(hb*math.Pi/180)
+	y := wa*math.Sin(ha*math.Pi/180) + wb*math.Sin(hb*math.Pi/180)
+	if math.Abs(x) < 1e-9 && math.Abs(y) < 1e-9 {
+		return ha
+	}
+	h := math.Atan2(y, x) * 180 / math.Pi
+	if h < 0 {
+		h += 360
+	}
+	return h
+}

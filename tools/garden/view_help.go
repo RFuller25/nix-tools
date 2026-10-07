@@ -15,7 +15,8 @@ var helpPrimer = [][2]string{
 	{"neighbours", "what grows alongside helps or hinders — see the info card"},
 	{"the year", "annuals go to seed, perennials sleep through winter"},
 	{"visitors", "bees, moths and foxes come for what you have planted"},
-	{"seeds", "gathered from plants, earned by weeding and by doing"},
+	{"gold", "earned by selling your own seed, weeding and doing; spent on seed, beds and ponds"},
+	{"genes", "every plant has colour, height, shape, speed and yield genes; seed blends its parents"},
 }
 
 // viewHelp is the key list, generated from the binding table, plus a primer.

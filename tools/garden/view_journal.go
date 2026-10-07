@@ -11,7 +11,7 @@ func (m model) viewJournal() string {
 		tasks = append(tasks, labelStyle.Render("WORTH DOING"))
 		for _, t := range active {
 			tasks = append(tasks, fit("  "+okStyle.Render("○ ")+valueStyle.Render(t.String())+
-				subtleStyle.Render(fmt.Sprintf("  · %d seeds", t.Reward)), m.width))
+				subtleStyle.Render(fmt.Sprintf("  · %d gold", t.Reward)), m.width))
 		}
 		tasks = append(tasks, "")
 	}

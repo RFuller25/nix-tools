@@ -110,7 +110,10 @@ func renderStatus(g *Garden, now time.Time) string {
 	if ripe > 0 {
 		parts = append(parts, fmt.Sprintf("%d ripe", ripe))
 	}
-	parts = append(parts, fmt.Sprintf("%d seeds", g.Seeds))
+	parts = append(parts, fmt.Sprintf("%d gold", g.Gold))
+	if n := g.SeedsInShed(); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d seeds", n))
+	}
 
 	return "❀ " + strings.Join(parts, " · ")
 }

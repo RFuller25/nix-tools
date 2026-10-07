@@ -21,6 +21,14 @@ const (
 	screenHelp
 )
 
+// nameTarget is what the name being typed is for.
+type nameTarget int
+
+const (
+	namePlant nameTarget = iota
+	namePacket
+)
+
 type tickMsg time.Time
 type windTickMsg time.Time
 type saveMsg struct{ err error }
@@ -48,6 +56,9 @@ type model struct {
 	lastSave time.Time
 	dirty    bool
 
+	shelf       shelf // which half of the shed is open
+	mineCursor  int   // the highlighted packet, in ShedOrder
+	mineScroll  int
 	shop        []*Species
 	shopCursor  int
 	shopScroll  int
@@ -63,8 +74,9 @@ type model struct {
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
 
-	naming bool
-	input  textinput.Model
+	naming    bool
+	namingFor nameTarget
+	input     textinput.Model
 
 	audio   *Audio
 	wind    windState
@@ -271,8 +283,23 @@ func nextScreen(s screen) screen {
 }
 
 func (m *model) startNaming() {
-	m.naming = true
+	m.naming, m.namingFor = true, namePlant
+	m.input.Placeholder = "a name for this plant"
 	m.input.SetValue(m.plot().Name)
+	m.input.CursorEnd()
+	m.input.Focus()
+}
+
+// startNamingPacket names the highlighted packet in the shed.
+func (m *model) startNamingPacket() {
+	order := m.g.ShedOrder()
+	if len(order) == 0 {
+		return
+	}
+	pk := m.g.Shed[order[min(m.mineCursor, len(order)-1)]]
+	m.naming, m.namingFor = true, namePacket
+	m.input.Placeholder = "a name for this seed"
+	m.input.SetValue(pk.Label)
 	m.input.CursorEnd()
 	m.input.Focus()
 }
@@ -285,10 +312,21 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		name := strings.TrimSpace(m.input.Value())
-		m.g.Rename(m.cursor, name, m.now)
-		m.dirty = true
 		m.naming = false
 		m.input.Blur()
+		m.dirty = true
+		if m.namingFor == namePacket {
+			if order := m.g.ShedOrder(); len(order) > 0 {
+				m.g.RenamePacket(order[min(m.mineCursor, len(order)-1)], name)
+			}
+			if name == "" {
+				m.setStatus(subtleStyle, "Label cleared.")
+			} else {
+				m.setStatus(okStyle, "Labelled the packet %s.", name)
+			}
+			return m, nil
+		}
+		m.g.Rename(m.cursor, name, m.now)
 		if name == "" {
 			m.setStatus(subtleStyle, "Name cleared.")
 		} else {
@@ -318,7 +356,7 @@ func (m model) View() string {
 	var view string
 	switch m.screen {
 	case screenShop:
-		view = m.viewShop()
+		view = m.viewShed()
 	case screenInfo:
 		view = m.viewInfo()
 	case screenAlmanac:

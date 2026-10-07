@@ -6,7 +6,7 @@ import (
 )
 
 // Gentle goals. Never a timer, never a failure: three suggestions sit in the
-// journal, and finishing one hands over a few seeds and brings up another.
+// journal, and finishing one hands over some gold and brings up another.
 
 const activeTasks = 3
 
@@ -225,8 +225,8 @@ func (g *Garden) checkTasks(now time.Time) {
 			continue
 		}
 		g.Tasks[i].Done = true
-		g.Seeds += t.Reward
-		g.Log(now, "Done: %s. %d seeds.", t.Text, t.Reward)
+		g.earn(t.Reward)
+		g.Log(now, "Done: %s. %s.", t.Text, goldLabel(t.Reward))
 	}
 	g.refreshTasks(now)
 }

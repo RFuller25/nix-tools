@@ -11,7 +11,7 @@ func testStart() time.Time { return time.Date(2026, 6, 15, 8, 0, 0, 0, time.UTC)
 func newTestGarden(now time.Time) *Garden {
 	g := NewGarden(now)
 	g.Seed = 42
-	g.Seeds = 500
+	g.Gold = 500
 	g.Matured = 100 // an experienced gardener: everything is unlocked
 
 	// The soil and the suggestions are both derived from the seed, so redo
@@ -220,15 +220,15 @@ func TestCatchUpIsCapped(t *testing.T) {
 func TestPlantingCostsAndLocks(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	g.Seeds = 5
+	g.Gold = 5
 	g.Matured = 0
 
 	cheap := SpeciesByID("basil") // cost 2, unlock 0
 	if err := g.Plant(0, cheap, 0, now); err != nil {
 		t.Fatalf("planting basil: %v", err)
 	}
-	if g.Seeds != 3 {
-		t.Errorf("seeds after planting basil = %d, want 3", g.Seeds)
+	if g.Gold != 3 {
+		t.Errorf("seeds after planting basil = %d, want 3", g.Gold)
 	}
 	if g.Planted != 1 {
 		t.Errorf("lifetime planted = %d, want 1", g.Planted)
@@ -264,14 +264,14 @@ func TestTendingRewards(t *testing.T) {
 		t.Error("a soaked bed should not need watering again")
 	}
 
-	seeds := g.Seeds
+	seeds := g.Gold
 	g.Plots[0].Weeds = 0.8
 	ok, reward := g.Weed(0, now)
 	if !ok || reward != weedingReward {
 		t.Errorf("weeding an overgrown bed gave (%v, %d)", ok, reward)
 	}
-	if g.Seeds != seeds+weedingReward {
-		t.Errorf("seeds = %d, want %d", g.Seeds, seeds+weedingReward)
+	if g.Gold != seeds+weedingReward {
+		t.Errorf("seeds = %d, want %d", g.Gold, seeds+weedingReward)
 	}
 	if ok, _ := g.Weed(0, now); ok {
 		t.Error("a clean bed should not report weeding work")
@@ -279,12 +279,12 @@ func TestTendingRewards(t *testing.T) {
 
 	g.Plots[0].Growth = 1
 	g.Plots[0].Pods = 3.4
-	seeds = g.Seeds
+	seeds = g.Gold
 	if got := g.Gather(0, now); got != 3 {
 		t.Errorf("gathered %d seeds, want 3", got)
 	}
-	if g.Seeds != seeds+3 || g.Gathered != 3 {
-		t.Errorf("seeds = %d (want %d), lifetime gathered = %d", g.Seeds, seeds+3, g.Gathered)
+	if g.Gold != seeds || g.Gathered != 3 || g.SeedsInShed() != 3 {
+		t.Errorf("gold = %d (want %d), lifetime gathered = %d, %d seeds in the shed (want 3)", g.Gold, seeds, g.Gathered, g.SeedsInShed())
 	}
 	if got := g.Gather(0, now); got != 0 {
 		t.Errorf("gathering the leftovers gave %d", got)
@@ -330,19 +330,19 @@ func TestUprootAndRename(t *testing.T) {
 func TestDailyVisitBonus(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	g.Seeds = 0
+	g.Gold = 0
 
-	if got := g.Visit(now); got != dailyBonus {
-		t.Errorf("first visit gave %d seeds, want %d", got, dailyBonus)
+	if got := g.Visit(now); got != dailyStipend {
+		t.Errorf("first visit gave %d seeds, want %d", got, dailyStipend)
 	}
 	if got := g.Visit(now.Add(2 * time.Hour)); got != 0 {
 		t.Errorf("second visit the same day gave %d seeds", got)
 	}
-	if got := g.Visit(now.AddDate(0, 0, 1)); got != dailyBonus {
+	if got := g.Visit(now.AddDate(0, 0, 1)); got != dailyStipend {
 		t.Errorf("next day's visit gave %d seeds", got)
 	}
-	if g.Seeds != 2*dailyBonus {
-		t.Errorf("seeds = %d, want %d", g.Seeds, 2*dailyBonus)
+	if g.Gold != 2*dailyStipend {
+		t.Errorf("seeds = %d, want %d", g.Gold, 2*dailyStipend)
 	}
 }
 

@@ -191,7 +191,7 @@ func TestKeystrokesPersist(t *testing.T) {
 	if p.Moisture < 0.99 {
 		t.Errorf("watering did not persist: moisture %.2f", p.Moisture)
 	}
-	if back.Seeds >= got.g.Seeds+1 {
+	if back.Gold >= got.g.Gold+1 {
 		t.Error("planting did not cost any seeds")
 	}
 }

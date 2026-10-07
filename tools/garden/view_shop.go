@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m model) viewShop() string {
+func (m model) viewShopShelf() string {
 	season := m.g.Season(m.now)
 
 	// The detail card only appears when there is room for it beside the
@@ -37,11 +37,11 @@ func (m model) viewShop() string {
 		}
 
 		name := truncate(sp.Common, listWidth-10)
-		cost := fmt.Sprintf("%3d✦", sp.SeedCost)
+		cost := fmt.Sprintf("%3d g", sp.SeedCost)
 		switch {
 		case !unlocked:
 			lines = append(lines, marker+lockedStyle.Render(pad(name, listWidth-10)+"  locked"))
-		case m.g.Seeds < sp.SeedCost:
+		case m.g.Gold < sp.SeedCost:
 			lines = append(lines, marker+subtleStyle.Render(pad(name, listWidth-10))+" "+lockedStyle.Render(cost))
 		default:
 			style := valueStyle
@@ -71,8 +71,8 @@ func (m model) viewShop() string {
 	if m.shopSeason {
 		filter = season.String() + " only"
 	}
-	head := fit(titleStyle.Render("✦ seed shed")+subtleStyle.Render(fmt.Sprintf(
-		"  ·  %s  ·  %d seeds  ·  %d/%d species", filter, m.g.Seeds, m.unlockedCount(), len(AllSpecies()))), m.width)
+	head := fit(m.shedHeader()+subtleStyle.Render(fmt.Sprintf(
+		"  ·  %s  ·  %d/%d species", filter, m.unlockedCount(), len(AllSpecies()))), m.width)
 
 	body := list
 	if detail != "" {
@@ -83,6 +83,20 @@ func (m model) viewShop() string {
 		keys = m.hintLine(setShop, "pgup/pgdn read the card")
 	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
+}
+
+// shedHeader is the title row of both shelves: which one is open, and the purse.
+func (m model) shedHeader() string {
+	shop, mine := "shop", fmt.Sprintf("my seeds (%d)", m.g.SeedsInShed())
+	if m.shelf == shelfShop {
+		shop = titleStyle.Render("[ shop ]")
+		mine = subtleStyle.Render(mine)
+	} else {
+		shop = subtleStyle.Render(shop)
+		mine = titleStyle.Render("[ " + mine + " ]")
+	}
+	return titleStyle.Render("✦ seed shed  ") + shop + " " + mine +
+		subtleStyle.Render("  ·  ") + goldStyle.Render(goldLabel(m.g.Gold))
 }
 
 func (m model) unlockedCount() int {
@@ -104,7 +118,8 @@ func (m model) shopDetail(sp *Species, listWidth, avail int) (string, bool) {
 	if avail < 26 {
 		artRows = 4
 	}
-	art := strings.Join(renderVariety(sp, m.shopVariety, StageMature, sp.PaletteFor(m.shopVariety, nil),
+	gn := sp.VarietyGenome(m.shopVariety)
+	art := strings.Join(renderGene(sp, m.shopVariety, gn, StageMature, sp.PaletteFor(m.shopVariety, nil),
 		min(width, 24), artRows, 0, nil), "\n")
 
 	forms := sp.Varieties()
@@ -136,6 +151,9 @@ func (m model) shopDetail(sp *Species, listWidth, avail int) (string, bool) {
 		field("rarity", rarityStyle(sp.Rarity).Render(sp.Rarity.String()), width),
 		"",
 	}...)
+	rows = append(rows, labelStyle.Render("GENES")+subtleStyle.Render("  this form, as sold"))
+	rows = append(rows, geneRows(sp, sp.VarietyGenome(m.shopVariety), width)...)
+	rows = append(rows, "")
 	rows = append(rows, effectLines(sp, width)...)
 	if !m.g.Unlocked(sp) {
 		rows = append(rows, "", warnStyle.Render(fmt.Sprintf("Unlocks after %d plants reach maturity (you have %d).", sp.Unlock, m.g.Matured)))

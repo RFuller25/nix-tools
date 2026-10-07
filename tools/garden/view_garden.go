@@ -86,7 +86,8 @@ func (m model) header() string {
 		labelStyle.Render(ph.Glyph()+" ") + valueStyle.Render(ph.String()),
 		labelStyle.Render(season.Glyph()+" ") + valueStyle.Render(season.String()),
 		labelStyle.Render(w.Glyph()+" ") + valueStyle.Render(w.Name()),
-		seedStyle.Render(fmt.Sprintf("✦ %d seeds", m.g.Seeds)),
+		goldStyle.Render(fmt.Sprintf("● %d gold", m.g.Gold)),
+		seedStyle.Render(fmt.Sprintf("✦ %d seeds", m.g.SeedsInShed())),
 		subtleStyle.Render(fmt.Sprintf("%d grown", m.g.Matured)),
 	}
 	sep := subtleStyle.Render("  ·  ")
