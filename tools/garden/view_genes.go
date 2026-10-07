@@ -34,15 +34,26 @@ func geneRows(sp *Species, gn Genome, width int) []string {
 
 // geneLineage says where the plant came from.
 func geneLineage(p *Plot) string {
+	var out string
 	switch {
 	case p.Gen == 0 && !p.IsHybrid():
-		return "a named form, true to type"
+		out = "a named form, true to type"
 	case p.Gen == 0:
-		return "a named form, drifted"
+		out = "a named form, drifted"
 	case p.IsHybrid():
-		return fmt.Sprintf("a hybrid, %s generation from a named form", ordinal(p.Gen))
+		out = fmt.Sprintf("a hybrid, %s generation from a named form", ordinal(p.Gen))
+	default:
+		out = fmt.Sprintf("%s generation, still close to its ‘%s’ parents", ordinal(p.Gen), p.VarietyName())
 	}
-	return fmt.Sprintf("%s generation, still close to its ‘%s’ parents", ordinal(p.Gen), p.VarietyName())
+	if p.Descent != "" {
+		out += " · " + p.Descent
+	}
+	if p.Stable() {
+		out += fmt.Sprintf(" · a stable line (%d generations true)", p.Streak)
+	} else if p.Streak > 0 {
+		out += fmt.Sprintf(" · bred true %d generation(s) running", p.Streak)
+	}
+	return out
 }
 
 func ordinal(n int) string {

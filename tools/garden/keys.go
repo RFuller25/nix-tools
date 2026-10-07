@@ -296,6 +296,7 @@ func buildBindings() []binding {
 	add(setGarden, k("x"), "x", "pollinate by hand: brush pollen from another flower of the same species onto this one, so its next seed is that cross", "x pollinate", func(m *model) tea.Cmd { return m.actStartPollinate() })
 	add(setGarden, k("a"), "a", "the almanac", "a almanac", func(m *model) tea.Cmd {
 		m.screen, m.cardScroll = screenAlmanac, 0
+		m.refreshAlmanac()
 		return nil
 	})
 	add(setGarden, k("s"), "s", "the seed shed (shop and your own seeds)", "s seeds", func(m *model) tea.Cmd {
@@ -495,6 +496,10 @@ func buildBindings() []binding {
 		if row := m.almanac[m.almanacCursor]; row.IsPlant() {
 			m.almanacVariety = (m.almanacVariety + 1) % len(row.Species.Varieties())
 		}
+		return nil
+	})
+	add(setAlmanac, k("n"), "n", "name a cultivar you have bred (on a cultivar's page)", "", func(m *model) tea.Cmd {
+		m.startNamingCultivar()
 		return nil
 	})
 	add(setAlmanac, k("pgup"), "pgup / pgdn", "read a long page", "", func(m *model) tea.Cmd { scrollBy(m, -6); return nil })

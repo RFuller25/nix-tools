@@ -146,6 +146,33 @@ var taskList = []task{
 		progress: func(g *Garden) (int, int) { return g.Gathered, 20 },
 	},
 	{
+		ID: "first-cross", Text: "Gather seed from a flower that has been pollinated", Reward: 6,
+		progress: func(g *Garden) (int, int) {
+			for _, pk := range g.Shed {
+				if !pk.Pure && pk.A != pk.B {
+					return 1, 1
+				}
+			}
+			return g.CrossedSeed, 1
+		},
+	},
+	{
+		ID: "hand-cross", Text: "Pollinate a flower by hand (x)", Reward: 8,
+		progress: func(g *Garden) (int, int) { return g.HandCrossed, 1 },
+	},
+	{
+		ID: "new-hybrid", Text: "Flower a hybrid unlike any named form", Reward: 14,
+		progress: func(g *Garden) (int, int) { return len(g.Cultivars), 1 },
+	},
+	{
+		ID: "stable-line", Text: "Breed a line true for three generations running", Reward: 25,
+		progress: func(g *Garden) (int, int) { return g.StableLines(), 1 },
+	},
+	{
+		ID: "sell-seed", Text: "Sell ten seeds from your own plants", Reward: 8,
+		progress: func(g *Garden) (int, int) { return g.Sold, 10 },
+	},
+	{
 		ID: "wide-garden", Text: "Break new ground: twenty beds", Reward: 10,
 		progress: func(g *Garden) (int, int) { return len(g.Plots), 20 },
 	},

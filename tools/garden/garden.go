@@ -51,10 +51,13 @@ type Plot struct {
 	Genome Genome  `json:"genome"`
 	Gen    int     `json:"gen,omitempty"`
 	Pollen *Genome `json:"pollen,omitempty"`
-	// Line is the cultivar this plant was sown from (0 for none); Stable marks
-	// a plant of an established line.
-	Line   int  `json:"line,omitempty"`
-	Stable bool `json:"stable,omitempty"`
+	// Line is the cultivar this plant belongs to (0 for none) and LineName its
+	// name; Streak is how many generations in a row the line has bred true;
+	// Descent says in words how this plant came about.
+	Line     int    `json:"line,omitempty"`
+	LineName string `json:"line_name,omitempty"`
+	Streak   int    `json:"streak,omitempty"`
+	Descent  string `json:"descent,omitempty"`
 
 	// Pond beds hold water instead of soil. Only the aquatic species will
 	// grow in one, and nothing else will.
@@ -77,6 +80,9 @@ func (p *Plot) Genes() Genome {
 	}
 	return Genome{}
 }
+
+// Stable reports a plant of a line that has bred true for long enough.
+func (p *Plot) Stable() bool { return p.Streak >= stableRuns }
 
 // IsHybrid reports whether the plant has drifted far enough from every named
 // form to be something new.
@@ -147,6 +153,9 @@ func (p *Plot) FullName() string {
 	sp := p.Species()
 	if sp == nil {
 		return "empty bed"
+	}
+	if p.LineName != "" {
+		return fmt.Sprintf("%s ‘%s’", sp.Common, p.LineName)
 	}
 	if p.IsHybrid() {
 		return fmt.Sprintf("%s hybrid (‘%s’ type)", sp.Common, sp.Variety(p.Variety).Name)
@@ -227,8 +236,11 @@ type Garden struct {
 	Sold      int      `json:"sold,omitempty"` // lifetime seeds sold
 	// Crossed counts pollinations, by insect or by hand, and HandCrossed those
 	// done with the brush.
-	Crossed     int `json:"crossed,omitempty"`
-	HandCrossed int `json:"hand_crossed,omitempty"`
+	Cultivars   []Cultivar `json:"cultivars,omitempty"`
+	CultivarSeq int        `json:"cultivar_seq,omitempty"`
+	CrossedSeed int        `json:"crossed_seed,omitempty"` // seed gathered that was crossed
+	Crossed     int        `json:"crossed,omitempty"`
+	HandCrossed int        `json:"hand_crossed,omitempty"`
 	// Seeds is the old currency, read only so a version 1 save can be moved
 	// across; it is never written again.
 	Seeds      int  `json:"seeds,omitempty"`
@@ -510,6 +522,7 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 		p.MaturedAt = at
 		g.Matured++
 		g.collect(sp, p.Variety, at)
+		g.discover(p, sp, idx, at, now)
 		// Journal the moment, dated when it actually happened.
 		when := at
 		if when.After(now) {
@@ -597,12 +610,26 @@ func (g *Garden) Gather(idx int, now time.Time) int {
 		crossed = true
 	}
 	variety, _ := sp.NearestVariety(meanGenome(mother, father))
+	// A line is carried on when both parents are alike; a wide cross starts
+	// again from nothing.
+	streak, label, line := 0, "", 0
+	if mother.Distance(father) <= stableGap {
+		streak = p.Streak + 1
+		if p.Line != 0 {
+			label, line = p.LineName, p.Line
+		}
+	}
+	descent := "selfed from " + p.DisplayName()
+	if crossed {
+		descent = describeGenome(mother) + " × " + describeGenome(father)
+	}
 	g.AddPacket(Packet{
 		SpeciesID: sp.ID, A: mother, B: father, Count: got, Gen: p.Gen + 1,
-		Variety: variety, From: p.DisplayName(), Line: p.Line, Stable: p.Stable && !crossed,
+		Variety: variety, From: p.DisplayName(), Line: line, Label: label, Streak: streak, Descent: descent,
 	})
 	g.Gathered += got
 	if crossed {
+		g.CrossedSeed += got
 		g.Log(now, "Gathered %d crossed seed(s) from %s.", got, p.DisplayName())
 	} else {
 		g.Log(now, "Gathered %d seed(s) from %s.", got, p.DisplayName())
@@ -765,11 +792,19 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 		}
 		child := breed(g.Seed, hashSerial(q, int64(idx), 0x5E1F), mother, father)
 		variety, _ := sp.NearestVariety(child)
+		streak, line, lineName := 0, 0, ""
+		if child.Distance(mother) <= stableGap && mother.Distance(father) <= stableGap {
+			streak, line, lineName = p.Streak+1, p.Line, p.LineName
+		}
 		*bed = Plot{
 			SpeciesID: sp.ID,
 			Variety:   variety,
 			Genome:    child,
 			Gen:       p.Gen + 1,
+			Streak:    streak,
+			Line:      line,
+			LineName:  lineName,
+			Descent:   "sown itself from " + p.DisplayName(),
 			PlantedAt: when,
 			Moisture:  bed.Moisture,
 			PH:        bed.PH,

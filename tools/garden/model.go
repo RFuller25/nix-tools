@@ -27,6 +27,7 @@ type nameTarget int
 const (
 	namePlant nameTarget = iota
 	namePacket
+	nameCultivar
 )
 
 type tickMsg time.Time
@@ -65,11 +66,12 @@ type model struct {
 	shopVariety int  // the form selected for the highlighted species
 	shopSeason  bool // limit the shop to species happy in this season
 
-	almanac        []almanacRow
-	almanacCursor  int
-	almanacScroll  int
-	almanacStage   int
-	almanacVariety int
+	almanac          []almanacRow
+	almanacCultivars int // how many cultivars the rows were built with
+	almanacCursor    int
+	almanacScroll    int
+	almanacStage     int
+	almanacVariety   int
 
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
@@ -99,17 +101,18 @@ func newModel(g *Garden, path string, now time.Time) model {
 	ti.Prompt = "  name › "
 
 	m := model{
-		g:       g,
-		path:    path,
-		now:     now,
-		input:   ti,
-		almanac: almanacRows(),
-		audio:   NewAudio(sampleRate),
-		wind:    newWind(g.Seed ^ now.UnixNano()),
-		life:    newWildlife(g.Seed ^ now.UnixNano() ^ 0x1F0C),
-		compost: map[int]compostFX{},
-		width:   80,
-		height:  30,
+		g:                g,
+		path:             path,
+		now:              now,
+		input:            ti,
+		almanac:          almanacRows(g),
+		almanacCultivars: len(g.Cultivars),
+		audio:            NewAudio(sampleRate),
+		wind:             newWind(g.Seed ^ now.UnixNano()),
+		life:             newWildlife(g.Seed ^ now.UnixNano() ^ 0x1F0C),
+		compost:          map[int]compostFX{},
+		width:            80,
+		height:           30,
 	}
 	m.refreshShop()
 	return m
@@ -211,6 +214,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		m.now = time.Time(msg)
 		m.g.Advance(m.now)
+		if len(m.g.Cultivars) != m.almanacCultivars {
+			m.refreshAlmanac()
+		}
 		if m.dirty && m.now.Sub(m.lastSave) > 10*time.Second {
 			return m, tea.Batch(tick(), m.save())
 		}
@@ -284,6 +290,38 @@ func nextScreen(s screen) screen {
 	}
 }
 
+// refreshAlmanac rebuilds the almanac's rows after the garden has found a
+// new cultivar, keeping the cursor on the same entry where it can.
+func (m *model) refreshAlmanac() {
+	var keep almanacRow
+	if m.almanacCursor < len(m.almanac) {
+		keep = m.almanac[m.almanacCursor]
+	}
+	m.almanac = almanacRows(m.g)
+	m.almanacCultivars = len(m.g.Cultivars)
+	for i, r := range m.almanac {
+		if r.Kind == keep.Kind && r.Chapter == keep.Chapter && r.Species == keep.Species && r.Creature == keep.Creature && r.Cultivar == keep.Cultivar {
+			m.almanacCursor = i
+			return
+		}
+	}
+	m.almanacCursor = min(m.almanacCursor, len(m.almanac)-1)
+}
+
+// startNamingCultivar renames the cultivar highlighted in the almanac.
+func (m *model) startNamingCultivar() {
+	row := m.almanac[m.almanacCursor]
+	c := m.g.CultivarByID(row.Cultivar)
+	if row.Kind != rowCultivar || c == nil {
+		return
+	}
+	m.naming, m.namingFor = true, nameCultivar
+	m.input.Placeholder = "a name for this line"
+	m.input.SetValue(c.Name)
+	m.input.CursorEnd()
+	m.input.Focus()
+}
+
 func (m *model) startNaming() {
 	m.naming, m.namingFor = true, namePlant
 	m.input.Placeholder = "a name for this plant"
@@ -317,6 +355,15 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.naming = false
 		m.input.Blur()
 		m.dirty = true
+		if m.namingFor == nameCultivar {
+			if row := m.almanac[m.almanacCursor]; row.Kind == rowCultivar && m.g.RenameCultivar(row.Cultivar, name, m.now) {
+				m.setStatus(okStyle, "The line is now ‘%s’.", name)
+				m.refreshAlmanac()
+			} else {
+				m.setStatus(subtleStyle, "A line needs a name.")
+			}
+			return m, nil
+		}
 		if m.namingFor == namePacket {
 			if order := m.g.ShedOrder(); len(order) > 0 {
 				m.g.RenamePacket(order[min(m.mineCursor, len(order)-1)], name)

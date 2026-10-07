@@ -69,7 +69,7 @@ func seedValue(pk Packet) int {
 	_, gap := sp.NearestVariety(mean)
 	novelty := math.Min(1, gap/0.35)
 	v := float64(sp.seedPrice()) * sellBase * (1 + sellNovelty*novelty)
-	if pk.Stable {
+	if pk.Stable() {
 		v *= 1 + sellStable
 	}
 	v *= 1 - sellYield/2 + sellYield*float64(mean.Yield)/100

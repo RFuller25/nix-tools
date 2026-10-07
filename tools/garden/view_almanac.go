@@ -12,6 +12,7 @@ type rowKind int
 
 const (
 	rowGuide rowKind = iota
+	rowCultivar
 	rowPlant
 	rowCreature
 )
@@ -21,6 +22,7 @@ const (
 type almanacRow struct {
 	Kind     rowKind
 	Chapter  int // index into guideChapters, for guide rows
+	Cultivar int // the cultivar's ID, for cultivar rows
 	Species  *Species
 	Creature creature
 }
@@ -28,11 +30,16 @@ type almanacRow struct {
 func (r almanacRow) IsPlant() bool { return r.Kind == rowPlant }
 
 // almanacRows is the whole book: the guide, every species, then the visitors.
-func almanacRows() []almanacRow {
+func almanacRows(g *Garden) []almanacRow {
 	chapters := guideChapters()
 	rows := make([]almanacRow, 0, len(chapters)+len(AllSpecies())+len(creatureOrder))
 	for i := range chapters {
 		rows = append(rows, almanacRow{Kind: rowGuide, Chapter: i})
+	}
+	if g != nil {
+		for _, c := range g.Cultivars {
+			rows = append(rows, almanacRow{Kind: rowCultivar, Cultivar: c.ID})
+		}
 	}
 	for _, sp := range AllSpecies() {
 		rows = append(rows, almanacRow{Kind: rowPlant, Species: sp})
@@ -48,6 +55,8 @@ func (r almanacRow) group() string {
 	switch r.Kind {
 	case rowGuide:
 		return "guide"
+	case rowCultivar:
+		return "your cultivars"
 	case rowPlant:
 		return r.Species.Kind.String()
 	}
@@ -55,10 +64,15 @@ func (r almanacRow) group() string {
 }
 
 // title is how the row reads in the list.
-func (r almanacRow) title() string {
+func (r almanacRow) title(g *Garden) string {
 	switch r.Kind {
 	case rowGuide:
 		return guideChapters()[r.Chapter].Title
+	case rowCultivar:
+		if c := g.CultivarByID(r.Cultivar); c != nil {
+			return c.Name
+		}
+		return "cultivar"
 	case rowPlant:
 		return r.Species.Common
 	}
@@ -107,6 +121,12 @@ func (m model) viewAlmanac() string {
 			if _, ok := m.g.Collected(row.Species); ok {
 				seen = okStyle.Render("✓ ")
 			}
+		case rowCultivar:
+			if c := m.g.CultivarByID(row.Cultivar); c != nil && c.Stable {
+				seen = okStyle.Render("◆ ")
+			} else {
+				seen = subtleStyle.Render("◇ ")
+			}
 		case rowCreature:
 			if _, ok := m.g.Sightings[row.Creature.kind().name]; ok {
 				seen = okStyle.Render("✓ ")
@@ -114,7 +134,7 @@ func (m model) viewAlmanac() string {
 				style = lockedStyle
 			}
 		}
-		lines = append(lines, marker+seen+style.Render(truncate(row.title(), listWidth-6)))
+		lines = append(lines, marker+seen+style.Render(truncate(row.title(m.g), listWidth-6)))
 	}
 
 	detail := ""
@@ -128,8 +148,14 @@ func (m model) viewAlmanac() string {
 			lines = append(lines, "", fit(latinStyle.Render(row.Species.Latin), listWidth))
 		case narrow:
 			lines = append(lines, "", fit(subtleStyle.Render(row.Creature.kind().when), listWidth))
+		case narrow && row.Kind == rowCultivar:
+			if c := m.g.CultivarByID(row.Cultivar); c != nil {
+				lines = append(lines, "", fit(swatch(c.Genome.Hex(), 2)+" "+subtleStyle.Render(c.Genome.ColourName()), listWidth))
+			}
 		case row.Kind == rowGuide:
 			detail, clipped = m.guideDetail(row.Chapter, listWidth, avail)
+		case row.Kind == rowCultivar:
+			detail, clipped = m.cultivarDetail(row.Cultivar, listWidth, avail)
 		case row.IsPlant():
 			detail, clipped = m.almanacDetail(row.Species, listWidth, avail)
 		default:
@@ -142,14 +168,22 @@ func (m model) viewAlmanac() string {
 		okStyle.Render(fmt.Sprintf("%d pressed", len(m.g.Herbarium)))+
 		subtleStyle.Render(fmt.Sprintf(" (%d of %d forms)", formsGrown, formsTotal))+
 		subtleStyle.Render("  ·  ")+
-		okStyle.Render(fmt.Sprintf("%d of %d visitors seen", len(m.g.Sightings), len(creatureOrder))), m.width)
+		okStyle.Render(fmt.Sprintf("%d of %d visitors seen", len(m.g.Sightings), len(creatureOrder)))+
+		subtleStyle.Render(fmt.Sprintf("  ·  %d cultivars", len(m.g.Cultivars))), m.width)
 	body := strings.Join(lines, "\n")
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, "  ", detail)
 	}
 	keys := "↑↓ browse · ←→ stage · v variety · ✓ grown here · esc back"
-	if len(m.almanac) > 0 && !m.almanac[m.almanacCursor].IsPlant() {
-		keys = "↑↓ browse · ✓ seen in this garden · esc back"
+	if len(m.almanac) > 0 {
+		switch m.almanac[m.almanacCursor].Kind {
+		case rowCreature:
+			keys = "↑↓ browse · ✓ seen in this garden · esc back"
+		case rowCultivar:
+			keys = "↑↓ browse · n rename · ◆ stable line · esc back"
+		case rowGuide:
+			keys = "↑↓ browse · pgup/pgdn read · esc back"
+		}
 	}
 	if clipped {
 		keys += " · pgup/pgdn read the page"

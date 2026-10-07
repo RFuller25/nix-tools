@@ -106,6 +106,7 @@ nix run .#garden      # or: go run ./tools/garden
 | `↑↓ / jk` | browse the guide, species and visitors |
 | `←→ / hl, space` | step through a plant's five stages |
 | `v` | flick through a species' varieties |
+| `n` | name a cultivar you have bred (on a cultivar's page) |
 | `pgup / pgdn` | read a long page |
 | `home / g, end / G` | first / last entry |
 

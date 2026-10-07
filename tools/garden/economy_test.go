@@ -203,7 +203,7 @@ func TestSellingSeedPaysByQuality(t *testing.T) {
 	odd.Hue, odd.Sat, odd.Light, odd.Height, odd.Yield = (odd.Hue+150)%360, 90, 60, 95, 90
 	novel := Packet{ID: 2, SpeciesID: sp.ID, A: odd, B: odd, Count: 1}
 	stable := novel
-	stable.Stable = true
+	stable.Streak = stableRuns
 	if seedValue(novel) <= seedValue(plain) {
 		t.Errorf("a novel seed (%d) is not worth more than a plain one (%d)", seedValue(novel), seedValue(plain))
 	}

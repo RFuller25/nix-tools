@@ -357,7 +357,7 @@ func (m model) statStrip(p *Plot) string {
 	case p.Spent:
 		extra = subtleStyle.Render("seed")
 	case p.Pods >= 1:
-		extra = seedStyle.Render(fmt.Sprintf("✦%d", int(p.Pods)))
+		extra = seedStyle.Render(fmt.Sprintf("✦%d", int(p.Pods))) + pollenMark(p)
 	case p.Weeds > 0.45:
 		extra = weedStyle.Render("⌄⌄")
 	case p.Growth >= 1:

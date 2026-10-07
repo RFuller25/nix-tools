@@ -28,11 +28,15 @@ type Packet struct {
 	Pure      bool   `json:"pure,omitempty"` // shop stock: comes exactly true
 	Gen       int    `json:"gen,omitempty"`  // generation of the plants it grows
 	Variety   int    `json:"variety,omitempty"`
-	Label     string `json:"label,omitempty"` // the gardener's own name for it
-	From      string `json:"from,omitempty"`  // where it was gathered
-	Stable    bool   `json:"stable,omitempty"`
-	Line      int    `json:"line,omitempty"` // cultivar it belongs to, if any
+	Label     string `json:"label,omitempty"`   // the gardener's own name for it
+	From      string `json:"from,omitempty"`    // where it was gathered
+	Streak    int    `json:"streak,omitempty"`  // generations in a row this line has bred true
+	Descent   string `json:"descent,omitempty"` // how it came about, in words
+	Line      int    `json:"line,omitempty"`    // cultivar it belongs to, if any
 }
+
+// Stable reports a line that has bred true for long enough to count as settled.
+func (pk Packet) Stable() bool { return pk.Streak >= stableRuns }
 
 func (pk Packet) Species() *Species { return SpeciesByID(pk.SpeciesID) }
 
@@ -211,10 +215,20 @@ func (g *Garden) SowPacket(idx, packet int, now time.Time) error {
 	gn := pk.Child(g.Seed)
 	pk.Used++
 	pk.Count--
-	line, gen, stable := pk.Line, pk.Gen, pk.Stable
+	line, gen, label, descent := pk.Line, pk.Gen, pk.Label, pk.Descent
+	// A seed that comes out close to its packet's centre carries the line's
+	// run of true-breeding generations forward; one that does not starts again.
+	streak := 0
+	if gn.Distance(pk.Mean()) <= stableGap {
+		streak = pk.Streak
+	}
 	g.sow(idx, sp, gn, gen, now)
 	g.Plots[idx].Line = line
-	g.Plots[idx].Stable = stable
+	g.Plots[idx].Streak = streak
+	g.Plots[idx].Descent = descent
+	if line != 0 {
+		g.Plots[idx].LineName = label
+	}
 	if pk.Count <= 0 {
 		g.Shed = append(g.Shed[:packet], g.Shed[packet+1:]...)
 	}
