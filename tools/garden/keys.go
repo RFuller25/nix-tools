@@ -22,6 +22,7 @@ const (
 	setGarden  keySet = "garden"
 	setShop    keySet = "shed"
 	setMine    keySet = "mine"
+	setPollen  keySet = "pollinate"
 	setInfo    keySet = "card"
 	setAlmanac keySet = "almanac"
 	setJournal keySet = "journal"
@@ -47,6 +48,7 @@ var setTitles = map[keySet]string{
 	setGarden:  "in the garden",
 	setShop:    "in the shed: the shop shelf",
 	setMine:    "in the shed: my seeds shelf",
+	setPollen:  "choosing a pollen donor (after x)",
 	setInfo:    "on a plant's card",
 	setAlmanac: "in the almanac",
 	setJournal: "in the journal",
@@ -54,7 +56,7 @@ var setTitles = map[keySet]string{
 }
 
 // setOrder is the order sets are listed in.
-var setOrder = []keySet{setGarden, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
+var setOrder = []keySet{setGarden, setPollen, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
 
 var (
 	bindingsOnce sync.Once
@@ -79,6 +81,9 @@ func bindingsIn(set keySet) []binding {
 
 // activeSets are the sets live right now, most specific first.
 func (m model) activeSets() []keySet {
+	if m.pollinating {
+		return []keySet{setPollen, setGlobal}
+	}
 	var sets []keySet
 	sets = append(sets, m.screenSet())
 	return append(sets, setGlobal)
@@ -288,12 +293,45 @@ func buildBindings() []binding {
 	add(setGarden, k("u"), "u", "lift a plant and compost it into the bed", "", func(m *model) tea.Cmd { return m.actLift(false) })
 	add(setGarden, k("b"), "b", "break new ground: one more bed", "b new bed", func(m *model) tea.Cmd { return m.actBuyBed() })
 	add(setGarden, k("d"), "d", "dig a pond here, or fill it back in", "d pond", func(m *model) tea.Cmd { return m.actPond() })
+	add(setGarden, k("x"), "x", "pollinate by hand: brush pollen from another flower of the same species onto this one, so its next seed is that cross", "x pollinate", func(m *model) tea.Cmd { return m.actStartPollinate() })
 	add(setGarden, k("a"), "a", "the almanac", "a almanac", func(m *model) tea.Cmd {
 		m.screen, m.cardScroll = screenAlmanac, 0
 		return nil
 	})
 	add(setGarden, k("s"), "s", "the seed shed (shop and your own seeds)", "s seeds", func(m *model) tea.Cmd {
 		m.openShed(false)
+		return nil
+	})
+
+	// ---- choosing a pollen donor ----------------------------------------
+	add(setPollen, k("left", "h"), "←↑↓→ / hjkl", "move to the flower to take pollen from (flowers that will do are outlined in gold)", "←↑↓→ move", func(m *model) tea.Cmd {
+		if m.cursor%plotCols > 0 {
+			m.cursor--
+		}
+		return nil
+	})
+	add(setPollen, k("right", "l"), "", "", "", func(m *model) tea.Cmd {
+		if m.cursor%plotCols < plotCols-1 && m.cursor+1 < len(m.g.Plots) {
+			m.cursor++
+		}
+		return nil
+	})
+	add(setPollen, k("up", "k"), "", "", "", func(m *model) tea.Cmd {
+		if m.cursor-plotCols >= 0 {
+			m.cursor -= plotCols
+		}
+		return nil
+	})
+	add(setPollen, k("down", "j"), "", "", "", func(m *model) tea.Cmd {
+		if m.cursor+plotCols < len(m.g.Plots) {
+			m.cursor += plotCols
+		}
+		return nil
+	})
+	add(setPollen, k("enter", "x", " "), "enter / x / space", "take pollen from the selected flower", "enter pollinate", func(m *model) tea.Cmd { return m.actFinishPollinate() })
+	add(setPollen, k("esc"), "esc", "cancel", "esc cancel", func(m *model) tea.Cmd {
+		m.pollinating = false
+		m.setStatus(subtleStyle, "Put the brush down.")
 		return nil
 	})
 

@@ -49,8 +49,17 @@ nix run .#garden      # or: go run ./tools/garden
 | `u` | lift a plant and compost it into the bed |
 | `b` | break new ground: one more bed |
 | `d` | dig a pond here, or fill it back in |
+| `x` | pollinate by hand: brush pollen from another flower of the same species onto this one, so its next seed is that cross |
 | `a` | the almanac |
 | `s` | the seed shed (shop and your own seeds) |
+
+**Choosing a pollen donor (after x)**
+
+| key | action |
+| --- | --- |
+| `←↑↓→ / hjkl` | move to the flower to take pollen from (flowers that will do are outlined in gold) |
+| `enter / x / space` | take pollen from the selected flower |
+| `esc` | cancel |
 
 **In the shed: the shop shelf**
 

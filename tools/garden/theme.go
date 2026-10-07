@@ -28,6 +28,14 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("114"))
 
+	donorBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#e6b422"))
+
+	targetBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#d46aa8"))
+
 	plainBorder = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("237"))

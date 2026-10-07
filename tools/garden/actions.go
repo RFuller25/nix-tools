@@ -243,3 +243,56 @@ func (m *model) actSell(n int) tea.Cmd {
 	m.setStatus(goldStyle, "Sold %d seed(s) for %s.", n, goldLabel(gold))
 	return nil
 }
+
+// actStartPollinate begins choosing a donor for the flower under the cursor.
+func (m *model) actStartPollinate() tea.Cmd {
+	p := m.plot()
+	sp := p.Species()
+	switch {
+	case sp == nil:
+		m.setStatus(subtleStyle, "Nothing is growing in bed %d.", m.cursor+1)
+	case !flowerOpen(sp, p, m.g.Season(m.now), m.phase()):
+		m.setStatus(warnStyle, "%s has no open flower to pollinate right now.", p.DisplayName())
+	case m.donorCount(m.cursor) == 0:
+		m.setStatus(warnStyle, "There is no other open %s to take pollen from. Grow a second one.", sp.Common)
+	default:
+		m.pollinating, m.pollenTarget = true, m.cursor
+		m.setStatus(goldStyle, "Pollinating %s: move to a %s to take pollen from, then enter.", p.DisplayName(), sp.Common)
+	}
+	return nil
+}
+
+// donorCount is how many other flowers could give this bed pollen.
+func (m *model) donorCount(target int) int {
+	n := 0
+	for i := range m.g.Plots {
+		if m.isDonor(target, i) {
+			n++
+		}
+	}
+	return n
+}
+
+// isDonor reports whether bed d could give bed t pollen right now.
+func (m *model) isDonor(t, d int) bool {
+	if t == d || t < 0 || d < 0 || t >= len(m.g.Plots) || d >= len(m.g.Plots) {
+		return false
+	}
+	tp, dp := &m.g.Plots[t], &m.g.Plots[d]
+	sp := tp.Species()
+	return sp != nil && dp.SpeciesID == tp.SpeciesID && flowerOpen(sp, dp, m.g.Season(m.now), m.phase())
+}
+
+func (m *model) actFinishPollinate() tea.Cmd {
+	target := m.pollenTarget
+	if err := m.g.HandPollinate(target, m.cursor, m.now); err != nil {
+		m.setStatus(warnStyle, "%s", err.Error())
+		return nil
+	}
+	m.pollinating = false
+	m.dirty = true
+	m.setStatus(goldStyle, "Brushed %s's pollen onto %s. Its next seed will be that cross.",
+		m.plot().DisplayName(), m.g.Plots[target].DisplayName())
+	m.cursor = target
+	return nil
+}

@@ -23,7 +23,6 @@ const (
 	baseDryPerHour  = 0.055 // moisture lost per hour in average weather
 	baseWeedPerHour = 0.013 // weed pressure gained per hour
 	podsPerHour     = 1.0 / 6.0
-	maxPods         = 5.0
 	simStepHours    = 0.25
 	maxCatchUpDays  = 45.0
 )
@@ -226,6 +225,10 @@ type Garden struct {
 	Shed      []Packet `json:"shed,omitempty"`
 	PacketSeq int64    `json:"packet_seq,omitempty"`
 	Sold      int      `json:"sold,omitempty"` // lifetime seeds sold
+	// Crossed counts pollinations, by insect or by hand, and HandCrossed those
+	// done with the brush.
+	Crossed     int `json:"crossed,omitempty"`
+	HandCrossed int `json:"hand_crossed,omitempty"`
 	// Seeds is the old currency, read only so a version 1 save can be moved
 	// across; it is never written again.
 	Seeds      int  `json:"seeds,omitempty"`
@@ -489,7 +492,8 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 
 	if p.Growth >= 1.0 {
 		if !p.Spent {
-			p.Pods = math.Min(maxPods, p.Pods+podsPerHour*dt*seasonPodFactor(season))
+			p.Pods = math.Min(gn.PodCap(), p.Pods+podsPerHour*gn.PodFactor()*dt*seasonPodFactor(season))
+			g.maybePollinate(p, idx, sp, w, season, at, dt)
 			g.maybeGoToSeed(p, idx, sp, at, now)
 		}
 		// A plant in seed scatters some of it about, whether it is still

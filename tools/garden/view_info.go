@@ -95,6 +95,11 @@ func (m model) viewInfo() string {
 		pods = seedStyle.Render(fmt.Sprintf("✦ %d ripe seed pod(s) — press f to gather.", int(p.Pods)))
 	}
 
+	pollen := ""
+	if p.Pollen != nil {
+		pollen = swatch(p.Pollen.Hex(), 2) + " " + valueStyle.Render(
+			"carrying "+p.Pollen.ColourName()+" pollen — the next seed you gather will be that cross.")
+	}
 	parts := []string{top, "", meters, "", desc, "", care, ""}
 	parts = append(parts, genes...)
 	parts = append(parts, "")
@@ -104,7 +109,7 @@ func (m model) viewInfo() string {
 	}
 	// What this species does in a garden, the same block the almanac shows.
 	parts = append(parts, effectLines(sp, width)...)
-	parts = append(parts, "", tip, pods)
+	parts = append(parts, "", tip, pods, pollen)
 	card := strings.Join(compact(parts), "\n")
 
 	// The card is usually taller than a small terminal, so it is windowed

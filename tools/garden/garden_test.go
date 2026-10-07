@@ -212,7 +212,7 @@ func TestCatchUpIsCapped(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("Advance did not finish for a three-year absence")
 	}
-	if g.Plots[0].Pods > maxPods {
+	if g.Plots[0].Pods > g.Plots[0].Genes().PodCap() {
 		t.Errorf("pods ran away to %.1f", g.Plots[0].Pods)
 	}
 }
@@ -381,7 +381,7 @@ func TestPodsAccumulateAndCap(t *testing.T) {
 	}
 
 	g.Advance(now.Add(20 * 24 * time.Hour))
-	if g.Plots[0].Pods > maxPods {
-		t.Errorf("pods reached %.2f, cap is %.0f", g.Plots[0].Pods, maxPods)
+	if g.Plots[0].Pods > g.Plots[0].Genes().PodCap() {
+		t.Errorf("pods reached %.2f, cap is %.0f", g.Plots[0].Pods, g.Plots[0].Genes().PodCap())
 	}
 }

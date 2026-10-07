@@ -337,8 +337,13 @@ func (m model) renderCell(idx int) string {
 	}
 
 	border := plainBorder
-	if selected {
+	switch {
+	case selected:
 		border = selBorder
+	case m.pollinating && idx == m.pollenTarget:
+		border = targetBorder
+	case m.pollinating && m.isDonor(m.pollenTarget, idx):
+		border = donorBorder
 	}
 	return border.Render(strings.Join(lines, "\n"))
 }
@@ -356,7 +361,7 @@ func (m model) statStrip(p *Plot) string {
 	case p.Weeds > 0.45:
 		extra = weedStyle.Render("⌄⌄")
 	case p.Growth >= 1:
-		extra = okStyle.Render("❀")
+		extra = okStyle.Render("❀") + pollenMark(p)
 	default:
 		extra = subtleStyle.Render(shortStage(p.Stage()))
 	}
@@ -395,4 +400,12 @@ func truncate(s string, width int) string {
 		runes = runes[:len(runes)-1]
 	}
 	return string(runes) + "…"
+}
+
+// pollenMark shows a plant that is carrying pollen, ready to cross its seed.
+func pollenMark(p *Plot) string {
+	if p.Pollen == nil {
+		return ""
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(p.Pollen.Hex())).Render("✿")
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"testing"
+	"time"
 )
 
 func TestBreedingIsDeterministic(t *testing.T) {
@@ -253,5 +254,68 @@ func TestAnUnmodifiedFormKeepsItsDesignedPalette(t *testing.T) {
 				t.Errorf("%s form %d was repainted: %+v vs %+v", sp.ID, vi, got, want)
 			}
 		}
+	}
+}
+
+// The genes have to change what plants do, not just what the card says.
+func TestGenesChangeHowPlantsGrow(t *testing.T) {
+	now := time.Date(2026, 6, 15, 8, 0, 0, 0, time.UTC)
+	run := func(gn Genome, hours int) *Plot {
+		g := newTestGarden(now)
+		sp := SpeciesByID("zinnia")
+		if err := g.Plant(0, sp, 0, now); err != nil {
+			t.Fatal(err)
+		}
+		g.Plots[0].Genome = gn
+		at := now
+		for i := 0; i < hours; i++ {
+			at = at.Add(time.Hour)
+			g.Advance(at)
+			g.Water(0, at)
+			g.Weed(0, at)
+		}
+		return &g.Plots[0]
+	}
+	mid := Genome{Hue: 10, Sat: 70, Light: 50, Height: 50, Shape: 50, Speed: 50, Yield: 50}
+
+	quick, slow := mid, mid
+	quick.Speed, slow.Speed = 100, 0
+	if q, s := run(quick, 6), run(slow, 6); q.Growth <= s.Growth {
+		t.Errorf("a quick plant (%.2f) is not ahead of a slow one (%.2f)", q.Growth, s.Growth)
+	}
+
+	tall, dwarf := mid, mid
+	tall.Height, dwarf.Height = 100, 0
+	if ta, d := run(tall, 6), run(dwarf, 6); ta.Growth >= d.Growth {
+		t.Errorf("a giant (%.2f) is not behind a dwarf (%.2f)", ta.Growth, d.Growth)
+	}
+
+	generous, sparse := mid, mid
+	generous.Yield, sparse.Yield = 100, 0
+	a, b := run(generous, 60), run(sparse, 60)
+	if a.Pods <= b.Pods {
+		t.Errorf("an abundant plant holds %.1f pods, a sparse one %.1f", a.Pods, b.Pods)
+	}
+	if b.Pods > sparse.PodCap() || a.Pods > generous.PodCap() {
+		t.Errorf("pods exceed the cap: %.1f/%.1f, %.1f/%.1f", a.Pods, generous.PodCap(), b.Pods, sparse.PodCap())
+	}
+
+	// Thirst: leave two beds unwatered and see which dries first.
+	dry := func(gn Genome) float64 {
+		g := newTestGarden(now)
+		for seed := int64(1); seed < 500; seed++ { // a dry, bright day
+			if w := WeatherFor(seed, now); w.Kind == Sunny {
+				g.Seed = seed
+				break
+			}
+		}
+		_ = g.Plant(0, SpeciesByID("zinnia"), 0, now)
+		g.Plots[0].Genome = gn
+		g.Plots[0].Moisture = 1
+		g.Advance(now.Add(6 * time.Hour))
+		return g.Plots[0].Moisture
+	}
+	if dry(generous) >= dry(sparse) {
+		t.Error("a heavy cropper should dry its bed faster")
 	}
 }

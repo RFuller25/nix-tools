@@ -74,9 +74,11 @@ type model struct {
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
 
-	naming    bool
-	namingFor nameTarget
-	input     textinput.Model
+	pollinating  bool // choosing a donor for pollenTarget
+	pollenTarget int
+	naming       bool
+	namingFor    nameTarget
+	input        textinput.Model
 
 	audio   *Audio
 	wind    windState

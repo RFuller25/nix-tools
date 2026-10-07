@@ -108,7 +108,7 @@ func TestSeedingCostsTheParentAPod(t *testing.T) {
 		t.Skip("no volunteer appeared in this run")
 	}
 	// Pods are spent on seeding, so they must stay within their limit.
-	if p := g.Plots[6].Pods; p < 0 || p > maxPods {
+	if p := g.Plots[6].Pods; p < 0 || p > podCapHigh {
 		t.Errorf("the parent holds %.2f pods after seeding", p)
 	}
 	_ = at

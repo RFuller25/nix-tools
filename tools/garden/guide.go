@@ -27,6 +27,7 @@ func guideChapters() []chapter {
 		chNeighbours(),
 		chYear(),
 		chGenetics(),
+		chBreeding(),
 		chVisitors(),
 		chGold(),
 		chWorthDoing(),
@@ -237,7 +238,7 @@ func chVisitors() chapter {
 			return join(
 				gp("Bees work the flowers on a dry day, butterflies follow the nectar, finches drop in on seed heads, dragonflies patrol a pond, and after dark moths come to the night-scented flowers while a fox or a hedgehog crosses the beds. Nothing visits a garden with nothing in it.", w),
 				gp("The journal notes each one's first visit, and each has a page under VISITORS in this almanac: what brings it, when it comes, how long it stays, and a tick once you have seen it.", w),
-				gp("Visitors are scenery in this version of the garden: they are drawn over the beds and recorded, but do not change growth.", w),
+				gp("The creatures are drawn over the beds and recorded in the journal. Pollination follows the same weather and hours they do (bees by day, moths at night, few in the rain) but is worked out in the background, so it is the same whether or not one happens to be on screen. See Breeding.", w),
 			)
 		},
 	}
@@ -377,6 +378,26 @@ func chGenetics() chapter {
 					gp(fmt.Sprintf("A plant keeps the drawings and accent colours of the named form it most resembles. Once its genes sit more than %.0f%% of the way from every named form it is a hybrid, and the card says so.", hybridGap*100), w)...),
 				append([]string{gh("Colour on a 24-bit terminal")},
 					gp("Colours are written as full RGB. If your terminal advertises true colour (COLORTERM=truecolor) you see them exactly; otherwise they are snapped to the nearest of 256 colours, and GARDEN_COLOR or --color can force a mode, for tmux or ssh sessions that under-report.", w)...),
+			)
+		},
+	}
+}
+
+func chBreeding() chapter {
+	return chapter{
+		Title: "Breeding",
+		Lede:  "Pollination, crossed seed and making new lines.",
+		Build: func(m model, w int) []string {
+			return join(
+				gp("Every ripe pod holds seed with two parents: the plant it grew on, and whatever pollinated that plant. A flower that is pollinated passes the other parent's genes into every seed it sets until the seed is gathered; a flower that is not sets seed of itself.", w),
+				append([]string{gh("By insects")},
+					gp(fmt.Sprintf("An open flower with a neighbour of its own kind in flower beside it may take that neighbour's pollen. Each quarter hour a flower has a %.0f%% chance by day (bees and butterflies), %.0f%% after dark if it is one of the night-scented flowers (moths), %.0f%% as much in the rain and %.0f%% as much in winter, and more with several mates beside it. A flower shut for the night, a bud, a plant gone to seed or one asleep for the winter cannot be pollinated. A plant with no mate beside it sets seed of itself. The decision is hashed, so a garden left running and one catching up cross exactly the same plants. Plant a variety next to another one of its species to cross them.", beeOdds*100, mothOdds*100, wetFactor*100, winterOdds*100), w)...),
+				append([]string{gh("By hand")},
+					gp("Press x on a flower, then move to any other flower of the same species anywhere in the garden (the ones that will do are outlined in gold) and press enter. The next seed gathered from the first flower is certainly that cross. It needs both flowers open, and a dry sky: the rain washes the pollen out of the air. A flower carrying pollen shows a coloured ✿ on its bed, and its card says whose it is.", w)...),
+				append([]string{gh("Gathering")},
+					gp("f gathers ripe pods into a packet in your own seeds. Crossed seed is labelled with its generation. It uses up the flower's pollen. Seed from a plant of an established line stays in that line if nothing crossed it.", w)...),
+				append([]string{gh("Making a line")},
+					gp("Sow a packet, keep the seedlings you like best (the tallest, the bluest, the quickest), and breed from those. Because seed is a blend of two parents plus noise, and the noise shrinks as the parents come to resemble each other, each generation of selection moves the line a little further and steadies it. The card shows the spread to expect, and a sample of the colours the family could be.", w)...),
 			)
 		},
 	}
