@@ -95,10 +95,10 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `←↑↓→ / hjkl` | move to a bed |
 | `[ / ]` | choose which seed to place: yours first, then anything the shop sells |
 | `{ / }` | jump ten along the seed list |
+| `slash` | search the seed list by name, kind or family (empty clears it) |
 | `enter / space / p` | place the chosen seed in this bed as a ghost |
 | `backspace / x / delete` | take the ghost out of this bed |
 | `C` | sow the whole plan: your own seed where you have it, bought seed where you do not |
-| `g` | the neighbour overlay is always on in plan mode; g is not needed |
 | `esc` | leave plan mode without sowing anything |
 
 **Placing a layout (T, then enter)**

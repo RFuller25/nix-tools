@@ -169,6 +169,11 @@ func (m model) hintParts(set keySet, extra ...string) []string {
 		}
 	}
 	hints = append(hints, extra...)
+	for _, h := range hints {
+		if strings.HasPrefix(h, "esc ") {
+			return hints // the set says what esc does
+		}
+	}
 	if set == setGarden {
 		for _, b := range bindingsIn(setGlobal) {
 			if b.Hint != "" {
@@ -178,6 +183,23 @@ func (m model) hintParts(set keySet, extra ...string) []string {
 		return hints
 	}
 	return append(hints, "esc back")
+}
+
+// hintSet is the set whose keys the garden screen's footer should remind you of:
+// the mode you are in, if any, otherwise the garden's own.
+func (m model) hintSet() keySet {
+	if m.pollinating {
+		return setPollen
+	}
+	switch m.mode {
+	case modePlan:
+		return setPlan
+	case modeStamp:
+		return setStamp
+	case modeSelect:
+		return setSelect
+	}
+	return setGarden
 }
 
 // hintLine joins them for a footer.

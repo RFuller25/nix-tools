@@ -42,6 +42,7 @@ const (
 	namePacket
 	nameCultivar
 	nameTemplate
+	namePlanFilter
 )
 
 type tickMsg time.Time
@@ -95,6 +96,7 @@ type model struct {
 	ghosts       map[int]ghost
 	plan         *Garden // the garden as it would be if the ghosts were sown
 	planPick     int     // the highlighted seed in the plan palette
+	planFilter   string  // what the plan palette is narrowed to
 	selAnchor    int     // where a layout selection began
 	stampTpl     Template
 	stampSkipped []string
@@ -384,6 +386,17 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.naming = false
 		m.input.Blur()
 		m.dirty = true
+		if m.namingFor == namePlanFilter {
+			m.planFilter, m.planPick = name, 0
+			if n := len(m.palette()); n == 0 {
+				m.setStatus(warnStyle, "No seed matches “%s”. / to search again, or clear it to see everything.", name)
+			} else if name == "" {
+				m.setStatus(subtleStyle, "Showing every seed.")
+			} else {
+				m.setStatus(okStyle, "%d seed(s) match “%s”.", n, name)
+			}
+			return m, nil
+		}
 		if m.namingFor == nameTemplate {
 			m.finishSaveTemplate(name)
 			return m, nil
