@@ -6,7 +6,7 @@ import (
 )
 
 // Gentle goals. Never a timer, never a failure: three suggestions sit in the
-// journal, and finishing one hands over a few seeds and brings up another.
+// journal, and finishing one hands over some gold and brings up another.
 
 const activeTasks = 3
 
@@ -146,6 +146,41 @@ var taskList = []task{
 		progress: func(g *Garden) (int, int) { return g.Gathered, 20 },
 	},
 	{
+		ID: "first-cross", Text: "Gather seed from a flower that has been pollinated", Reward: 6,
+		progress: func(g *Garden) (int, int) {
+			for _, pk := range g.Shed {
+				if !pk.Pure && pk.A != pk.B {
+					return 1, 1
+				}
+			}
+			return g.CrossedSeed, 1
+		},
+	},
+	{
+		ID: "hand-cross", Text: "Pollinate a flower by hand (x)", Reward: 8,
+		progress: func(g *Garden) (int, int) { return g.HandCrossed, 1 },
+	},
+	{
+		ID: "new-hybrid", Text: "Flower a hybrid unlike any named form", Reward: 14,
+		progress: func(g *Garden) (int, int) { return len(g.Cultivars), 1 },
+	},
+	{
+		ID: "stable-line", Text: "Breed a line true for three generations running", Reward: 25,
+		progress: func(g *Garden) (int, int) { return g.StableLines(), 1 },
+	},
+	{
+		ID: "sell-seed", Text: "Sell ten seeds from your own plants", Reward: 8,
+		progress: func(g *Garden) (int, int) { return g.Sold, 10 },
+	},
+	{
+		ID: "first-order", Text: "Fill an order from the board (o)", Reward: 10,
+		progress: func(g *Garden) (int, int) { return g.OrdersDone, 1 },
+	},
+	{
+		ID: "first-ribbon", Text: "Enter a plant in the fair (e) and have it judged", Reward: 10,
+		progress: func(g *Garden) (int, int) { return len(g.Fair.Ribbons), 1 },
+	},
+	{
 		ID: "wide-garden", Text: "Break new ground: twenty beds", Reward: 10,
 		progress: func(g *Garden) (int, int) { return len(g.Plots), 20 },
 	},
@@ -225,8 +260,8 @@ func (g *Garden) checkTasks(now time.Time) {
 			continue
 		}
 		g.Tasks[i].Done = true
-		g.Seeds += t.Reward
-		g.Log(now, "Done: %s. %d seeds.", t.Text, t.Reward)
+		g.earn(t.Reward)
+		g.Log(now, "Done: %s. %s.", t.Text, goldLabel(t.Reward))
 	}
 	g.refreshTasks(now)
 }

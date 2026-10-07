@@ -2,58 +2,53 @@ package main
 
 import "strings"
 
-func (m model) viewHelp() string {
-	sections := []struct {
-		title string
-		keys  [][2]string
-	}{
-		{"tending", [][2]string{
-			{"←↑↓→ / hjkl", "move between beds"},
-			{"p / enter", "sow a seed in the selected bed"},
-			{"w / W", "water this bed / every bed"},
-			{"c / C", "clear weeds here / everywhere"},
-			{"f / F", "gather ripe seed here / everywhere"},
-			{"n", "name the plant in this bed"},
-			{"u", "lift a plant and compost it into the bed"},
-			{"i / space", "open the plant's info card"},
-			{"b", "break new ground: one more bed"},
-			{"d", "dig a pond here, or fill it back in"},
-		}},
-		{"places", [][2]string{
-			{"s", "seed shed"},
-			{"a", "almanac of every species"},
-			{"tab", "cycle garden → shed → almanac → journal"},
-			{"journal", "holds the log, the tally and what is worth doing next"},
-			{"esc", "back to the garden"},
-			{"m", "calming music on or off"},
-			{"? ", "this help"},
-			{"q", "quit (the garden saves itself)"},
-		}},
-		{"how it grows", [][2]string{
-			{"time", "plants grow in real time, even while closed"},
-			{"a day", "well-tended seeds reach maturity within a day"},
-			{"water", "dry soil slows growth — nothing ever dies here"},
-			{"weeds", "creep in slowly and hold plants back"},
-			{"weather", "rain waters for you; frost and snow slow things"},
-			{"light", "the garden follows the real sun; some flowers close at night"},
-			{"soil", "each bed has its own pH; lifting a plant composts it"},
-			{"neighbours", "what grows alongside helps or hinders — see the info card"},
-			{"the year", "annuals go to seed, perennials sleep through winter"},
-			{"visitors", "bees, moths and foxes come for what you have planted"},
-			{"seeds", "gathered from plants, earned by weeding and by doing"},
-		}},
-	}
+// helpPrimer is the short orientation under the keys. The almanac's guide
+// goes into everything properly.
+var helpPrimer = [][2]string{
+	{"time", "plants grow in real time, even while closed"},
+	{"a day", "well-tended seeds reach maturity within a day"},
+	{"water", "dry soil slows growth — nothing ever dies here"},
+	{"weeds", "creep in slowly and hold plants back"},
+	{"weather", "rain waters for you; frost and snow slow things"},
+	{"light", "the garden follows the real sun; some flowers close at night"},
+	{"soil", "each bed has its own pH; lifting a plant composts it"},
+	{"neighbours", "what grows alongside helps or hinders — see the info card"},
+	{"the year", "annuals go to seed, perennials sleep through winter"},
+	{"visitors", "bees, moths and foxes come for what you have planted"},
+	{"gold", "earned by selling your own seed, weeding, orders, the fair and doing; spent on seed, beds and ponds"},
+	{"breeding", "x pollinates by hand; gather seed (f) to get crossed seed; keep the plants you like best"},
+	{"planning", "g shows how neighbours get on; P plans a layout, V saves one, T stamps one"},
+	{"orders & fair", "O is the order board, E the weekly fair: both pay gold for plants you have bred"},
+	{"genes", "every plant has colour, height, shape, speed and yield genes; seed blends its parents"},
+}
 
+// viewHelp is the key list, generated from the binding table, plus a primer.
+// The almanac's guide chapters hold the long form of everything here.
+func (m model) viewHelp() string {
 	var lines []string
-	lines = append(lines, titleStyle.Render("❀ garden — help"), "")
-	for _, sec := range sections {
-		lines = append(lines, labelStyle.Render(strings.ToUpper(sec.title)))
-		for _, k := range sec.keys {
-			lines = append(lines, "  "+okStyle.Render(pad(k[0], 14))+valueStyle.Render(k[1]))
+	lines = append(lines, titleStyle.Render("❀ garden — help"),
+		subtleStyle.Render("the almanac (a) has a guide to everything the garden does"), "")
+
+	for _, set := range setOrder {
+		var rows []string
+		for _, d := range documentedKeys() {
+			if d.Set == set {
+				rows = append(rows, "  "+okStyle.Render(pad(d.Label, 22))+valueStyle.Render(d.Desc))
+			}
 		}
+		if len(rows) == 0 {
+			continue
+		}
+		lines = append(lines, labelStyle.Render(strings.ToUpper(setTitles[set])))
+		lines = append(lines, rows...)
 		lines = append(lines, "")
 	}
-	lines = append(lines, subtleStyle.Render("saved to "+m.path))
+
+	lines = append(lines, labelStyle.Render("HOW IT GROWS"))
+	for _, k := range helpPrimer {
+		lines = append(lines, "  "+okStyle.Render(pad(k[0], 22))+valueStyle.Render(k[1]))
+	}
+	lines = append(lines, "", subtleStyle.Render("saved to "+m.path))
 
 	// Help is long; on a short terminal it scrolls instead of running off it.
 	visible, above, below := window(lines, m.cardScroll, max(2, m.height-1))

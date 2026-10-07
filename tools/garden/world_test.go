@@ -64,22 +64,22 @@ func TestNeighboursAreTheBedsAlongside(t *testing.T) {
 func TestBuyingBeds(t *testing.T) {
 	now := testStart()
 	g := newTestGarden(now)
-	g.Seeds = 0
+	g.Gold = 0
 
 	if err := g.BuyBed(now); err == nil {
 		t.Error("buying a bed with no seeds should fail")
 	}
 
 	cost := g.BedCost()
-	g.Seeds = cost
+	g.Gold = cost
 	if err := g.BuyBed(now); err != nil {
 		t.Fatalf("buying a bed: %v", err)
 	}
 	if len(g.Plots) != PlotCount+1 {
 		t.Errorf("the garden has %d beds, want %d", len(g.Plots), PlotCount+1)
 	}
-	if g.Seeds != 0 {
-		t.Errorf("%d seeds left, want the bed to have cost all of them", g.Seeds)
+	if g.Gold != 0 {
+		t.Errorf("%d seeds left, want the bed to have cost all of them", g.Gold)
 	}
 	if g.BedCost() <= cost {
 		t.Error("each new bed should cost more than the last")
@@ -89,7 +89,7 @@ func TestBuyingBeds(t *testing.T) {
 	}
 
 	// The garden cannot grow without limit.
-	g.Seeds = 100000
+	g.Gold = 100000
 	for len(g.Plots) < maxPlots {
 		if err := g.BuyBed(now); err != nil {
 			t.Fatalf("buying bed %d: %v", len(g.Plots)+1, err)

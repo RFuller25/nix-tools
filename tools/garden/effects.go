@@ -103,7 +103,7 @@ func gardenEffects(sp *Species) []effect {
 
 	// The plain numbers.
 	add("⏱", "matures", fmt.Sprintf("about %s of well-tended growth", hours(sp.Hours)))
-	add("✦", "seeds", fmt.Sprintf("costs %d · a mature plant ripens a pod every six hours", sp.SeedCost))
+	add("✦", "seeds", fmt.Sprintf("%s a seed in the shop · a mature plant ripens a pod about every six hours, faster with a high yield gene", goldLabel(sp.SeedCost)))
 	if sp.Unlock > 0 {
 		add("⚑", "unlocks", fmt.Sprintf("after %d plants have reached maturity", sp.Unlock))
 	}

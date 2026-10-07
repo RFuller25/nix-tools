@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	var (
@@ -19,8 +19,20 @@ func main() {
 		postcard     = flag.Bool("postcard", false, "print the garden as it stands and exit")
 		status       = flag.Bool("status", false, "print a one-line summary and exit, for a prompt or status bar")
 		width        = flag.Int("width", 80, "how wide to draw the postcard")
+		colorMode    = flag.String("color", "", "colour mode: truecolor, 256, 16 or off (default: detect; also GARDEN_COLOR)")
+		keysMD       = flag.Bool("keys", false, "print the key table as markdown and exit")
+		cultivars    = flag.Bool("cultivars", false, "list the hybrid lines your garden has found and exit")
 	)
 	flag.Parse()
+
+	if *keysMD {
+		fmt.Print(keysMarkdown())
+		return
+	}
+	if _, err := applyColourMode(*colorMode); err != nil {
+		fmt.Fprintln(os.Stderr, "garden:", err)
+		os.Exit(2)
+	}
 
 	if *showVersion {
 		fmt.Printf("garden %s\n", version)
@@ -54,6 +66,11 @@ func main() {
 	g.Advance(now)
 	bonus := g.Visit(now)
 
+	if *cultivars {
+		fmt.Print(renderCultivars(g))
+		return
+	}
+
 	if *postcard {
 		fmt.Println(renderPostcard(g, now, *width))
 		if err := Save(path, g); err != nil {
@@ -74,7 +91,7 @@ func main() {
 		m.toggleMusic() // the garden was left with the music on
 	}
 	if bonus > 0 {
-		m.setStatus(seedStyle, "A new day: %d seeds from the shed.", bonus)
+		m.setStatus(goldStyle, "A new day: %s from the shed.", goldLabel(bonus))
 	}
 	m.dirty = true
 

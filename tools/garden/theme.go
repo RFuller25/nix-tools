@@ -12,6 +12,7 @@ var (
 	labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("108"))
 	valueStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 
+	goldStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#e6b422")).Bold(true)
 	seedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("180")).Bold(true)
 	weedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("101"))
 	compostStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("137"))
@@ -26,6 +27,22 @@ var (
 	selBorder = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("114"))
+
+	donorBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#e6b422"))
+
+	targetBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#d46aa8"))
+
+	goodBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#5fb760"))
+
+	badBorder = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#d9534f"))
 
 	plainBorder = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

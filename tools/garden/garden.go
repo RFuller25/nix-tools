@@ -12,12 +12,9 @@ import (
 // gardener buys more ground. Beds keep their positions, so neighbours stay
 // neighbours however the terminal is sized.
 const (
-	plotCols    = 5
-	PlotCount   = 15 // beds a new garden starts with
-	maxPlots    = 30
-	bedBaseCost = 18 // seeds for the first extra bed
-	bedStepCost = 6  // added for each bed after that
-	pondCost    = 12
+	plotCols  = 5
+	PlotCount = 15 // beds a new garden starts with
+	maxPlots  = 30
 )
 
 // Tuning constants for the growth simulation. A well-watered, weeded plant
@@ -26,11 +23,8 @@ const (
 	baseDryPerHour  = 0.055 // moisture lost per hour in average weather
 	baseWeedPerHour = 0.013 // weed pressure gained per hour
 	podsPerHour     = 1.0 / 6.0
-	maxPods         = 5.0
 	simStepHours    = 0.25
 	maxCatchUpDays  = 45.0
-	dailyBonus      = 3
-	weedingReward   = 1
 )
 
 // Plot is one bed in the garden: empty, or holding a single plant.
@@ -51,6 +45,20 @@ type Plot struct {
 	MaturedAt time.Time `json:"matured_at,omitempty"`
 	Spent     bool      `json:"spent,omitempty"`
 
+	// Genome is what this particular plant is like, and Gen how many crossings
+	// it is from a named form (0 for one bought from the shop). Pollen is the
+	// genome of whatever pollinated it, waiting to be passed into its seed.
+	Genome Genome  `json:"genome"`
+	Gen    int     `json:"gen,omitempty"`
+	Pollen *Genome `json:"pollen,omitempty"`
+	// Line is the cultivar this plant belongs to (0 for none) and LineName its
+	// name; Streak is how many generations in a row the line has bred true;
+	// Descent says in words how this plant came about.
+	Line     int    `json:"line,omitempty"`
+	LineName string `json:"line_name,omitempty"`
+	Streak   int    `json:"streak,omitempty"`
+	Descent  string `json:"descent,omitempty"`
+
 	// Pond beds hold water instead of soil. Only the aquatic species will
 	// grow in one, and nothing else will.
 	Pond bool `json:"pond,omitempty"`
@@ -59,6 +67,31 @@ type Plot struct {
 	// much compost the bed has had worked into it.
 	PH       float64 `json:"ph"`
 	Richness float64 `json:"richness"`
+}
+
+// Genes is the plant's genome, falling back to its named form's for a plant
+// saved before genes existed.
+func (p *Plot) Genes() Genome {
+	if !p.Genome.Blank() {
+		return p.Genome
+	}
+	if sp := p.Species(); sp != nil {
+		return sp.VarietyGenome(p.Variety)
+	}
+	return Genome{}
+}
+
+// Stable reports a plant of a line that has bred true for long enough.
+func (p *Plot) Stable() bool { return p.Streak >= stableRuns }
+
+// IsHybrid reports whether the plant has drifted far enough from every named
+// form to be something new.
+func (p *Plot) IsHybrid() bool {
+	sp := p.Species()
+	if sp == nil {
+		return false
+	}
+	return p.Genes().Distance(sp.VarietyGenome(p.Variety)) > hybridGap
 }
 
 // Empty reports whether anything is planted here.
@@ -120,6 +153,12 @@ func (p *Plot) FullName() string {
 	sp := p.Species()
 	if sp == nil {
 		return "empty bed"
+	}
+	if p.LineName != "" {
+		return fmt.Sprintf("%s ‘%s’", sp.Common, p.LineName)
+	}
+	if p.IsHybrid() {
+		return fmt.Sprintf("%s hybrid (‘%s’ type)", sp.Common, sp.Variety(p.Variety).Name)
 	}
 	return sp.VarietyName(p.Variety)
 }
@@ -187,17 +226,37 @@ type JournalEntry struct {
 
 // Garden is the whole saved world.
 type Garden struct {
-	Version    int    `json:"version"`
-	Seed       int64  `json:"seed"`
-	Gardener   string `json:"gardener,omitempty"`
-	Plots      []Plot `json:"plots"`
-	Seeds      int    `json:"seeds"`
-	Matured    int    `json:"matured"`    // lifetime plants brought to maturity
-	Planted    int    `json:"planted"`    // lifetime plants sown
-	Gathered   int    `json:"gathered"`   // lifetime seeds gathered
-	Volunteers int    `json:"volunteers"` // plants that sowed themselves
-	Composted  int    `json:"composted"`  // plants lifted and worked back in
-	Music      bool   `json:"music"`      // was the music playing when we last closed
+	Version   int      `json:"version"`
+	Seed      int64    `json:"seed"`
+	Gardener  string   `json:"gardener,omitempty"`
+	Plots     []Plot   `json:"plots"`
+	Gold      int      `json:"gold"`
+	Shed      []Packet `json:"shed,omitempty"`
+	PacketSeq int64    `json:"packet_seq,omitempty"`
+	Sold      int      `json:"sold,omitempty"` // lifetime seeds sold
+	// Crossed counts pollinations, by insect or by hand, and HandCrossed those
+	// done with the brush.
+	Cultivars   []Cultivar `json:"cultivars,omitempty"`
+	CultivarSeq int        `json:"cultivar_seq,omitempty"`
+	Templates   []Template `json:"templates,omitempty"`
+	TemplateSeq int        `json:"template_seq,omitempty"`
+	Orders      []Order    `json:"orders,omitempty"`
+	OrderSeq    int        `json:"order_seq,omitempty"`
+	OrdersDay   int        `json:"orders_day,omitempty"`
+	OrdersDone  int        `json:"orders_done,omitempty"`
+	Fair        FairState  `json:"fair"`
+	CrossedSeed int        `json:"crossed_seed,omitempty"` // seed gathered that was crossed
+	Crossed     int        `json:"crossed,omitempty"`
+	HandCrossed int        `json:"hand_crossed,omitempty"`
+	// Seeds is the old currency, read only so a version 1 save can be moved
+	// across; it is never written again.
+	Seeds      int  `json:"seeds,omitempty"`
+	Matured    int  `json:"matured"`    // lifetime plants brought to maturity
+	Planted    int  `json:"planted"`    // lifetime plants sown
+	Gathered   int  `json:"gathered"`   // lifetime seeds gathered
+	Volunteers int  `json:"volunteers"` // plants that sowed themselves
+	Composted  int  `json:"composted"`  // plants lifted and worked back in
+	Music      bool `json:"music"`      // was the music playing when we last closed
 	// Herbarium records the first time each species was brought into flower,
 	// and Sightings the first time each creature came to visit.
 	Herbarium map[string]time.Time `json:"herbarium,omitempty"`
@@ -212,15 +271,15 @@ type Garden struct {
 	Created   time.Time      `json:"created"`
 }
 
-const gardenVersion = 1
+const gardenVersion = 2
 
-// NewGarden makes a fresh, empty garden with a handful of starter seeds.
+// NewGarden makes a fresh, empty garden with a purse to start with.
 func NewGarden(now time.Time) *Garden {
 	g := &Garden{
 		Version:  gardenVersion,
 		Seed:     rand.Int63(),
 		Plots:    make([]Plot, PlotCount),
-		Seeds:    14,
+		Gold:     startGold,
 		LastTick: now,
 		Created:  now,
 	}
@@ -280,10 +339,9 @@ func (g *Garden) BuyBed(now time.Time) error {
 		return fmt.Errorf("there is no more room to dig")
 	}
 	cost := g.BedCost()
-	if g.Seeds < cost {
-		return fmt.Errorf("breaking new ground costs %d seeds", cost)
+	if !g.spend(cost) {
+		return fmt.Errorf("breaking new ground costs %s", goldLabel(cost))
 	}
-	g.Seeds -= cost
 	g.Plots = append(g.Plots, Plot{})
 	g.layOutSoil()
 	g.Log(now, "Broke new ground: bed %d is ready.", len(g.Plots))
@@ -303,10 +361,9 @@ func (g *Garden) DigPond(idx int, now time.Time) error {
 		g.Log(now, "Filled in the pond in bed %d.", idx+1)
 		return nil
 	}
-	if g.Seeds < pondCost {
-		return fmt.Errorf("digging a pond costs %d seeds", pondCost)
+	if !g.spend(pondCost) {
+		return fmt.Errorf("digging a pond costs %s", goldLabel(pondCost))
 	}
-	g.Seeds -= pondCost
 	p.Pond = true
 	p.Moisture = 1
 	p.Weeds = 0
@@ -413,6 +470,8 @@ func (g *Garden) Advance(now time.Time) {
 		t = next
 	}
 	g.LastTick = now
+	g.refreshOrders(now)
+	g.settleFair(now)
 	// The suggestions are settled once per catch-up rather than once per
 	// step: nobody finishes one inside a quarter of an hour.
 	g.checkTasks(now)
@@ -439,21 +498,23 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 		p.Weeds = clamp01(p.Weeds + weedRate*dt)
 	}
 
-	if !p.Pond {
-		p.Moisture = clamp01(p.Moisture - baseDryPerHour*w.Dryness*dt + w.Rainfall*dt)
-	}
-	if p.Empty() {
-		return
-	}
-
 	sp := p.Species()
-	if sp == nil {
+	thirst := 1.0
+	if sp != nil {
+		thirst = p.Genes().ThirstFactor()
+	}
+	if !p.Pond {
+		p.Moisture = clamp01(p.Moisture - baseDryPerHour*w.Dryness*thirst*dt + w.Rainfall*dt)
+	}
+	if p.Empty() || sp == nil {
 		return
 	}
+	gn := p.Genes()
 
 	if p.Growth >= 1.0 {
 		if !p.Spent {
-			p.Pods = math.Min(maxPods, p.Pods+podsPerHour*dt*seasonPodFactor(season))
+			p.Pods = math.Min(gn.PodCap(), p.Pods+podsPerHour*gn.PodFactor()*dt*seasonPodFactor(season))
+			g.maybePollinate(p, idx, sp, w, season, at, dt)
 			g.maybeGoToSeed(p, idx, sp, at, now)
 		}
 		// A plant in seed scatters some of it about, whether it is still
@@ -463,13 +524,14 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 	}
 
 	feed(p, dt)
-	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season) * g.companionFactor(idx, sp)
+	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season) * g.companionFactor(idx, sp) * gn.GrowthFactor()
 	p.Growth = math.Min(1.0, p.Growth+rate*dt)
 	if p.Growth >= 1.0 && !p.Matured {
 		p.Matured = true
 		p.MaturedAt = at
 		g.Matured++
 		g.collect(sp, p.Variety, at)
+		g.discover(p, sp, idx, at, now)
 		// Journal the moment, dated when it actually happened.
 		when := at
 		if when.After(now) {
@@ -496,46 +558,6 @@ func growthFactor(p *Plot, sp *Species, w Weather, season Season) float64 {
 		seasonal = 1.0
 	}
 	return moisture * weeds * seasonal * w.Growth * soilFactor(sp, p)
-}
-
-// Plant sows one variety of a species into a bed, charging its seed cost.
-func (g *Garden) Plant(idx int, sp *Species, variety int, now time.Time) error {
-	if idx < 0 || idx >= len(g.Plots) {
-		return fmt.Errorf("no such bed")
-	}
-	p := &g.Plots[idx]
-	if !p.Empty() {
-		return fmt.Errorf("bed %d already holds %s", idx+1, p.DisplayName())
-	}
-	if !g.Unlocked(sp) {
-		return fmt.Errorf("%s needs %d matured plants to unlock", sp.Common, sp.Unlock)
-	}
-	if sp.Kind == KindAquatic && !p.Pond {
-		return fmt.Errorf("%s needs a pond — dig one with d", sp.Common)
-	}
-	if sp.Kind != KindAquatic && p.Pond {
-		return fmt.Errorf("bed %d is a pond; only water plants will grow there", idx+1)
-	}
-	if g.Seeds < sp.SeedCost {
-		return fmt.Errorf("not enough seeds for %s (costs %d)", sp.Common, sp.SeedCost)
-	}
-	g.Seeds -= sp.SeedCost
-	g.Planted++
-	if variety < 0 || variety >= len(sp.Varieties()) {
-		variety = 0
-	}
-	*p = Plot{
-		SpeciesID: sp.ID,
-		Variety:   variety,
-		PlantedAt: now,
-		Moisture:  0.65, // a watering-in, as any gardener would
-		Weeds:     0,
-		Pond:      p.Pond,
-		PH:        p.PH,
-		Richness:  p.Richness,
-	}
-	g.Log(now, "Sowed %s (%s) in bed %d.", sp.VarietyName(variety), sp.Latin, idx+1)
-	return nil
 }
 
 // Water fills a bed's soil. Returns false when there was nothing to do.
@@ -571,23 +593,56 @@ func (g *Garden) Weed(idx int, now time.Time) (bool, int) {
 	reward := 0
 	if p.Weeds > 0.45 {
 		reward = weedingReward
-		g.Seeds += reward
+		g.earn(reward)
 	}
 	p.Weeds = 0
 	return true, reward
 }
 
-// Gather collects ripe seed pods from a mature plant.
+// Gather collects ripe seed pods from a mature plant into a packet in the
+// shed. The packet's seeds have the plant for one parent and whatever
+// pollinated it for the other, or the plant itself if nothing did.
 func (g *Garden) Gather(idx int, now time.Time) int {
 	p := &g.Plots[idx]
-	if p.Empty() || p.Pods < 1 {
+	sp := p.Species()
+	if p.Empty() || sp == nil || p.Pods < 1 {
 		return 0
 	}
 	got := int(p.Pods)
 	p.Pods -= float64(got)
-	g.Seeds += got
+	mother := p.Genes()
+	father := mother
+	crossed := false
+	if p.Pollen != nil {
+		father = *p.Pollen
+		p.Pollen = nil
+		crossed = true
+	}
+	variety, _ := sp.NearestVariety(meanGenome(mother, father))
+	// A line is carried on when both parents are alike; a wide cross starts
+	// again from nothing.
+	streak, label, line := 0, "", 0
+	if mother.Distance(father) <= stableGap {
+		streak = p.Streak + 1
+		if p.Line != 0 {
+			label, line = p.LineName, p.Line
+		}
+	}
+	descent := "selfed from " + p.DisplayName()
+	if crossed {
+		descent = describeGenome(mother) + " × " + describeGenome(father)
+	}
+	g.AddPacket(Packet{
+		SpeciesID: sp.ID, A: mother, B: father, Count: got, Gen: p.Gen + 1,
+		Variety: variety, From: p.DisplayName(), Line: line, Label: label, Streak: streak, Descent: descent,
+	})
 	g.Gathered += got
-	g.Log(now, "Gathered %d seed(s) from %s.", got, p.DisplayName())
+	if crossed {
+		g.CrossedSeed += got
+		g.Log(now, "Gathered %d crossed seed(s) from %s.", got, p.DisplayName())
+	} else {
+		g.Log(now, "Gathered %d seed(s) from %s.", got, p.DisplayName())
+	}
 	return got
 }
 
@@ -638,12 +693,12 @@ func (g *Garden) Visit(now time.Time) int {
 	if sameDay(g.LastVisit, now) {
 		return 0
 	}
-	g.Seeds += dailyBonus
+	g.earn(dailyStipend)
 	if g.LastVisit.IsZero() {
-		return dailyBonus
+		return dailyStipend
 	}
-	g.Log(now, "A new day in the garden: %d seeds from the shed.", dailyBonus)
-	return dailyBonus
+	g.Log(now, "A new day in the garden: %s from the shed.", goldLabel(dailyStipend))
+	return dailyStipend
 }
 
 func sameDay(a, b time.Time) bool {
@@ -679,7 +734,7 @@ func hashUnit(seed, a, salt int64) float64 {
 // plant does not die: it dries, hands over a last few seeds, and stands until
 // the gardener lifts it.
 func (g *Garden) maybeGoToSeed(p *Plot, idx int, sp *Species, at, now time.Time) {
-	span := seedSpan(sp)
+	span := seedSpan(sp) * p.Genes().SeedSpanFactor()
 	if span <= 0 || p.MaturedAt.IsZero() {
 		return
 	}
@@ -687,7 +742,7 @@ func (g *Garden) maybeGoToSeed(p *Plot, idx int, sp *Species, at, now time.Time)
 		return
 	}
 	p.Spent = true
-	p.Pods = math.Min(maxPods, p.Pods+2)
+	p.Pods = math.Min(p.Genes().PodCap(), p.Pods+2)
 	when := at
 	if when.After(now) {
 		when = now
@@ -737,9 +792,28 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 			when = now
 		}
 		bed := &g.Plots[target]
+		// Open-pollinated: the volunteer is a child of its parent and whatever
+		// pollen the parent last took, so it comes close to true but not exactly.
+		mother := p.Genes()
+		father := mother
+		if p.Pollen != nil {
+			father = *p.Pollen
+		}
+		child := breed(g.Seed, hashSerial(q, int64(idx), 0x5E1F), mother, father)
+		variety, _ := sp.NearestVariety(child)
+		streak, line, lineName := 0, 0, ""
+		if child.Distance(mother) <= stableGap && mother.Distance(father) <= stableGap {
+			streak, line, lineName = p.Streak+1, p.Line, p.LineName
+		}
 		*bed = Plot{
 			SpeciesID: sp.ID,
-			Variety:   p.Variety, // open-pollinated, and it comes true enough
+			Variety:   variety,
+			Genome:    child,
+			Gen:       p.Gen + 1,
+			Streak:    streak,
+			Line:      line,
+			LineName:  lineName,
+			Descent:   "sown itself from " + p.DisplayName(),
 			PlantedAt: when,
 			Moisture:  bed.Moisture,
 			PH:        bed.PH,
@@ -748,7 +822,7 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 		p.Pods--
 		g.Planted++
 		g.Volunteers++
-		g.Log(when, "A %s has sown itself into bed %d.", sp.VarietyName(p.Variety), target+1)
+		g.Log(when, "A %s has sown itself into bed %d.", bed.FullName(), target+1)
 		return
 	}
 }

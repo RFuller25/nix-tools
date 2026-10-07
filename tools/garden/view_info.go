@@ -29,7 +29,7 @@ func (m model) viewInfo() string {
 
 	season := m.g.Season(m.now)
 	stage, pal := appearance(sp, p, season, m.phase())
-	art := renderVariety(sp, p.Variety, stage, pal, 24, 7, m.wind.swayAt(m.cursor%plotCols), nil)
+	art := renderGene(sp, p.Variety, p.Genes(), stage, pal, 24, 7, m.wind.swayAt(m.cursor%plotCols), nil)
 	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true, m.phase(), p.Richness)
 
 	headline := []string{
@@ -75,6 +75,7 @@ func (m model) viewInfo() string {
 	}, "\n")
 
 	tip := lipgloss.NewStyle().Width(width).Render(subtleStyle.Render("✎ " + sp.Note))
+	genes := traitLines(sp, p, width)
 
 	var neighbours []string
 	for _, e := range m.g.companionEffects(m.cursor, sp) {
@@ -94,14 +95,21 @@ func (m model) viewInfo() string {
 		pods = seedStyle.Render(fmt.Sprintf("✦ %d ripe seed pod(s) — press f to gather.", int(p.Pods)))
 	}
 
+	pollen := ""
+	if p.Pollen != nil {
+		pollen = swatch(p.Pollen.Hex(), 2) + " " + valueStyle.Render(
+			"carrying "+p.Pollen.ColourName()+" pollen — the next seed you gather will be that cross.")
+	}
 	parts := []string{top, "", meters, "", desc, "", care, ""}
+	parts = append(parts, genes...)
+	parts = append(parts, "")
 	parts = append(parts, neighbours...)
 	if len(neighbours) > 0 {
 		parts = append(parts, "")
 	}
 	// What this species does in a garden, the same block the almanac shows.
 	parts = append(parts, effectLines(sp, width)...)
-	parts = append(parts, "", tip, pods)
+	parts = append(parts, "", tip, pods, pollen)
 	card := strings.Join(compact(parts), "\n")
 
 	// The card is usually taller than a small terminal, so it is windowed
@@ -118,7 +126,7 @@ func (m model) viewInfo() string {
 		}, "\n")
 	}
 
-	keys := scrollHint(above, below, "w water · c weed · f gather · n name · u lift · ←→ other beds · esc back")
+	keys := scrollHint(above, below, m.hintLine(setInfo))
 	return strings.Join([]string{body, m.footer(keys)}, "\n")
 }
 
@@ -189,7 +197,7 @@ func (m model) nextStageNote(p *Plot, sp *Species) string {
 		return "asleep until spring"
 	}
 	if p.Growth >= 1 {
-		if p.Pods >= maxPods {
+		if p.Pods >= p.Genes().PodCap() {
 			return "fully grown, seed pods full"
 		}
 		next := (math.Ceil(p.Pods+1e-9) - p.Pods) / podsPerHour

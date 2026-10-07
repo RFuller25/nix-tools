@@ -86,7 +86,8 @@ func (m model) header() string {
 		labelStyle.Render(ph.Glyph()+" ") + valueStyle.Render(ph.String()),
 		labelStyle.Render(season.Glyph()+" ") + valueStyle.Render(season.String()),
 		labelStyle.Render(w.Glyph()+" ") + valueStyle.Render(w.Name()),
-		seedStyle.Render(fmt.Sprintf("✦ %d seeds", m.g.Seeds)),
+		goldStyle.Render(fmt.Sprintf("● %d gold", m.g.Gold)),
+		seedStyle.Render(fmt.Sprintf("✦ %d seeds", m.g.SeedsInShed())),
 		subtleStyle.Render(fmt.Sprintf("%d grown", m.g.Matured)),
 	}
 	sep := subtleStyle.Render("  ·  ")
@@ -146,6 +147,8 @@ func (m model) footer(keys string) string {
 	switch {
 	case m.saveErr != nil:
 		line = errStyle.Render("save failed: " + m.saveErr.Error())
+	case m.mode != modeNone && m.screen == screenGarden:
+		line = m.modeLine()
 	case m.status != "":
 		line = m.statusStyle.Render(m.status)
 	default:
@@ -227,9 +230,7 @@ func (m model) viewGarden() string {
 		}
 	}
 
-	keys := keyHints(m.width, "←↑↓→ move", "p plant", "w water", "c weed", "f gather",
-		"n name", "i info", "a almanac", "m music", "b new bed", "d pond",
-		"W water all", "C weed all", "tab screens", "? help", "q quit")
+	keys := keyHints(m.width, m.hintParts(setGarden)...)
 	if m.naming {
 		return strings.Join([]string{
 			head,
@@ -276,6 +277,9 @@ func joinWithGap(cells []string) []string {
 func (m model) renderCell(idx int) string {
 	p := &m.g.Plots[idx]
 	selected := idx == m.cursor
+	if gh, ok := m.ghosts[idx]; ok && (m.mode == modePlan || m.mode == modeStamp) {
+		return m.renderGhost(idx, gh, selected)
+	}
 
 	var lines []string
 	if fx, ok := m.compost[idx]; ok && !fx.done(m.now) {
@@ -296,7 +300,7 @@ func (m model) renderCell(idx int) string {
 		sway := m.wind.swayAt(idx%plotCols) * (0.45 + 0.55*p.Growth)
 		stage, pal := appearance(sp, p, m.g.Season(m.now), m.phase())
 		visitors := m.life.overlayFor(idx, cellInner, artHeight)
-		lines = append(lines, renderVariety(sp, p.Variety, stage, pal, cellInner, artHeight, sway, visitors)...)
+		lines = append(lines, renderGene(sp, p.Variety, p.Genes(), stage, pal, cellInner, artHeight, sway, visitors)...)
 	} else {
 		// Bare ground still gets visitors passing over it.
 		visitors := m.life.overlayFor(idx, cellInner, artHeight)
@@ -334,12 +338,25 @@ func (m model) renderCell(idx int) string {
 			nameStyle = titleStyle
 		}
 		lines = append(lines, pad(nameStyle.Render(truncate(name, cellInner)), cellInner))
-		lines = append(lines, pad(m.statStrip(p), cellInner))
+		if m.showSynergy() {
+			lines = append(lines, pad(synergyBadge(m.synergyGarden().Synergy(idx).Net()), cellInner))
+		} else {
+			lines = append(lines, pad(m.statStrip(p), cellInner))
+		}
 	}
 
 	border := plainBorder
-	if selected {
+	switch {
+	case m.mode == modeSelect && rectOf(m.selAnchor, m.cursor).contains(idx):
+		border = selectBorder
+	case m.showSynergy() && !p.Empty() && !selected:
+		border = synergyBorder(m.synergyGarden().Synergy(idx).Net())
+	case selected:
 		border = selBorder
+	case m.pollinating && idx == m.pollenTarget:
+		border = targetBorder
+	case m.pollinating && m.isDonor(m.pollenTarget, idx):
+		border = donorBorder
 	}
 	return border.Render(strings.Join(lines, "\n"))
 }
@@ -353,11 +370,11 @@ func (m model) statStrip(p *Plot) string {
 	case p.Spent:
 		extra = subtleStyle.Render("seed")
 	case p.Pods >= 1:
-		extra = seedStyle.Render(fmt.Sprintf("✦%d", int(p.Pods)))
+		extra = seedStyle.Render(fmt.Sprintf("✦%d", int(p.Pods))) + pollenMark(p)
 	case p.Weeds > 0.45:
 		extra = weedStyle.Render("⌄⌄")
 	case p.Growth >= 1:
-		extra = okStyle.Render("❀")
+		extra = okStyle.Render("❀") + pollenMark(p)
 	default:
 		extra = subtleStyle.Render(shortStage(p.Stage()))
 	}
@@ -396,4 +413,35 @@ func truncate(s string, width int) string {
 		runes = runes[:len(runes)-1]
 	}
 	return string(runes) + "…"
+}
+
+// pollenMark shows a plant that is carrying pollen, ready to cross its seed.
+func pollenMark(p *Plot) string {
+	if p.Pollen == nil {
+		return ""
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(p.Pollen.Hex())).Render("✿")
+}
+
+// synergyBorder colours a bed's frame by how its neighbourhood treats it.
+func synergyBorder(net float64) lipgloss.Style {
+	switch {
+	case net >= 0.03:
+		return goodBorder
+	case net <= -0.03:
+		return badBorder
+	}
+	return plainBorder
+}
+
+// synergyBadge is the figure shown under a bed in the overlay.
+func synergyBadge(net float64) string {
+	pct := net * 100
+	switch {
+	case net >= 0.03:
+		return okStyle.Render(fmt.Sprintf("▲ %+.0f%% growth", pct))
+	case net <= -0.03:
+		return errStyle.Render(fmt.Sprintf("▼ %+.0f%% growth", pct))
+	}
+	return subtleStyle.Render("● neutral")
 }

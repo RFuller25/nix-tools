@@ -101,7 +101,7 @@ func (g *Garden) companionEffects(idx int, sp *Species) []companionEffect {
 			}
 		}
 	}
-	return out
+	return append(out, g.geneEffects(idx, sp)...)
 }
 
 // companionFactor is the growth multiplier from the neighbours. It is capped

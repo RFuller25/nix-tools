@@ -19,6 +19,29 @@ const (
 	screenAlmanac
 	screenJournal
 	screenHelp
+	screenTemplates
+	screenOrders
+	screenFair
+)
+
+// mode is a state layered over the garden screen that changes what the keys mean.
+type mode int
+
+const (
+	modeNone   mode = iota
+	modePlan        // placing ghosts of seed to see how a layout would do
+	modeStamp       // placing a saved layout
+	modeSelect      // choosing a block of beds to save as a layout
+)
+
+// nameTarget is what the name being typed is for.
+type nameTarget int
+
+const (
+	namePlant nameTarget = iota
+	namePacket
+	nameCultivar
+	nameTemplate
 )
 
 type tickMsg time.Time
@@ -48,23 +71,41 @@ type model struct {
 	lastSave time.Time
 	dirty    bool
 
+	shelf       shelf // which half of the shed is open
+	mineCursor  int   // the highlighted packet, in ShedOrder
+	mineScroll  int
 	shop        []*Species
 	shopCursor  int
 	shopScroll  int
 	shopVariety int  // the form selected for the highlighted species
 	shopSeason  bool // limit the shop to species happy in this season
 
-	almanac        []almanacRow
-	almanacCursor  int
-	almanacScroll  int
-	almanacStage   int
-	almanacVariety int
+	almanac          []almanacRow
+	almanacCultivars int // how many cultivars the rows were built with
+	almanacCursor    int
+	almanacScroll    int
+	almanacStage     int
+	almanacVariety   int
 
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
 
-	naming bool
-	input  textinput.Model
+	overlay      bool // colour the beds by how well they get on with their neighbours
+	mode         mode // plan, stamp or select, layered over the garden
+	ghosts       map[int]ghost
+	plan         *Garden // the garden as it would be if the ghosts were sown
+	planPick     int     // the highlighted seed in the plan palette
+	selAnchor    int     // where a layout selection began
+	stampTpl     Template
+	stampSkipped []string
+	tplCursor    int
+	ordersCursor int
+	fairCursor   int
+	pollinating  bool // choosing a donor for pollenTarget
+	pollenTarget int
+	naming       bool
+	namingFor    nameTarget
+	input        textinput.Model
 
 	audio   *Audio
 	wind    windState
@@ -85,17 +126,18 @@ func newModel(g *Garden, path string, now time.Time) model {
 	ti.Prompt = "  name › "
 
 	m := model{
-		g:       g,
-		path:    path,
-		now:     now,
-		input:   ti,
-		almanac: almanacRows(),
-		audio:   NewAudio(sampleRate),
-		wind:    newWind(g.Seed ^ now.UnixNano()),
-		life:    newWildlife(g.Seed ^ now.UnixNano() ^ 0x1F0C),
-		compost: map[int]compostFX{},
-		width:   80,
-		height:  30,
+		g:                g,
+		path:             path,
+		now:              now,
+		input:            ti,
+		almanac:          almanacRows(g),
+		almanacCultivars: len(g.Cultivars) + len(g.Fair.Ribbons),
+		audio:            NewAudio(sampleRate),
+		wind:             newWind(g.Seed ^ now.UnixNano()),
+		life:             newWildlife(g.Seed ^ now.UnixNano() ^ 0x1F0C),
+		compost:          map[int]compostFX{},
+		width:            80,
+		height:           30,
 	}
 	m.refreshShop()
 	return m
@@ -197,6 +239,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		m.now = time.Time(msg)
 		m.g.Advance(m.now)
+		if m.almanacKey() != m.almanacCultivars {
+			m.refreshAlmanac()
+		}
 		if m.dirty && m.now.Sub(m.lastSave) > 10*time.Second {
 			return m, tea.Batch(tick(), m.save())
 		}
@@ -237,14 +282,6 @@ func (m model) save() tea.Cmd {
 	return func() tea.Msg { return saveMsg{Save(path, g)} }
 }
 
-func (m model) quit() (tea.Model, tea.Cmd) {
-	m.audio.Close()
-	if err := Save(m.path, m.g); err != nil {
-		m.saveErr = err
-	}
-	return m, tea.Quit
-}
-
 // toggleMusic starts or stops the garden's ambient piece. The choice is kept
 // in the save file, so a garden you left humming is humming when you return.
 func (m *model) toggleMusic() {
@@ -265,81 +302,15 @@ func (m *model) toggleMusic() {
 	m.setStatus(okStyle, "Something quiet, in D, through %s.", m.audio.Backend())
 }
 
-func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.naming {
-		return m.handleNaming(msg)
-	}
-
-	key := msg.String()
-
-	// Keys that work from anywhere.
-	switch key {
-	case "ctrl+c":
-		return m.quit()
-	case "m":
-		m.toggleMusic()
-		return m, nil
-	case "q":
-		if m.screen == screenGarden {
-			return m.quit()
-		}
-		m.screen = screenGarden
-		return m, nil
-	case "?":
-		if m.screen == screenHelp {
-			m.screen = screenGarden
-		} else {
-			m.screen, m.cardScroll = screenHelp, 0
-		}
-		return m, nil
-	case "tab":
-		m.screen = nextScreen(m.screen)
-		if m.screen == screenShop {
-			m.refreshShop()
-		}
-		return m, nil
-	case "esc":
-		if m.screen != screenGarden {
-			m.screen = screenGarden
-			return m, nil
-		}
-	}
-
-	switch m.screen {
-	case screenGarden:
-		return m.handleGardenKey(key)
-	case screenShop:
-		return m.handleShopKey(key)
-	case screenInfo:
-		return m.handleInfoKey(key)
-	case screenAlmanac:
-		return m.handleAlmanacKey(key)
-	case screenJournal:
-		return m.handleJournalKey(key)
-	case screenHelp:
-		switch key {
-		case "up", "k":
-			m.cardScroll = max(0, m.cardScroll-1)
-		case "down", "j":
-			m.cardScroll++
-		case "pgup":
-			m.cardScroll = max(0, m.cardScroll-10)
-		case "pgdown":
-			m.cardScroll += 10
-		case "home", "g":
-			m.cardScroll = 0
-		default:
-			m.screen = screenGarden
-		}
-	}
-	return m, nil
-}
-
 func nextScreen(s screen) screen {
 	switch s {
 	case screenGarden:
 		return screenShop
 	case screenShop:
+		return screenOrders
+	case screenOrders:
+		return screenFair
+	case screenFair:
 		return screenAlmanac
 	case screenAlmanac:
 		return screenJournal
@@ -348,147 +319,56 @@ func nextScreen(s screen) screen {
 	}
 }
 
-func (m model) handleGardenKey(key string) (tea.Model, tea.Cmd) {
-	cols := plotCols
-	switch key {
-	case "left", "h":
-		if m.cursor%cols > 0 {
-			m.cursor--
-		}
-	case "right", "l":
-		if m.cursor%cols < cols-1 && m.cursor+1 < len(m.g.Plots) {
-			m.cursor++
-		}
-	case "up", "k":
-		if m.cursor-cols >= 0 {
-			m.cursor -= cols
-		}
-	case "down", "j":
-		if m.cursor+cols < len(m.g.Plots) {
-			m.cursor += cols
-		}
-	case "home", "g":
-		m.cursor = 0
-	case "end", "G":
-		m.cursor = len(m.g.Plots) - 1
-	case "p", "enter":
-		if m.plot().Empty() {
-			m.screen = screenShop
-			m.refreshShop()
-		} else {
-			m.screen, m.cardScroll = screenInfo, 0
-		}
-	case "i", " ":
-		if !m.plot().Empty() {
-			m.screen, m.cardScroll = screenInfo, 0
-		}
-	case "w":
-		if m.g.Water(m.cursor, m.now) {
-			m.dirty = true
-			m.setStatus(waterStyle, "Watered %s.", m.plot().DisplayName())
-		} else if m.plot().Empty() {
-			m.setStatus(subtleStyle, "Nothing planted in bed %d.", m.cursor+1)
-		} else {
-			m.setStatus(subtleStyle, "%s has plenty to drink.", m.plot().DisplayName())
-		}
-	case "W":
-		if n := m.g.WaterAll(m.now); n > 0 {
-			m.dirty = true
-			m.setStatus(waterStyle, "Watered %d bed(s).", n)
-		} else {
-			m.setStatus(subtleStyle, "Every bed is already watered.")
-		}
-	case "c":
-		if ok, reward := m.g.Weed(m.cursor, m.now); ok {
-			m.dirty = true
-			if reward > 0 {
-				m.setStatus(okStyle, "Cleared the weeds — found %d seed in the tangle.", reward)
-			} else {
-				m.setStatus(okStyle, "Tidied bed %d.", m.cursor+1)
-			}
-		} else {
-			m.setStatus(subtleStyle, "Bed %d is already clear.", m.cursor+1)
-		}
-	case "C":
-		total, reward := 0, 0
-		for i := range m.g.Plots {
-			if ok, r := m.g.Weed(i, m.now); ok {
-				total++
-				reward += r
-			}
-		}
-		if total > 0 {
-			m.dirty = true
-			m.g.Log(m.now, "Weeded the whole garden (%d beds).", total)
-			m.setStatus(okStyle, "Weeded %d bed(s), earning %d seed(s).", total, reward)
-		} else {
-			m.setStatus(subtleStyle, "Not a weed in sight.")
-		}
-	case "f":
-		if got := m.g.Gather(m.cursor, m.now); got > 0 {
-			m.dirty = true
-			m.setStatus(seedStyle, "Gathered %d seed(s) from %s.", got, m.plot().DisplayName())
-		} else {
-			m.setStatus(subtleStyle, "No ripe seed here yet.")
-		}
-	case "F":
-		got := 0
-		for i := range m.g.Plots {
-			got += m.g.Gather(i, m.now)
-		}
-		if got > 0 {
-			m.dirty = true
-			m.setStatus(seedStyle, "Gathered %d seed(s) from the garden.", got)
-		} else {
-			m.setStatus(subtleStyle, "Nothing ripe to gather.")
-		}
-	case "n", "r":
-		if !m.plot().Empty() {
-			m.startNaming()
-		} else {
-			m.setStatus(subtleStyle, "Plant something first.")
-		}
-	case "u":
-		if gain, ok := m.lift(m.cursor); ok {
-			m.setStatus(okStyle, "Composted %s into bed %d — the soil is %s now (+%.0f%% richness).",
-				m.compost[m.cursor].Species.Common, m.cursor+1,
-				richnessWord(m.g.Plots[m.cursor].Richness), gain*100)
-		} else {
-			m.setStatus(subtleStyle, "Bed %d is already empty.", m.cursor+1)
-		}
-	case "b":
-		if err := m.g.BuyBed(m.now); err != nil {
-			m.setStatus(warnStyle, "%s", err.Error())
-		} else {
-			m.dirty = true
-			m.cursor = len(m.g.Plots) - 1
-			m.setStatus(okStyle, "New ground broken: bed %d. The next costs %d seeds.", len(m.g.Plots), m.g.BedCost())
-		}
-	case "d":
-		wasPond := m.plot().Pond
-		if err := m.g.DigPond(m.cursor, m.now); err != nil {
-			m.setStatus(warnStyle, "%s", err.Error())
-		} else {
-			m.dirty = true
-			if wasPond {
-				m.setStatus(okStyle, "Filled the pond back in.")
-			} else {
-				m.setStatus(waterStyle, "Dug a pond. Water lilies and lotus will grow here.")
-			}
-		}
-	case "a":
-		m.screen, m.cardScroll = screenAlmanac, 0
-	case "s":
-		m.screen, m.cardScroll = screenShop, 0
-		m.refreshShop()
+// refreshAlmanac rebuilds the almanac's rows after the garden has found a
+// new cultivar, keeping the cursor on the same entry where it can.
+func (m *model) refreshAlmanac() {
+	var keep almanacRow
+	if m.almanacCursor < len(m.almanac) {
+		keep = m.almanac[m.almanacCursor]
 	}
-	m.ensureVisible()
-	return m, nil
+	m.almanac = almanacRows(m.g)
+	m.almanacCultivars = m.almanacKey()
+	for i, r := range m.almanac {
+		if r.Kind == keep.Kind && r.Chapter == keep.Chapter && r.Species == keep.Species && r.Creature == keep.Creature && r.Cultivar == keep.Cultivar && r.Ribbon == keep.Ribbon {
+			m.almanacCursor = i
+			return
+		}
+	}
+	m.almanacCursor = min(m.almanacCursor, len(m.almanac)-1)
+}
+
+// startNamingCultivar renames the cultivar highlighted in the almanac.
+func (m *model) startNamingCultivar() {
+	row := m.almanac[m.almanacCursor]
+	c := m.g.CultivarByID(row.Cultivar)
+	if row.Kind != rowCultivar || c == nil {
+		return
+	}
+	m.naming, m.namingFor = true, nameCultivar
+	m.input.Placeholder = "a name for this line"
+	m.input.SetValue(c.Name)
+	m.input.CursorEnd()
+	m.input.Focus()
 }
 
 func (m *model) startNaming() {
-	m.naming = true
+	m.naming, m.namingFor = true, namePlant
+	m.input.Placeholder = "a name for this plant"
 	m.input.SetValue(m.plot().Name)
+	m.input.CursorEnd()
+	m.input.Focus()
+}
+
+// startNamingPacket names the highlighted packet in the shed.
+func (m *model) startNamingPacket() {
+	order := m.g.ShedOrder()
+	if len(order) == 0 {
+		return
+	}
+	pk := m.g.Shed[order[min(m.mineCursor, len(order)-1)]]
+	m.naming, m.namingFor = true, namePacket
+	m.input.Placeholder = "a name for this seed"
+	m.input.SetValue(pk.Label)
 	m.input.CursorEnd()
 	m.input.Focus()
 }
@@ -501,10 +381,34 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		name := strings.TrimSpace(m.input.Value())
-		m.g.Rename(m.cursor, name, m.now)
-		m.dirty = true
 		m.naming = false
 		m.input.Blur()
+		m.dirty = true
+		if m.namingFor == nameTemplate {
+			m.finishSaveTemplate(name)
+			return m, nil
+		}
+		if m.namingFor == nameCultivar {
+			if row := m.almanac[m.almanacCursor]; row.Kind == rowCultivar && m.g.RenameCultivar(row.Cultivar, name, m.now) {
+				m.setStatus(okStyle, "The line is now ‘%s’.", name)
+				m.refreshAlmanac()
+			} else {
+				m.setStatus(subtleStyle, "A line needs a name.")
+			}
+			return m, nil
+		}
+		if m.namingFor == namePacket {
+			if order := m.g.ShedOrder(); len(order) > 0 {
+				m.g.RenamePacket(order[min(m.mineCursor, len(order)-1)], name)
+			}
+			if name == "" {
+				m.setStatus(subtleStyle, "Label cleared.")
+			} else {
+				m.setStatus(okStyle, "Labelled the packet %s.", name)
+			}
+			return m, nil
+		}
+		m.g.Rename(m.cursor, name, m.now)
 		if name == "" {
 			m.setStatus(subtleStyle, "Name cleared.")
 		} else {
@@ -515,66 +419,6 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
-}
-
-func (m model) handleShopKey(key string) (tea.Model, tea.Cmd) {
-	switch key {
-	case "up", "k":
-		if m.shopCursor > 0 {
-			m.shopCursor--
-			m.cardScroll, m.shopVariety = 0, 0
-		}
-	case "down", "j":
-		if m.shopCursor < len(m.shop)-1 {
-			m.shopCursor++
-			m.cardScroll, m.shopVariety = 0, 0
-		}
-	case "left", "h":
-		if len(m.shop) > 0 {
-			forms := len(m.shop[m.shopCursor].Varieties())
-			m.shopVariety = (m.shopVariety + forms - 1) % forms
-		}
-	case "right", "l":
-		if len(m.shop) > 0 {
-			m.shopVariety = (m.shopVariety + 1) % len(m.shop[m.shopCursor].Varieties())
-		}
-	case "pgup":
-		m.cardScroll = max(0, m.cardScroll-6)
-	case "pgdown":
-		m.cardScroll += 6
-	case "home", "g":
-		m.shopCursor, m.cardScroll, m.shopVariety = 0, 0, 0
-	case "end", "G":
-		m.shopCursor, m.cardScroll, m.shopVariety = max(0, len(m.shop)-1), 0, 0
-	case "t":
-		m.shopSeason = !m.shopSeason
-		m.refreshShop()
-		if m.shopSeason {
-			m.setStatus(subtleStyle, "Showing seeds for %s only.", m.g.Season(m.now))
-		} else {
-			m.setStatus(subtleStyle, "Showing the whole seed rack.")
-		}
-	case "enter", "p", " ":
-		if len(m.shop) == 0 {
-			return m, nil
-		}
-		sp := m.shop[m.shopCursor]
-		idx := m.firstEmptyFrom(m.cursor)
-		if idx < 0 {
-			m.setStatus(warnStyle, "Every bed is full — lift something first (u).")
-			return m, nil
-		}
-		if err := m.g.Plant(idx, sp, m.shopVariety, m.now); err != nil {
-			m.setStatus(errStyle, "%s", err.Error())
-			return m, nil
-		}
-		m.cursor = idx
-		m.dirty = true
-		m.screen = screenGarden
-		m.setStatus(okStyle, "Sowed %s in bed %d.%s", sp.VarietyName(m.shopVariety), idx+1, companionAside(m.g, idx, sp))
-		return m, m.save()
-	}
-	return m, nil
 }
 
 // firstEmptyFrom prefers the selected bed, then scans forward for a free one.
@@ -590,107 +434,11 @@ func (m model) firstEmptyFrom(start int) int {
 	return -1
 }
 
-func (m model) handleInfoKey(key string) (tea.Model, tea.Cmd) {
-	switch key {
-	case "w":
-		if m.g.Water(m.cursor, m.now) {
-			m.dirty = true
-			m.setStatus(waterStyle, "Watered %s.", m.plot().DisplayName())
-		}
-	case "c":
-		if ok, _ := m.g.Weed(m.cursor, m.now); ok {
-			m.dirty = true
-			m.setStatus(okStyle, "Tidied the bed.")
-		}
-	case "f":
-		if got := m.g.Gather(m.cursor, m.now); got > 0 {
-			m.dirty = true
-			m.setStatus(seedStyle, "Gathered %d seed(s).", got)
-		}
-	case "n", "r":
-		m.startNaming()
-	case "up", "k":
-		m.cardScroll = max(0, m.cardScroll-1)
-	case "down", "j":
-		m.cardScroll++
-	case "pgup":
-		m.cardScroll = max(0, m.cardScroll-10)
-	case "pgdown":
-		m.cardScroll += 10
-	case "home":
-		m.cardScroll = 0
-	case "left", "h":
-		m.cursor = (m.cursor + len(m.g.Plots) - 1) % len(m.g.Plots)
-		m.cardScroll = 0
-	case "right", "l":
-		m.cursor = (m.cursor + 1) % len(m.g.Plots)
-		m.cardScroll = 0
-	case "u":
-		if gain, ok := m.lift(m.cursor); ok {
-			m.screen = screenGarden
-			m.setStatus(okStyle, "Composted %s into bed %d — the soil is %s now (+%.0f%% richness).",
-				m.compost[m.cursor].Species.Common, m.cursor+1,
-				richnessWord(m.g.Plots[m.cursor].Richness), gain*100)
-		}
-	}
-	return m, nil
-}
-
-func (m model) handleAlmanacKey(key string) (tea.Model, tea.Cmd) {
-	switch key {
-	case "up", "k":
-		if m.almanacCursor > 0 {
-			m.almanacCursor--
-			m.cardScroll, m.almanacVariety = 0, 0
-		}
-	case "down", "j":
-		if m.almanacCursor < len(m.almanac)-1 {
-			m.almanacCursor++
-			m.cardScroll, m.almanacVariety = 0, 0
-		}
-	case "pgup":
-		m.cardScroll = max(0, m.cardScroll-6)
-	case "pgdown":
-		m.cardScroll += 6
-	case "home", "g":
-		m.almanacCursor, m.cardScroll = 0, 0
-	case "end", "G":
-		m.almanacCursor, m.cardScroll = len(m.almanac)-1, 0
-	case "left", "h":
-		m.almanacStage = max(0, m.almanacStage-1)
-	case "right", "l":
-		m.almanacStage = min(StageCount-1, m.almanacStage+1)
-	case " ":
-		m.almanacStage = (m.almanacStage + 1) % StageCount
-	case "v":
-		if row := m.almanac[m.almanacCursor]; row.IsPlant {
-			m.almanacVariety = (m.almanacVariety + 1) % len(row.Species.Varieties())
-		}
-	}
-	return m, nil
-}
-
-func (m model) handleJournalKey(key string) (tea.Model, tea.Cmd) {
-	switch key {
-	case "up", "k":
-		m.journalScroll = max(0, m.journalScroll-1)
-	case "down", "j":
-		m.journalScroll++
-	case "pgup":
-		m.journalScroll = max(0, m.journalScroll-10)
-	case "pgdown":
-		m.journalScroll += 10
-	case "home", "g":
-		m.journalScroll = 0
-	}
-	return m, nil
-}
-
 func (m model) View() string {
 	var view string
 	switch m.screen {
 	case screenShop:
-		view = m.viewShop()
+		view = m.viewShed()
 	case screenInfo:
 		view = m.viewInfo()
 	case screenAlmanac:
@@ -699,6 +447,12 @@ func (m model) View() string {
 		view = m.viewJournal()
 	case screenHelp:
 		view = m.viewHelp()
+	case screenTemplates:
+		view = m.viewTemplates()
+	case screenOrders:
+		view = m.viewOrders()
+	case screenFair:
+		view = m.viewFair()
 	default:
 		view = m.viewGarden()
 	}
@@ -718,3 +472,6 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// almanacKey changes whenever the almanac gains a row that is not fixed.
+func (m model) almanacKey() int { return len(m.g.Cultivars) + len(m.g.Fair.Ribbons) }

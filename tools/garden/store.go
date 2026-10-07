@@ -57,12 +57,24 @@ func Load(path string, now time.Time) (*Garden, error) {
 		g.Created = now
 	}
 	g.layOutSoil() // fills in soil for beds saved before the ground was modelled
+	migrating := g.needsMigration()
+	if migrating {
+		if err := backupV1(path, data); err != nil {
+			return nil, err
+		}
+	}
 	// Drop plantings whose species no longer exists in the catalogue rather
 	// than crashing on an unknown ID.
 	for i := range g.Plots {
 		if !g.Plots[i].Empty() && SpeciesByID(g.Plots[i].SpeciesID) == nil {
 			g.Plots[i] = Plot{}
 		}
+		if p := &g.Plots[i]; !p.Empty() && p.Genome.Blank() {
+			p.Genome = p.Genes()
+		}
+	}
+	if migrating {
+		g.migrateV1(now)
 	}
 	g.Version = gardenVersion
 	return &g, nil

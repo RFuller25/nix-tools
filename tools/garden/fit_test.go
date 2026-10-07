@@ -27,22 +27,46 @@ func TestEveryScreenFitsTheTerminal(t *testing.T) {
 	screens := map[string]screen{
 		"garden": screenGarden, "shed": screenShop, "info": screenInfo,
 		"almanac": screenAlmanac, "journal": screenJournal, "help": screenHelp,
+		"layouts": screenTemplates, "orders": screenOrders, "fair": screenFair,
 	}
 
 	for _, size := range sizes {
 		for name, s := range screens {
-			m := demoModel(t, size[0], size[1])
-			m.screen = s
-			m.ensureVisible()
-			view := m.View()
+			for _, variant := range []string{"", "mine", "cultivar", "ribbon", "plan"} {
+				m := demoModel(t, size[0], size[1])
+				m.screen = s
+				switch variant {
+				case "mine":
+					if s != screenShop {
+						continue
+					}
+					m.shelf = shelfMine
+				case "cultivar", "ribbon":
+					if s != screenAlmanac {
+						continue
+					}
+					for i, r := range m.almanac {
+						if (variant == "cultivar" && r.Kind == rowCultivar) || (variant == "ribbon" && r.Kind == rowRibbon) {
+							m.almanacCursor = i
+						}
+					}
+				case "plan":
+					if s != screenGarden {
+						continue
+					}
+					m.startPlan()
+				}
+				m.ensureVisible()
+				view := m.View()
 
-			lines := strings.Split(view, "\n")
-			if len(lines) > size[1] {
-				t.Errorf("%s at %dx%d is %d lines tall", name, size[0], size[1], len(lines))
-			}
-			for i, line := range lines {
-				if w := lipgloss.Width(line); w > size[0] {
-					t.Errorf("%s at %dx%d: line %d is %d wide: %q", name, size[0], size[1], i+1, w, line)
+				lines := strings.Split(view, "\n")
+				if len(lines) > size[1] {
+					t.Errorf("%s/%s at %dx%d is %d lines tall", name, variant, size[0], size[1], len(lines))
+				}
+				for i, line := range lines {
+					if w := lipgloss.Width(line); w > size[0] {
+						t.Errorf("%s/%s at %dx%d: line %d is %d wide: %q", name, variant, size[0], size[1], i+1, w, line)
+					}
 				}
 			}
 		}
@@ -173,7 +197,7 @@ func TestResizingIsHandled(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {200, 50}, {45, 14}, {100, 30}} {
 		next, _ := cur.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		cur = next
-		for _, s := range []screen{screenGarden, screenInfo, screenAlmanac, screenShop, screenJournal, screenHelp} {
+		for _, s := range []screen{screenGarden, screenInfo, screenAlmanac, screenShop, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair} {
 			got := cur.(model)
 			got.screen = s
 			got.ensureVisible()
