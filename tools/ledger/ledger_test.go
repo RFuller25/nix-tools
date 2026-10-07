@@ -201,7 +201,7 @@ func loaded(t *testing.T) (model, *fake) {
 func TestBoardViewAndCache(t *testing.T) {
 	m, _ := loaded(t)
 	v := m.View()
-	for _, want := range []string{"Rain tomorrow?", "120 BBs", "you won +40", "you lost 10", "no stake", "refunded 5", "in for 10", "★"} {
+	for _, want := range []string{"Rain tomorrow?", "120 BBs", "in for 10", "★"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("board missing %q:\n%s", want, v)
 		}
@@ -211,11 +211,60 @@ func TestBoardViewAndCache(t *testing.T) {
 	}
 }
 
-func TestBoardNeverSaysWonUnlessYouBackedTheWinner(t *testing.T) {
+// Completed wagers are not live wagers: the board lists only open bets.
+func TestBoardListsOnlyOpenBets(t *testing.T) {
 	m, _ := loaded(t)
-	if strings.Count(m.View(), "you won") != 1 {
-		t.Fatalf("exactly one bet was won:\n%s", m.View())
+	v := m.View()
+	for _, gone := range []string{"Old one", "Cheap win", "Sat out", "Voided", "you won", "you lost", "refunded", "no stake"} {
+		if strings.Contains(v, gone) {
+			t.Errorf("the board still shows %q:\n%s", gone, v)
+		}
 	}
+	if got := m.active(); len(got) != 1 || m.bets[got[0]].ID != 7 {
+		t.Fatalf("active bets = %v", got)
+	}
+	if m.selected() == nil || m.selected().ID != 7 {
+		t.Fatal("the cursor is not on the open bet")
+	}
+	// Down does not walk onto hidden bets.
+	m = send(m, key("down"), key("down"))
+	if m.cursor != 0 {
+		t.Errorf("cursor moved to %d on a one-bet board", m.cursor)
+	}
+
+	m2, _ := loaded(t)
+	m2.bets = m2.bets[1:] // nothing open at all
+	m2.clampCursor()
+	if v := m2.View(); !strings.Contains(v, "no open bets") {
+		t.Errorf("an empty board should say so:\n%s", v)
+	}
+	if m2.selected() != nil {
+		t.Error("enter on an empty board has something selected")
+	}
+}
+
+// A bet leaves the board the moment it is resolved or voided.
+func TestResolvingTakesABetOffTheBoard(t *testing.T) {
+	m, _ := loaded(t)
+	m = send(m, key("enter"), detailMsg{id: 7, d: &Detail{Bet: m.bets[0]}})
+	m = send(m, resolveMsg{7, 1, &actionResp{Balance: 90, Status: statusResolved, Paid: 0}, nil})
+	m = send(m, key("esc"))
+	if len(m.active()) != 0 || strings.Contains(m.View(), "Rain tomorrow?") {
+		t.Fatalf("a resolved bet is still on the board:\n%s", m.View())
+	}
+	if m.cursor != 0 {
+		t.Errorf("cursor is %d", m.cursor)
+	}
+	// It is still reachable, and says how it went, from its own page.
+	m.detail = &Detail{Bet: m.bets[0]}
+	m.screen = scDetail
+	if !strings.Contains(m.View(), "you lost 10") {
+		t.Errorf("the closed bet's page lost its result:\n%s", m.View())
+	}
+}
+
+func TestBetPagesNeverSayWonUnlessYouBackedTheWinner(t *testing.T) {
+	m, _ := loaded(t)
 	for _, c := range []struct {
 		id   int
 		want string
@@ -226,9 +275,9 @@ func TestBoardNeverSaysWonUnlessYouBackedTheWinner(t *testing.T) {
 		{10, "no stake", "you won"},
 		{11, "refunded 5", "you won"},
 	} {
-		m = send(m, key("esc"))
-		m.cursor = m.betIndex(c.id)
-		m = send(m, key("enter"), detailMsg{id: c.id, d: &Detail{Bet: m.bets[m.cursor]}})
+		m.screen = scBoard
+		m.detail = &Detail{Bet: m.bets[m.betIndex(c.id)]}
+		m.screen = scDetail
 		v := m.View()
 		if !strings.Contains(v, c.want) || strings.Contains(v, c.not) {
 			t.Errorf("bet %d detail: want %q, not %q:\n%s", c.id, c.want, c.not, v)
@@ -480,3 +529,129 @@ func TestSetupSavesOnlyAfterValidation(t *testing.T) {
 }
 
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
+
+// ── leaderboard ───────────────────────────────────────────────────────────
+
+const leadersJSON = `{"w":120,"l":[["bob",340],["carol",180],["alice",120],["dave",40]]}`
+
+func TestLeadersDecode(t *testing.T) {
+	f, c := newFake(t)
+	f.reply[pathLeaders] = leadersJSON
+	r, err := c.Leaders()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Balance != 120 || len(r.Rows) != 4 || r.Rows[0] != (Leader{"bob", 340}) || r.Rows[2].Name != "alice" {
+		t.Fatalf("leaders = %+v", r)
+	}
+	if f.bodies[0]["u"] != "alice" {
+		t.Fatalf("username not sent: %v", f.bodies[0])
+	}
+}
+
+func TestMissingLeaderboardIsSaidPlainly(t *testing.T) {
+	f, c := newFake(t)
+	f.status[pathLeaders], f.reply[pathLeaders] = 404, `not found`
+	_, err := c.Leaders()
+	if err == nil || !strings.Contains(err.Error(), "no leaderboard yet") {
+		t.Fatalf("err = %v", err)
+	}
+	// A rejected key is still reported as one.
+	f.status[pathLeaders], f.reply[pathLeaders] = 404, `{"e":0}`
+	if _, err := c.Leaders(); !isAuthErr(err) {
+		t.Fatalf("want auth error, got %v", err)
+	}
+}
+
+func TestLeaderboardTab(t *testing.T) {
+	m, f := loaded(t)
+	f.reply[pathLeaders] = leadersJSON
+	next, cmd := m.Update(key("3"))
+	m = next.(model)
+	if m.tab != tabLeaders || !m.busy || cmd == nil {
+		t.Fatal("opening the leaderboard should fetch once")
+	}
+	var lr leadersResp
+	if err := json.Unmarshal([]byte(leadersJSON), &lr); err != nil {
+		t.Fatal(err)
+	}
+	m = send(m, leadersMsg{resp: &lr})
+	v := m.View()
+	for _, want := range []string{"3 Leaderboard", "4 players", "you are 3rd", " 1. bob", "340 BBs", " 3. alice", "← you", " 4. dave"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("leaderboard missing %q:\n%s", want, v)
+		}
+	}
+	if i1, i2, i3 := strings.Index(v, " 1. bob"), strings.Index(v, " 2. carol"), strings.Index(v, " 3. alice"); !(0 <= i1 && i1 < i2 && i2 < i3) {
+		t.Errorf("not in order of balance:\n%s", v)
+	}
+
+	// Going back and forth does not refetch; r does.
+	m = send(m, key("1"))
+	next, cmd = m.Update(key("3"))
+	m = next.(model)
+	if cmd != nil || m.busy {
+		t.Fatal("the leaderboard refetched without being asked")
+	}
+	_, cmd = m.Update(key("r"))
+	if cmd == nil {
+		t.Fatal("r should refresh the leaderboard")
+	}
+	// enter on it opens nothing.
+	m2 := send(m, key("enter"))
+	if m2.screen != scBoard {
+		t.Error("enter on the leaderboard opened a bet")
+	}
+}
+
+func TestTabCyclesThroughAllThree(t *testing.T) {
+	m, _ := loaded(t)
+	m.wonLoaded, m.leadersLoaded = true, true
+	seen := []int{m.tab}
+	for i := 0; i < 3; i++ {
+		m = send(m, tea.KeyMsg{Type: tea.KeyTab})
+		seen = append(seen, m.tab)
+	}
+	if seen[0] != tabBoard || seen[1] != tabWon || seen[2] != tabLeaders || seen[3] != tabBoard {
+		t.Errorf("tab visited %v", seen)
+	}
+	m = send(m, tea.KeyMsg{Type: tea.KeyShiftTab})
+	if m.tab != tabLeaders {
+		t.Errorf("shift+tab from the board went to %d", m.tab)
+	}
+}
+
+func TestBalancesMoveSoTheLeaderboardIsRefetched(t *testing.T) {
+	m, _ := loaded(t)
+	m.leadersLoaded = true
+	m = send(m, key("enter"), detailMsg{id: 7, d: &Detail{Bet: m.bets[0], Balance: 120}})
+	m.sOption = 0
+	m = send(m, stakeMsg{id: 7, option: 0, amount: 5, resp: &actionResp{Balance: 115}})
+	if m.leadersLoaded {
+		t.Error("staking changed your balance, but the leaderboard was kept")
+	}
+}
+
+func TestLeaderboardScrollsAndFitsSmallWindows(t *testing.T) {
+	m, _ := loaded(t)
+	var rows []Leader
+	for i := 0; i < 40; i++ {
+		rows = append(rows, Leader{Name: "player" + strings.Repeat("x", i%7), Balance: 1000 - i*10})
+	}
+	rows[25].Name = "alice"
+	m.tab = tabLeaders
+	m = send(m, tea.WindowSizeMsg{Width: 50, Height: 16}, leadersMsg{resp: &leadersResp{Balance: 5, Rows: rows}})
+	top := m.View()
+	for i := 0; i < 12; i++ {
+		m = send(m, key("down"))
+	}
+	if m.View() == top {
+		t.Error("scrolling changed nothing")
+	}
+	if n := len(strings.Split(m.View(), "\n")); n > 16+2 {
+		t.Errorf("view is %d lines in a window of 16", n)
+	}
+	if !strings.Contains(top, "you are 26th") {
+		t.Errorf("rank not shown:\n%s", top)
+	}
+}

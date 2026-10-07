@@ -18,16 +18,25 @@ First run asks for an API key and a username (the same flow as
 
 | screen | keys |
 | --- | --- |
-| board | `↑↓` move · `enter` open a bet · `tab` or `1`/`2` switch tab · `n` new bet · `r` refresh · `q` quit |
+| board | `↑↓` move · `enter` open a bet · `tab` / `shift+tab` or `1`/`2`/`3` switch tab · `n` new bet · `r` refresh · `q` quit |
 | bet | `b` bet · `r` resolve (creator only, while open) · `esc` back |
+
+The **Board** tab lists only bets that are still open. A bet leaves it the
+moment it is resolved or voided; its page still says how it went for you
+(`you won +40`, `you lost 10`, `refunded 5`, or `no stake`), and a win stays on
+the Won tab.
+
+The **Leaderboard** tab ranks everyone by balance, richest first, with the top
+three picked out and you marked `← you`. `↑↓` scroll it. Like Won, it is fetched
+the first time you open it and again on `r`, and after anything that changes
+your balance.
 
 The **Won** tab lists every bet you backed to a win, newest first, with what
 each staked and paid. It is fetched the first time you open it (and on `r`),
 not on a timer.
 
-On the board a closed bet shows how it went for *you*: `you won +40`,
-`you lost 10`, `refunded 5`, or `no stake`. A bet page also names the outcome
-that happened, which is the same for everyone.
+A bet page also names the outcome that happened, which is the same for
+everyone.
 
 A bet page shows every outcome's money, its share of the pool, what a BB on it
 returns right now (`x2.50`), and a graph of those shares over time.
@@ -39,6 +48,18 @@ returns right now (`x2.50`), and a graph of those shares over time.
 * Only the creator resolves a bet, picking the outcome that happened or VOID.
 * Winners split the whole pool pro rata. If nobody backed the winning outcome,
   or the bet is voided, every stake is refunded.
+
+## Server side
+
+The leaderboard needs one endpoint beyond the others, and the website repo
+(`docs/bb-api.md`) has to grow it before the tab shows anything but "this server
+has no leaderboard yet":
+
+* path `/api/v/t4yb/` (`POST`, same headers and `{"u": username}` body as the
+  other calls);
+* reply `{"w": <your balance>, "l": [["name", balance], ...]}`, richest first.
+  It carries every player's name and balance, so the server decides who may see
+  that.
 
 ## Network footprint
 
