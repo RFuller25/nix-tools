@@ -173,6 +173,14 @@ var taskList = []task{
 		progress: func(g *Garden) (int, int) { return g.Sold, 10 },
 	},
 	{
+		ID: "first-order", Text: "Fill an order from the board (o)", Reward: 10,
+		progress: func(g *Garden) (int, int) { return g.OrdersDone, 1 },
+	},
+	{
+		ID: "first-ribbon", Text: "Enter a plant in the fair (e) and have it judged", Reward: 10,
+		progress: func(g *Garden) (int, int) { return len(g.Fair.Ribbons), 1 },
+	},
+	{
 		ID: "wide-garden", Text: "Break new ground: twenty beds", Reward: 10,
 		progress: func(g *Garden) (int, int) { return len(g.Plots), 20 },
 	},

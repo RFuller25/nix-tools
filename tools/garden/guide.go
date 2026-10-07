@@ -31,6 +31,8 @@ func guideChapters() []chapter {
 		chBreeding(),
 		chVisitors(),
 		chGold(),
+		chOrders(),
+		chFair(),
 		chWorthDoing(),
 		chKeys(),
 		chCommandLine(),
@@ -127,13 +129,16 @@ func chGettingStarted() chapter {
 				append([]string{gh("The screens")},
 					join(
 						gk("garden", "the beds. It is five beds wide and grows downwards, so every bed keeps the same neighbours however the terminal is sized.", w),
-						gk("seed shed", "where seed is chosen and sown (s).", w),
+						gk("seed shed", "where seed is bought, kept and sown (s).", w),
+						gk("orders", "what the village wants, for gold (O, or o on a bed).", w),
+						gk("fair", "the weekly show (E, or e on a bed).", w),
+						gk("layouts", "saved arrangements to stamp down (T).", w),
 						gk("almanac", "this book: the guide, every species and every visitor (a).", w),
 						gk("journal", "the log, the tally and what is worth doing next.", w),
 						gk("info card", "one plant in full (i, or enter on a planted bed).", w),
 						gk("help", "the key list (?).", w),
 					)...),
-				gp("tab cycles garden → shed → almanac → journal. esc or q returns to the garden; q in the garden quits, and the garden saves itself.", w),
+				gp("tab cycles garden → shed → orders → fair → almanac → journal. esc or q returns to the garden; q in the garden quits, and the garden saves itself.", w),
 				gp("Every screen is built to the window it is given and never drawn larger than the terminal. The garden scrolls both ways rather than reflowing; the card, help and almanac scroll with the arrows or pgup/pgdn.", w),
 			)
 		},
@@ -437,6 +442,53 @@ func chPlanner() chapter {
 					gp("Built in: "+joinWords(names)+". Layouts you save are kept in your garden; x deletes one of your own, never a built-in.", w),
 					keyRows(w, setSelect, setStamp, setTpl),
 				)...),
+			)
+		},
+	}
+}
+
+func chOrders() chapter {
+	return chapter{
+		Title: "Orders",
+		Lede:  "The village wants particular plants.",
+		Build: func(m model, w int) []string {
+			return join(
+				gp(fmt.Sprintf("Each day %d orders are posted on the order board (tab, or O in the garden), and each stays up for %d days before it quietly lapses. There is no penalty for letting one lapse and no timer to beat. An order names a species and one or two conditions: a height, a bushiness, a speed, a yield, or a colour to match.", ordersPerDay, orderLifeDays), w),
+				append([]string{gh("The three tiers")},
+					join(
+						gk("★ easy", fmt.Sprintf("something a named form from the shop already is. Pays %d gold plus %d times the seed's shop price.", orderEasyBase, orderEasyMult), w),
+						gk("★★ a stretch", fmt.Sprintf("something a little past what the shop sells, so it takes a generation or two of breeding. Pays %d plus %d times the price.", orderMidBase, orderMidMult), w),
+						gk("★★★ hard", fmt.Sprintf("two things at once, one past the shelf and a colour the shelf does not have. Pays %d plus %d times the price, and two seeds of another species thrown in.", orderHardBase, orderHardMult), w),
+					)...),
+				gp(fmt.Sprintf("A colour order is filled by any shade within about %.0f%% of the one shown, judged on hue mostly, so a coral is fine when coral is asked for and not when scarlet is.", colourMatch*100), w),
+				gp("To fill one the plant must be in flower and fit every condition. Press o on that bed, or enter on the order board (which delivers the first of your plants that fits). The plant is removed from its bed and used up by the order: it is not composted, so the bed gets no richness back. You are paid at once.", w),
+				append([]string{gh("Keys")}, keyRows(w, setOrders)...),
+			)
+		},
+	}
+}
+
+func chFair() chapter {
+	return chapter{
+		Title: "The fair",
+		Lede:  "A show every week, judged on your plant's genes.",
+		Build: func(m model, w int) []string {
+			var classes []string
+			for _, c := range fairCategories {
+				classes = append(classes, c.Name+" ("+c.Blurb+")")
+			}
+			return join(
+				gp("Every week (Monday to Sunday) the village holds a show with one class, chosen from the calendar and your garden's seed. Enter one plant that is in flower and suits the class with e on its bed, or from the fair screen (E, or tab). You may change your entry until the week is out. The plant stays in its bed.", w),
+				gp(fmt.Sprintf("When the week is over, the judges mark your plant against %d other growers. The class decides what is marked (height for the Tallest, colour richness and novelty for Finest colour, and so on) and the plant's health at the time you entered counts for up to %.0f points of a hundred, so water and weed before you enter.", fairRivals, fairHealthPart), w),
+				append([]string{gh("Prizes")}, join(
+					gk("first", fmt.Sprintf("%d gold", prizeFirst), w), gk("second", fmt.Sprintf("%d gold", prizeSecond), w),
+					gk("third", fmt.Sprintf("%d gold", prizeThird), w), gk("fourth", fmt.Sprintf("%d gold", prizeFourth), w),
+					gk("after that", fmt.Sprintf("%d gold for taking part", prizeLast), w),
+				)...),
+				gp(fmt.Sprintf("The field starts at about %.0f points and rises by %.1f for every first place you have won, to a ceiling of +%.0f: you are always up against a rising bar and never another player. Each result is kept as a ribbon under RIBBONS in this almanac.", fairRivalMean, fairBarPerWin, fairBarMax), w),
+				gp("Judging is hashed from the week, so a show missed while the program was closed is judged exactly as if you had been watching, whenever you next open the garden.", w),
+				append([]string{gh("The classes")}, gp(joinWords(classes)+".", w)...),
+				append([]string{gh("Keys")}, keyRows(w, setFair)...),
 			)
 		},
 	}

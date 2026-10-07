@@ -13,6 +13,7 @@ type rowKind int
 const (
 	rowGuide rowKind = iota
 	rowCultivar
+	rowRibbon
 	rowPlant
 	rowCreature
 )
@@ -23,6 +24,7 @@ type almanacRow struct {
 	Kind     rowKind
 	Chapter  int // index into guideChapters, for guide rows
 	Cultivar int // the cultivar's ID, for cultivar rows
+	Ribbon   int // index into the garden's ribbons, for ribbon rows
 	Species  *Species
 	Creature creature
 }
@@ -39,6 +41,9 @@ func almanacRows(g *Garden) []almanacRow {
 	if g != nil {
 		for _, c := range g.Cultivars {
 			rows = append(rows, almanacRow{Kind: rowCultivar, Cultivar: c.ID})
+		}
+		for i := len(g.Fair.Ribbons) - 1; i >= 0; i-- {
+			rows = append(rows, almanacRow{Kind: rowRibbon, Ribbon: i})
 		}
 	}
 	for _, sp := range AllSpecies() {
@@ -57,6 +62,8 @@ func (r almanacRow) group() string {
 		return "guide"
 	case rowCultivar:
 		return "your cultivars"
+	case rowRibbon:
+		return "ribbons"
 	case rowPlant:
 		return r.Species.Kind.String()
 	}
@@ -73,6 +80,13 @@ func (r almanacRow) title(g *Garden) string {
 			return c.Name
 		}
 		return "cultivar"
+	case rowRibbon:
+		if r.Ribbon < len(g.Fair.Ribbons) {
+			rb := g.Fair.Ribbons[r.Ribbon]
+			c, _ := categoryByID(rb.Category)
+			return fmt.Sprintf("%s %s", ribbonGlyph(rb.Place), c.Name)
+		}
+		return "ribbon"
 	case rowPlant:
 		return r.Species.Common
 	}
@@ -154,6 +168,10 @@ func (m model) viewAlmanac() string {
 			}
 		case row.Kind == rowGuide:
 			detail, clipped = m.guideDetail(row.Chapter, listWidth, avail)
+		case narrow && row.Kind == rowRibbon:
+			lines = append(lines, "", fit(subtleStyle.Render(fmt.Sprintf("%s place", ordinalPlace(m.g.Fair.Ribbons[row.Ribbon].Place))), listWidth))
+		case row.Kind == rowRibbon:
+			detail, clipped = m.ribbonDetail(row.Ribbon, listWidth, avail)
 		case row.Kind == rowCultivar:
 			detail, clipped = m.cultivarDetail(row.Cultivar, listWidth, avail)
 		case row.IsPlant():
@@ -169,7 +187,7 @@ func (m model) viewAlmanac() string {
 		subtleStyle.Render(fmt.Sprintf(" (%d of %d forms)", formsGrown, formsTotal))+
 		subtleStyle.Render("  ·  ")+
 		okStyle.Render(fmt.Sprintf("%d of %d visitors seen", len(m.g.Sightings), len(creatureOrder)))+
-		subtleStyle.Render(fmt.Sprintf("  ·  %d cultivars", len(m.g.Cultivars))), m.width)
+		subtleStyle.Render(fmt.Sprintf("  ·  %d cultivars  ·  %d ribbons", len(m.g.Cultivars), len(m.g.Fair.Ribbons))), m.width)
 	body := strings.Join(lines, "\n")
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, "  ", detail)
@@ -181,6 +199,8 @@ func (m model) viewAlmanac() string {
 			keys = "↑↓ browse · ✓ seen in this garden · esc back"
 		case rowCultivar:
 			keys = "↑↓ browse · n rename · ◆ stable line · esc back"
+		case rowRibbon:
+			keys = "↑↓ browse · esc back"
 		case rowGuide:
 			keys = "↑↓ browse · pgup/pgdn read · esc back"
 		}

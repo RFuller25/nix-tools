@@ -20,6 +20,8 @@ const (
 	screenJournal
 	screenHelp
 	screenTemplates
+	screenOrders
+	screenFair
 )
 
 // mode is a state layered over the garden screen that changes what the keys mean.
@@ -97,6 +99,8 @@ type model struct {
 	stampTpl     Template
 	stampSkipped []string
 	tplCursor    int
+	ordersCursor int
+	fairCursor   int
 	pollinating  bool // choosing a donor for pollenTarget
 	pollenTarget int
 	naming       bool
@@ -127,7 +131,7 @@ func newModel(g *Garden, path string, now time.Time) model {
 		now:              now,
 		input:            ti,
 		almanac:          almanacRows(g),
-		almanacCultivars: len(g.Cultivars),
+		almanacCultivars: len(g.Cultivars) + len(g.Fair.Ribbons),
 		audio:            NewAudio(sampleRate),
 		wind:             newWind(g.Seed ^ now.UnixNano()),
 		life:             newWildlife(g.Seed ^ now.UnixNano() ^ 0x1F0C),
@@ -235,7 +239,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		m.now = time.Time(msg)
 		m.g.Advance(m.now)
-		if len(m.g.Cultivars) != m.almanacCultivars {
+		if m.almanacKey() != m.almanacCultivars {
 			m.refreshAlmanac()
 		}
 		if m.dirty && m.now.Sub(m.lastSave) > 10*time.Second {
@@ -303,6 +307,10 @@ func nextScreen(s screen) screen {
 	case screenGarden:
 		return screenShop
 	case screenShop:
+		return screenOrders
+	case screenOrders:
+		return screenFair
+	case screenFair:
 		return screenAlmanac
 	case screenAlmanac:
 		return screenJournal
@@ -319,9 +327,9 @@ func (m *model) refreshAlmanac() {
 		keep = m.almanac[m.almanacCursor]
 	}
 	m.almanac = almanacRows(m.g)
-	m.almanacCultivars = len(m.g.Cultivars)
+	m.almanacCultivars = m.almanacKey()
 	for i, r := range m.almanac {
-		if r.Kind == keep.Kind && r.Chapter == keep.Chapter && r.Species == keep.Species && r.Creature == keep.Creature && r.Cultivar == keep.Cultivar {
+		if r.Kind == keep.Kind && r.Chapter == keep.Chapter && r.Species == keep.Species && r.Creature == keep.Creature && r.Cultivar == keep.Cultivar && r.Ribbon == keep.Ribbon {
 			m.almanacCursor = i
 			return
 		}
@@ -441,6 +449,10 @@ func (m model) View() string {
 		view = m.viewHelp()
 	case screenTemplates:
 		view = m.viewTemplates()
+	case screenOrders:
+		view = m.viewOrders()
+	case screenFair:
+		view = m.viewFair()
 	default:
 		view = m.viewGarden()
 	}
@@ -460,3 +472,6 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// almanacKey changes whenever the almanac gains a row that is not fixed.
+func (m model) almanacKey() int { return len(m.g.Cultivars) + len(m.g.Fair.Ribbons) }

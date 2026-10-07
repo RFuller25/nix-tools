@@ -73,6 +73,38 @@ func planBindings() []binding {
 	add(setSelect, k("enter", " "), "enter / space", "save what is growing in the selected beds as a layout, and name it", "enter save", func(m *model) tcmd { return m.selectFinish() })
 	add(setSelect, k("esc"), "esc", "cancel", "esc cancel", func(m *model) tcmd { m.endMode("Selection dropped."); return nil })
 
+	// ---- orders ---------------------------------------------------------
+	add(setGarden, k("o"), "o", "fill an order with the plant in this bed, if it fits one: the plant is used up and you are paid", "o order", func(m *model) tcmd { return m.actDeliverHere() })
+	add(setGarden, k("O"), "O", "the order board", "", func(m *model) tcmd {
+		m.screen, m.ordersCursor = screenOrders, 0
+		return nil
+	})
+	add(setOrders, k("up", "k"), "↑↓ / jk", "browse orders", "↑↓ browse", func(m *model) tcmd {
+		m.ordersCursor = max(0, m.ordersCursor-1)
+		return nil
+	})
+	add(setOrders, k("down", "j"), "", "", "", func(m *model) tcmd {
+		m.ordersCursor = min(len(m.g.Orders)-1, m.ordersCursor+1)
+		return nil
+	})
+	add(setOrders, k("enter", "o", " "), "enter / o / space", "deliver the first of your plants that fits the order; it is used up and you are paid", "enter deliver", func(m *model) tcmd { return m.actDeliverOrder() })
+
+	// ---- the fair -------------------------------------------------------
+	add(setGarden, k("e"), "e", "enter the plant in this bed in this week's show", "e show", func(m *model) tcmd { return m.actEnterHere() })
+	add(setGarden, k("E"), "E", "the fair: this week's class, your entry and your ribbons", "", func(m *model) tcmd {
+		m.screen, m.fairCursor = screenFair, 0
+		return nil
+	})
+	add(setFair, k("up", "k"), "↑↓ / jk", "choose a plant", "↑↓ choose", func(m *model) tcmd {
+		m.fairCursor = max(0, m.fairCursor-1)
+		return nil
+	})
+	add(setFair, k("down", "j"), "", "", "", func(m *model) tcmd {
+		m.fairCursor = min(len(m.fairCandidates())-1, m.fairCursor+1)
+		return nil
+	})
+	add(setFair, k("enter", "e", " "), "enter / e / space", "enter the chosen plant in this week's show, replacing any earlier entry", "enter show it", func(m *model) tcmd { return m.actEnterFair() })
+
 	// ---- the layouts screen --------------------------------------------
 	add(setTpl, k("up", "k"), "↑↓ / jk", "browse layouts", "↑↓ browse", func(m *model) tcmd {
 		m.tplCursor = max(0, m.tplCursor-1)

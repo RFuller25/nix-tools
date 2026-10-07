@@ -198,7 +198,8 @@ func TestEveryTaskCanBeFinished(t *testing.T) {
 			g.Sightings[name.kind().name] = now
 		}
 		g.Gathered, g.Volunteers = 100, 5
-		g.CrossedSeed, g.HandCrossed, g.Sold = 4, 2, 30
+		g.CrossedSeed, g.HandCrossed, g.Sold, g.OrdersDone = 4, 2, 30, 3
+		g.Fair.Ribbons = []Ribbon{{Week: 202601, Category: "tallest", Place: 1}}
 		g.Cultivars = []Cultivar{{ID: 1, Name: "Test hybrid", Species: "cosmos", Stable: true}}
 		for len(g.Plots) < 20 {
 			g.Plots = append(g.Plots, Plot{})

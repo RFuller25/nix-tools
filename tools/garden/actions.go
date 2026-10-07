@@ -296,3 +296,71 @@ func (m *model) actFinishPollinate() tea.Cmd {
 	m.cursor = target
 	return nil
 }
+
+// actDeliverHere fills the best-paying order the plant under the cursor fits.
+func (m *model) actDeliverHere() tea.Cmd {
+	p := m.plot()
+	if p.Empty() {
+		m.setStatus(subtleStyle, "Nothing is growing in bed %d.", m.cursor+1)
+		return nil
+	}
+	fits := m.g.OrdersFor(p)
+	if len(fits) == 0 {
+		m.setStatus(subtleStyle, "No order on the board wants %s, as it is. The order board (O) says what is asked for.", p.DisplayName())
+		return nil
+	}
+	name := p.FullName()
+	gold, err := m.g.Deliver(fits[0].ID, m.cursor, m.now)
+	if err != nil {
+		m.setStatus(warnStyle, "%s", err.Error())
+		return nil
+	}
+	m.dirty = true
+	m.setStatus(goldStyle, "Delivered %s: %s.", name, goldLabel(gold))
+	return m.save()
+}
+
+// actDeliverOrder fills the highlighted order from the first plant that fits.
+func (m *model) actDeliverOrder() tea.Cmd {
+	if len(m.g.Orders) == 0 {
+		return nil
+	}
+	m.ordersCursor = min(m.ordersCursor, len(m.g.Orders)-1)
+	o := m.g.Orders[m.ordersCursor]
+	beds := m.g.QualifyingBeds(o)
+	if len(beds) == 0 {
+		m.setStatus(warnStyle, "None of your plants fit this order yet: they must be in flower and fit every condition.")
+		return nil
+	}
+	name := m.g.Plots[beds[0]].FullName()
+	gold, err := m.g.Deliver(o.ID, beds[0], m.now)
+	if err != nil {
+		m.setStatus(warnStyle, "%s", err.Error())
+		return nil
+	}
+	m.dirty = true
+	m.ordersCursor = min(m.ordersCursor, max(0, len(m.g.Orders)-1))
+	m.setStatus(goldStyle, "Delivered %s: %s.", name, goldLabel(gold))
+	return m.save()
+}
+
+func (m *model) actEnterHere() tea.Cmd {
+	if err := m.g.Enter(m.cursor, m.now); err != nil {
+		m.setStatus(warnStyle, "%s", err.Error())
+		return nil
+	}
+	m.dirty = true
+	m.setStatus(goldStyle, "Entered %s in the %s class. The judges decide at the end of the week.", m.plot().DisplayName(), m.g.FairFor(weekKey(m.now)).Name)
+	return nil
+}
+
+func (m *model) actEnterFair() tea.Cmd {
+	cands := m.fairCandidates()
+	if len(cands) == 0 {
+		m.setStatus(warnStyle, "You have nothing in flower that suits this week's class.")
+		return nil
+	}
+	c := cands[min(m.fairCursor, len(cands)-1)]
+	m.cursor = c.Bed
+	return m.actEnterHere()
+}

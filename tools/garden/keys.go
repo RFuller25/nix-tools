@@ -27,6 +27,8 @@ const (
 	setStamp   keySet = "stamp"
 	setSelect  keySet = "select"
 	setTpl     keySet = "layouts"
+	setOrders  keySet = "orders"
+	setFair    keySet = "fair"
 	setInfo    keySet = "card"
 	setAlmanac keySet = "almanac"
 	setJournal keySet = "journal"
@@ -57,6 +59,8 @@ var setTitles = map[keySet]string{
 	setStamp:   "placing a layout (T, then enter)",
 	setSelect:  "selecting beds to save as a layout (V)",
 	setTpl:     "on the layouts screen (T)",
+	setOrders:  "on the order board",
+	setFair:    "at the fair",
 	setInfo:    "on a plant's card",
 	setAlmanac: "in the almanac",
 	setJournal: "in the journal",
@@ -64,7 +68,7 @@ var setTitles = map[keySet]string{
 }
 
 // setOrder is the order sets are listed in.
-var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
+var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
 
 var (
 	bindingsOnce sync.Once
@@ -122,6 +126,10 @@ func (m model) screenSet() keySet {
 		return setHelp
 	case screenTemplates:
 		return setTpl
+	case screenOrders:
+		return setOrders
+	case screenFair:
+		return setFair
 	}
 	return setGarden
 }
@@ -233,7 +241,7 @@ func buildBindings() []binding {
 		}
 		return nil
 	})
-	add(setGlobal, k("tab"), "tab", "cycle garden → shed → almanac → journal", "tab screens", func(m *model) tea.Cmd {
+	add(setGlobal, k("tab"), "tab", "cycle garden → shed → orders → fair → almanac → journal", "tab screens", func(m *model) tea.Cmd {
 		m.screen = nextScreen(m.screen)
 		if m.screen == screenShop {
 			m.refreshShop()

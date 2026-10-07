@@ -56,6 +56,10 @@ nix run .#garden      # or: go run ./tools/garden
 | `P` | plan mode: lay ghosts of your seed over the beds and see how the layout would get on before sowing anything |
 | `V` | select a block of beds, then save what is growing in them as a layout |
 | `T` | layouts: the built-in ones and your own, to stamp down anywhere |
+| `o` | fill an order with the plant in this bed, if it fits one: the plant is used up and you are paid |
+| `O` | the order board |
+| `e` | enter the plant in this bed in this week's show |
+| `E` | the fair: this week's class, your entry and your ribbons |
 
 **Choosing a pollen donor (after x)**
 
@@ -101,6 +105,20 @@ nix run .#garden      # or: go run ./tools/garden
 | `↑↓ / jk` | browse layouts |
 | `enter / p / space` | place the layout: choose where in the garden it goes, then enter again |
 | `x / delete / backspace` | delete a layout of your own (the built-in ones stay) |
+
+**On the order board**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk` | browse orders |
+| `enter / o / space` | deliver the first of your plants that fits the order; it is used up and you are paid |
+
+**At the fair**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk` | choose a plant |
+| `enter / e / space` | enter the chosen plant in this week's show, replacing any earlier entry |
 
 **In the shed: the shop shelf**
 
@@ -174,7 +192,7 @@ nix run .#garden      # or: go run ./tools/garden
 | `m` | calming music on or off |
 | `q` | back to the garden; from the garden, quit (it saves itself) |
 | `?` | this help, from anywhere; again to close it |
-| `tab` | cycle garden → shed → almanac → journal |
+| `tab` | cycle garden → shed → orders → fair → almanac → journal |
 | `esc` | back to the garden |
 
 <!-- keys:end -->

@@ -240,6 +240,11 @@ type Garden struct {
 	CultivarSeq int        `json:"cultivar_seq,omitempty"`
 	Templates   []Template `json:"templates,omitempty"`
 	TemplateSeq int        `json:"template_seq,omitempty"`
+	Orders      []Order    `json:"orders,omitempty"`
+	OrderSeq    int        `json:"order_seq,omitempty"`
+	OrdersDay   int        `json:"orders_day,omitempty"`
+	OrdersDone  int        `json:"orders_done,omitempty"`
+	Fair        FairState  `json:"fair"`
 	CrossedSeed int        `json:"crossed_seed,omitempty"` // seed gathered that was crossed
 	Crossed     int        `json:"crossed,omitempty"`
 	HandCrossed int        `json:"hand_crossed,omitempty"`
@@ -465,6 +470,8 @@ func (g *Garden) Advance(now time.Time) {
 		t = next
 	}
 	g.LastTick = now
+	g.refreshOrders(now)
+	g.settleFair(now)
 	// The suggestions are settled once per catch-up rather than once per
 	// step: nobody finishes one inside a quarter of an hour.
 	g.checkTasks(now)
