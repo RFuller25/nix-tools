@@ -271,3 +271,118 @@ func soilLine(width int, weeds float64, planted bool, ph phase, richness float64
 		return litStyle(soilColor, ph).Render(line)
 	}
 }
+
+// renderGene draws a plant with its genes showing: a tall plant is drawn with
+// a longer stem where the box has room for it, a dwarf with a shorter one, a
+// full-headed one with its bloom spread wider and a slim one with it pinched.
+func renderGene(sp *Species, variety int, gn Genome, stage int, pal Palette, width, height int, sway float64, overlay map[[2]int]string) []string {
+	frame := geneFrame(sp, sp.StageFor(variety, stage), gn, width, height)
+	return renderFrame(sp, pal, frame, width, height, sway*gn.WindCatch(), overlay)
+}
+
+// isStemRow reports a row made only of stem glyphs (and spaces).
+func isStemRow(sp *Species, row string) bool {
+	any := false
+	for _, r := range row {
+		if r == ' ' {
+			continue
+		}
+		if classOf(sp, r) != clStem {
+			return false
+		}
+		any = true
+	}
+	return any
+}
+
+// heightSteps is how many stem rows a genome adds (or, negative, takes away).
+func heightSteps(gn Genome) int {
+	switch {
+	case gn.Height >= 92:
+		return 3
+	case gn.Height >= 80:
+		return 2
+	case gn.Height >= 65:
+		return 1
+	case gn.Height <= 20:
+		return -1
+	}
+	return 0
+}
+
+// geneFrame reshapes a stage frame for a genome without ever leaving the box
+// it is to be drawn in: every row stays the same width as the others, no wider
+// than maxW, and the frame no taller than maxH.
+func geneFrame(sp *Species, frame []string, gn Genome, maxW, maxH int) []string {
+	out := append([]string(nil), frame...)
+	if len(out) == 0 {
+		return out
+	}
+
+	// Height: lengthen or shorten the stem.
+	if n := heightSteps(gn); n != 0 {
+		last := -1
+		stems := 0
+		for i, row := range out {
+			if isStemRow(sp, row) {
+				last = i
+				stems++
+			}
+		}
+		switch {
+		case n > 0 && last >= 0:
+			for k := 0; k < n && len(out) < maxH; k++ {
+				out = append(out[:last+1], append([]string{out[last]}, out[last+1:]...)...)
+			}
+		case n < 0 && stems >= 2:
+			out = append(out[:last], out[last+1:]...)
+		}
+	}
+
+	// Shape: spread or pinch the head.
+	width := 0
+	for _, row := range out {
+		width = max(width, len([]rune(row)))
+	}
+	switch {
+	case gn.Shape >= 70 && width+2 <= maxW:
+		for i, row := range out {
+			runes := []rune(row)
+			for len(runes) < width {
+				runes = append(runes, ' ')
+			}
+			padded := append(append([]rune{' '}, runes...), ' ')
+			if lo, hi := bloomSpan(sp, padded); lo >= 0 {
+				padded[lo-1], padded[hi+1] = padded[lo], padded[hi]
+			}
+			out[i] = string(padded)
+		}
+	case gn.Shape <= 30:
+		for i, row := range out {
+			runes := []rune(row)
+			if lo, hi := bloomSpan(sp, runes); lo >= 0 && hi-lo >= 2 {
+				runes[lo], runes[hi] = ' ', ' '
+				out[i] = string(runes)
+			}
+		}
+	}
+	return out
+}
+
+// bloomSpan is the first and last bloom glyph in a row, or -1 if it has none
+// with room beside it.
+func bloomSpan(sp *Species, runes []rune) (lo, hi int) {
+	lo, hi = -1, -1
+	for i, r := range runes {
+		if r != ' ' && classOf(sp, r) == clBloom {
+			if lo < 0 {
+				lo = i
+			}
+			hi = i
+		}
+	}
+	if lo < 1 || hi >= len(runes)-1 {
+		return -1, -1
+	}
+	return lo, hi
+}

@@ -26,6 +26,7 @@ func guideChapters() []chapter {
 		chSoil(),
 		chNeighbours(),
 		chYear(),
+		chGenetics(),
 		chVisitors(),
 		chSeeds(),
 		chWorthDoing(),
@@ -335,5 +336,34 @@ func envDocs() []cliDoc {
 		{"GARDEN_SAVE", "the save file (same as --save)"},
 		{"GARDEN_COLOR", "colour mode (same as --color); NO_COLOR also turns colour off"},
 		{"GARDEN_AUDIO", "set to off to disable music entirely"},
+	}
+}
+
+func chGenetics() chapter {
+	return chapter{
+		Title: "Genetics",
+		Lede:  "Seven genes: colour, height, shape, speed and yield.",
+		Build: func(m model, w int) []string {
+			return join(
+				gp("Every plant carries genes. The named forms in the shed (a Russian Giant sunflower, a Black Krim tomato) each have their own set, and a plant grown from a seed bought there comes true to its form. Bred plants are blends of their parents and can end up anywhere between them, or a little past.", w),
+				append([]string{gh("The genes")},
+					join(
+						gk("colour", "three genes — hue, saturation and lightness — so a bloom can be any shade your terminal can show. They paint the flowers on most plants, the fruit on tomatoes, chillies and strawberries, and the leaves on lettuce. The card names the shade and shows it.", w),
+						gk("height", fmt.Sprintf("dwarf to giant, spread across the species' own height range. Giants grow up to %.0f%% slower and dwarfs up to %.0f%% quicker. In the garden a tall plant is drawn with a longer stem where the bed has room, and a dwarf with a shorter one; the card and the shed show the real size.", heightSlowdown*100, heightSlowdown*100), w),
+						gk("shape", fmt.Sprintf("slim and upright to full and bushy. Full plants are drawn with a wider head and slim ones with a pinched one, and a full plant catches up to %.0f%% more wind than a slim one.", 100*(1.2/0.8-1)/2), w),
+						gk("speed", fmt.Sprintf("slow to quick: ×%.2f to ×%.2f growth, and a quick annual finishes its year sooner.", speedLow, speedHigh), w),
+						gk("yield", fmt.Sprintf("sparse to abundant: pods ripen ×%.1f to ×%.1f as fast and a plant holds %.0f to %.0f of them, but a heavy cropper dries its bed up to %.0f%% faster.", yieldPodLow, yieldPodHigh, podCapLow, podCapHigh, yieldThirst*100), w),
+					)...),
+				gp("Nothing is a pure upgrade. Height costs speed, yield costs water, and a bushy plant crowds its neighbours (see Neighbours). A plant whose genes all sit mid-range grows at exactly the rate its card advertises.", w),
+				append([]string{gh("How genes are passed on")},
+					gp(fmt.Sprintf("A seed's genes are the average of its two parents, plus a little noise. The noise is about %.0f points for identical parents, and grows by %.2f points for every point the parents differ: cross two unlike plants and the seedlings spread wide, so there is something to choose between; cross near-identical siblings and the seedlings come out nearly the same.", noiseBase, noiseFromGap), w)...),
+				gp(fmt.Sprintf("Colour is blended on the colour wheel, not on paper: red and yellow make orange, red and blue make magenta, and a white crossed with a blue is a pale blue. About %.0f%% of seeds also mutate a gene by %.0f to %.0f points (hue jumps %.0f to %.0f degrees), which is where rare colours come from.", mutationOdds*100, mutationLow, mutationHigh, hueMutateLow, hueMutateHigh), w),
+				gp("Every roll is a hash of your garden's seed, never a random number. A garden left running and one that catches up on a fortnight it spent closed grow exactly the same plants.", w),
+				append([]string{gh("Named forms and hybrids")},
+					gp(fmt.Sprintf("A plant keeps the drawings and accent colours of the named form it most resembles. Once its genes sit more than %.0f%% of the way from every named form it is a hybrid, and the card says so.", hybridGap*100), w)...),
+				append([]string{gh("Colour on a 24-bit terminal")},
+					gp("Colours are written as full RGB. If your terminal advertises true colour (COLORTERM=truecolor) you see them exactly; otherwise they are snapped to the nearest of 256 colours, and GARDEN_COLOR or --color can force a mode, for tmux or ssh sessions that under-report.", w)...),
+			)
+		},
 	}
 }

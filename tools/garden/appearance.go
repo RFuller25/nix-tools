@@ -29,14 +29,14 @@ func bareAppearance(sp *Species, p *Plot, season Season, ph phase) (int, Palette
 
 	case p.Growth >= 1 && sp.ClosesAtNight() && ph.Dark():
 		// Shut for the night: the flower folds back to a bud.
-		return StageBud, sp.PaletteFor(p.Variety, p)
+		return StageBud, sp.PaletteForGenome(p.Variety, p.Genes(), p)
 
 	case p.Growth >= 1 && sp.OpensAtNight() && !ph.Dark() && ph != phaseDusk:
 		// The other way round: these wait for the dark to open at all.
-		return StageBud, sp.PaletteFor(p.Variety, p)
+		return StageBud, sp.PaletteForGenome(p.Variety, p.Genes(), p)
 
 	default:
-		return p.Stage(), sp.PaletteFor(p.Variety, p)
+		return p.Stage(), sp.PaletteForGenome(p.Variety, p.Genes(), p)
 	}
 }
 

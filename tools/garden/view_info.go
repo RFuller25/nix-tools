@@ -29,7 +29,7 @@ func (m model) viewInfo() string {
 
 	season := m.g.Season(m.now)
 	stage, pal := appearance(sp, p, season, m.phase())
-	art := renderVariety(sp, p.Variety, stage, pal, 24, 7, m.wind.swayAt(m.cursor%plotCols), nil)
+	art := renderGene(sp, p.Variety, p.Genes(), stage, pal, 24, 7, m.wind.swayAt(m.cursor%plotCols), nil)
 	artBlock := strings.Join(art, "\n") + "\n" + soilLine(24, p.Weeds, true, m.phase(), p.Richness)
 
 	headline := []string{
@@ -75,6 +75,7 @@ func (m model) viewInfo() string {
 	}, "\n")
 
 	tip := lipgloss.NewStyle().Width(width).Render(subtleStyle.Render("✎ " + sp.Note))
+	genes := traitLines(sp, p, width)
 
 	var neighbours []string
 	for _, e := range m.g.companionEffects(m.cursor, sp) {
@@ -95,6 +96,8 @@ func (m model) viewInfo() string {
 	}
 
 	parts := []string{top, "", meters, "", desc, "", care, ""}
+	parts = append(parts, genes...)
+	parts = append(parts, "")
 	parts = append(parts, neighbours...)
 	if len(neighbours) > 0 {
 		parts = append(parts, "")
@@ -189,7 +192,7 @@ func (m model) nextStageNote(p *Plot, sp *Species) string {
 		return "asleep until spring"
 	}
 	if p.Growth >= 1 {
-		if p.Pods >= maxPods {
+		if p.Pods >= p.Genes().PodCap() {
 			return "fully grown, seed pods full"
 		}
 		next := (math.Ceil(p.Pods+1e-9) - p.Pods) / podsPerHour

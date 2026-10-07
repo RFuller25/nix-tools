@@ -51,6 +51,13 @@ type Plot struct {
 	MaturedAt time.Time `json:"matured_at,omitempty"`
 	Spent     bool      `json:"spent,omitempty"`
 
+	// Genome is what this particular plant is like, and Gen how many crossings
+	// it is from a named form (0 for one bought from the shop). Pollen is the
+	// genome of whatever pollinated it, waiting to be passed into its seed.
+	Genome Genome  `json:"genome"`
+	Gen    int     `json:"gen,omitempty"`
+	Pollen *Genome `json:"pollen,omitempty"`
+
 	// Pond beds hold water instead of soil. Only the aquatic species will
 	// grow in one, and nothing else will.
 	Pond bool `json:"pond,omitempty"`
@@ -59,6 +66,28 @@ type Plot struct {
 	// much compost the bed has had worked into it.
 	PH       float64 `json:"ph"`
 	Richness float64 `json:"richness"`
+}
+
+// Genes is the plant's genome, falling back to its named form's for a plant
+// saved before genes existed.
+func (p *Plot) Genes() Genome {
+	if !p.Genome.Blank() {
+		return p.Genome
+	}
+	if sp := p.Species(); sp != nil {
+		return sp.VarietyGenome(p.Variety)
+	}
+	return Genome{}
+}
+
+// IsHybrid reports whether the plant has drifted far enough from every named
+// form to be something new.
+func (p *Plot) IsHybrid() bool {
+	sp := p.Species()
+	if sp == nil {
+		return false
+	}
+	return p.Genes().Distance(sp.VarietyGenome(p.Variety)) > hybridGap
 }
 
 // Empty reports whether anything is planted here.
@@ -120,6 +149,9 @@ func (p *Plot) FullName() string {
 	sp := p.Species()
 	if sp == nil {
 		return "empty bed"
+	}
+	if p.IsHybrid() {
+		return fmt.Sprintf("%s hybrid (‘%s’ type)", sp.Common, sp.Variety(p.Variety).Name)
 	}
 	return sp.VarietyName(p.Variety)
 }
@@ -439,17 +471,18 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 		p.Weeds = clamp01(p.Weeds + weedRate*dt)
 	}
 
-	if !p.Pond {
-		p.Moisture = clamp01(p.Moisture - baseDryPerHour*w.Dryness*dt + w.Rainfall*dt)
-	}
-	if p.Empty() {
-		return
-	}
-
 	sp := p.Species()
-	if sp == nil {
+	thirst := 1.0
+	if sp != nil {
+		thirst = p.Genes().ThirstFactor()
+	}
+	if !p.Pond {
+		p.Moisture = clamp01(p.Moisture - baseDryPerHour*w.Dryness*thirst*dt + w.Rainfall*dt)
+	}
+	if p.Empty() || sp == nil {
 		return
 	}
+	gn := p.Genes()
 
 	if p.Growth >= 1.0 {
 		if !p.Spent {
@@ -463,7 +496,7 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 	}
 
 	feed(p, dt)
-	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season) * g.companionFactor(idx, sp)
+	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season) * g.companionFactor(idx, sp) * gn.GrowthFactor()
 	p.Growth = math.Min(1.0, p.Growth+rate*dt)
 	if p.Growth >= 1.0 && !p.Matured {
 		p.Matured = true
@@ -527,6 +560,7 @@ func (g *Garden) Plant(idx int, sp *Species, variety int, now time.Time) error {
 	*p = Plot{
 		SpeciesID: sp.ID,
 		Variety:   variety,
+		Genome:    sp.VarietyGenome(variety),
 		PlantedAt: now,
 		Moisture:  0.65, // a watering-in, as any gardener would
 		Weeds:     0,
@@ -679,7 +713,7 @@ func hashUnit(seed, a, salt int64) float64 {
 // plant does not die: it dries, hands over a last few seeds, and stands until
 // the gardener lifts it.
 func (g *Garden) maybeGoToSeed(p *Plot, idx int, sp *Species, at, now time.Time) {
-	span := seedSpan(sp)
+	span := seedSpan(sp) * p.Genes().SeedSpanFactor()
 	if span <= 0 || p.MaturedAt.IsZero() {
 		return
 	}
@@ -687,7 +721,7 @@ func (g *Garden) maybeGoToSeed(p *Plot, idx int, sp *Species, at, now time.Time)
 		return
 	}
 	p.Spent = true
-	p.Pods = math.Min(maxPods, p.Pods+2)
+	p.Pods = math.Min(p.Genes().PodCap(), p.Pods+2)
 	when := at
 	if when.After(now) {
 		when = now
@@ -737,9 +771,20 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 			when = now
 		}
 		bed := &g.Plots[target]
+		// Open-pollinated: the volunteer is a child of its parent and whatever
+		// pollen the parent last took, so it comes close to true but not exactly.
+		mother := p.Genes()
+		father := mother
+		if p.Pollen != nil {
+			father = *p.Pollen
+		}
+		child := breed(g.Seed, hashSerial(q, int64(idx), 0x5E1F), mother, father)
+		variety, _ := sp.NearestVariety(child)
 		*bed = Plot{
 			SpeciesID: sp.ID,
-			Variety:   p.Variety, // open-pollinated, and it comes true enough
+			Variety:   variety,
+			Genome:    child,
+			Gen:       p.Gen + 1,
 			PlantedAt: when,
 			Moisture:  bed.Moisture,
 			PH:        bed.PH,
@@ -748,7 +793,7 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 		p.Pods--
 		g.Planted++
 		g.Volunteers++
-		g.Log(when, "A %s has sown itself into bed %d.", sp.VarietyName(p.Variety), target+1)
+		g.Log(when, "A %s has sown itself into bed %d.", bed.FullName(), target+1)
 		return
 	}
 }

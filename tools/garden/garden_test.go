@@ -37,6 +37,9 @@ func TestWellTendedMaturesOnSchedule(t *testing.T) {
 		if err := g.Plant(0, sp, 0, now); err != nil {
 			t.Fatalf("planting %s: %v", sp.ID, err)
 		}
+		// The schedule is the species' own, so test it on a plant whose genes
+		// sit exactly mid-range; the named forms vary around it.
+		g.Plots[0].Genome = Genome{Hue: 0, Sat: 50, Light: 50, Height: 50, Shape: 50, Speed: 50, Yield: 50}
 
 		elapsed := 0.0
 		for g.Plots[0].Growth < 1 && elapsed < 48 {

@@ -63,6 +63,9 @@ func Load(path string, now time.Time) (*Garden, error) {
 		if !g.Plots[i].Empty() && SpeciesByID(g.Plots[i].SpeciesID) == nil {
 			g.Plots[i] = Plot{}
 		}
+		if p := &g.Plots[i]; !p.Empty() && p.Genome.Blank() {
+			p.Genome = p.Genes()
+		}
 	}
 	g.Version = gardenVersion
 	return &g, nil
