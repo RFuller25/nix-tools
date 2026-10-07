@@ -240,14 +240,16 @@ type Garden struct {
 	CultivarSeq int        `json:"cultivar_seq,omitempty"`
 	Templates   []Template `json:"templates,omitempty"`
 	TemplateSeq int        `json:"template_seq,omitempty"`
-	Orders      []Order    `json:"orders,omitempty"`
-	OrderSeq    int        `json:"order_seq,omitempty"`
-	OrdersDay   int        `json:"orders_day,omitempty"`
-	OrdersDone  int        `json:"orders_done,omitempty"`
-	Fair        FairState  `json:"fair"`
-	CrossedSeed int        `json:"crossed_seed,omitempty"` // seed gathered that was crossed
-	Crossed     int        `json:"crossed,omitempty"`
-	HandCrossed int        `json:"hand_crossed,omitempty"`
+	// Folded is the almanac categories the gardener has folded away.
+	Folded      map[string]bool `json:"folded,omitempty"`
+	Orders      []Order         `json:"orders,omitempty"`
+	OrderSeq    int             `json:"order_seq,omitempty"`
+	OrdersDay   int             `json:"orders_day,omitempty"`
+	OrdersDone  int             `json:"orders_done,omitempty"`
+	Fair        FairState       `json:"fair"`
+	CrossedSeed int             `json:"crossed_seed,omitempty"` // seed gathered that was crossed
+	Crossed     int             `json:"crossed,omitempty"`
+	HandCrossed int             `json:"hand_crossed,omitempty"`
 	// Seeds is the old currency, read only so a version 1 save can be moved
 	// across; it is never written again.
 	Seeds      int  `json:"seeds,omitempty"`

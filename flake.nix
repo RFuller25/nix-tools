@@ -14,7 +14,7 @@
         packages = {
           garden = pkgs.buildGoModule {
             pname = "garden";
-            version = "0.2.1";
+            version = "0.2.2";
             src = ./tools/garden;
             # Placeholder: run `nix build .#garden` once and paste in the hash
             # nix reports.

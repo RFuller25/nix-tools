@@ -16,6 +16,7 @@ const (
 	rowRibbon
 	rowPlant
 	rowCreature
+	rowHeader // the heading of a category, which can be folded away
 )
 
 // almanacRow is one line of the almanac: a chapter of the guide, a plant, or
@@ -27,12 +28,32 @@ type almanacRow struct {
 	Ribbon   int // index into the garden's ribbons, for ribbon rows
 	Species  *Species
 	Creature creature
+	Group    string // for header rows: the category it heads
 }
 
 func (r almanacRow) IsPlant() bool { return r.Kind == rowPlant }
 
 // almanacRows is the whole book: the guide, every species, then the visitors.
 func almanacRows(g *Garden) []almanacRow {
+	return withHeaders(almanacItems(g))
+}
+
+// withHeaders puts a heading row in front of each run of rows that share a
+// category.
+func withHeaders(items []almanacRow) []almanacRow {
+	out := make([]almanacRow, 0, len(items)+8)
+	last := ""
+	for _, r := range items {
+		if gname := r.group(); gname != last {
+			last = gname
+			out = append(out, almanacRow{Kind: rowHeader, Group: gname})
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+func almanacItems(g *Garden) []almanacRow {
 	chapters := guideChapters()
 	rows := make([]almanacRow, 0, len(chapters)+len(AllSpecies())+len(creatureOrder))
 	for i := range chapters {
@@ -58,6 +79,8 @@ func almanacRows(g *Garden) []almanacRow {
 // group is the heading a row sits under.
 func (r almanacRow) group() string {
 	switch r.Kind {
+	case rowHeader:
+		return r.Group
 	case rowGuide:
 		return "guide"
 	case rowCultivar:
@@ -73,6 +96,8 @@ func (r almanacRow) group() string {
 // title is how the row reads in the list.
 func (r almanacRow) title(g *Garden) string {
 	switch r.Kind {
+	case rowHeader:
+		return strings.ToUpper(r.Group)
 	case rowGuide:
 		return guideChapters()[r.Chapter].Title
 	case rowCultivar:
@@ -95,37 +120,37 @@ func (r almanacRow) title(g *Garden) string {
 
 func (m model) viewAlmanac() string {
 	formsGrown, formsTotal := m.g.FormsGrown()
-	listWidth := 30
-	narrow := m.width-listWidth-6 < 30
-	if narrow {
-		listWidth = max(20, m.width-2)
-	}
-	// Everything between the header and the footer.
-	avail := max(3, m.height-5)
-	rows := avail
+	listWidth, narrow, rows := m.almanacMetrics()
+	avail := max(3, m.height-5) // everything between the header and the footer
+	vis := m.almanacVisible()
 
-	if m.almanacCursor < m.almanacScroll {
-		m.almanacScroll = m.almanacCursor
+	// The scroll position is decided by fixAlmanac after each key; this only
+	// keeps a stale one from running off the end.
+	cursor := max(0, min(m.almanacCursor, len(vis)-1))
+	scroll := max(0, min(m.almanacScroll, max(0, len(vis)-rows)))
+	if cursor < scroll {
+		scroll = cursor
 	}
-	if m.almanacCursor >= m.almanacScroll+rows {
-		m.almanacScroll = m.almanacCursor - rows + 1
+	if cursor >= scroll+rows {
+		scroll = cursor - rows + 1
 	}
 
+	// One row of the list is one line, headings included, so the rows that are
+	// drawn are exactly the rows that fit.
 	var lines []string
-	lastGroup := ""
-	for i := m.almanacScroll; i < len(m.almanac) && i < m.almanacScroll+rows; i++ {
-		row := m.almanac[i]
-		if g := row.group(); g != lastGroup {
-			lastGroup = g
-			lines = append(lines, labelStyle.Render(strings.ToUpper(g)))
+	for i := scroll; i < len(vis) && i < scroll+rows; i++ {
+		row := vis[i]
+		selected := i == cursor
+		if row.Kind == rowHeader {
+			lines = append(lines, m.headerLine(row.Group, selected, listWidth))
+			continue
 		}
 		marker := "  "
 		style := valueStyle
-		if i == m.almanacCursor {
+		if selected {
 			marker = titleStyle.Render("› ")
 			style = titleStyle
 		}
-
 		seen := "  "
 		switch row.Kind {
 		case rowPlant:
@@ -148,36 +173,33 @@ func (m model) viewAlmanac() string {
 				style = lockedStyle
 			}
 		}
-		lines = append(lines, marker+seen+style.Render(truncate(row.title(m.g), listWidth-6)))
+		lines = append(lines, "  "+marker+seen+style.Render(truncate(row.title(m.g), listWidth-8)))
 	}
 
 	detail := ""
 	clipped := false
-	if len(m.almanac) > 0 {
-		row := m.almanac[m.almanacCursor]
-		switch {
-		case narrow && row.Kind == rowGuide:
-			lines = append(lines, "", fit(subtleStyle.Render(guideChapters()[row.Chapter].Lede), listWidth))
-		case narrow && row.IsPlant():
-			lines = append(lines, "", fit(latinStyle.Render(row.Species.Latin), listWidth))
-		case narrow:
-			lines = append(lines, "", fit(subtleStyle.Render(row.Creature.kind().when), listWidth))
-		case narrow && row.Kind == rowCultivar:
-			if c := m.g.CultivarByID(row.Cultivar); c != nil {
-				lines = append(lines, "", fit(swatch(c.Genome.Hex(), 2)+" "+subtleStyle.Render(c.Genome.ColourName()), listWidth))
+	if len(vis) > 0 {
+		row := vis[cursor]
+		if narrow {
+			// No room for a card: one line about the selection under the list.
+			if note := m.almanacNote(row, listWidth); note != "" {
+				lines = append(lines, "", note)
 			}
-		case row.Kind == rowGuide:
-			detail, clipped = m.guideDetail(row.Chapter, listWidth, avail)
-		case narrow && row.Kind == rowRibbon:
-			lines = append(lines, "", fit(subtleStyle.Render(fmt.Sprintf("%s place", ordinalPlace(m.g.Fair.Ribbons[row.Ribbon].Place))), listWidth))
-		case row.Kind == rowRibbon:
-			detail, clipped = m.ribbonDetail(row.Ribbon, listWidth, avail)
-		case row.Kind == rowCultivar:
-			detail, clipped = m.cultivarDetail(row.Cultivar, listWidth, avail)
-		case row.IsPlant():
-			detail, clipped = m.almanacDetail(row.Species, listWidth, avail)
-		default:
-			detail, clipped = m.creatureDetail(row.Creature, listWidth, avail)
+		} else {
+			switch row.Kind {
+			case rowHeader:
+				detail = m.groupDetail(row.Group, listWidth, avail)
+			case rowGuide:
+				detail, clipped = m.guideDetail(row.Chapter, listWidth, avail)
+			case rowRibbon:
+				detail, clipped = m.ribbonDetail(row.Ribbon, listWidth, avail)
+			case rowCultivar:
+				detail, clipped = m.cultivarDetail(row.Cultivar, listWidth, avail)
+			case rowPlant:
+				detail, clipped = m.almanacDetail(row.Species, listWidth, avail)
+			default:
+				detail, clipped = m.creatureDetail(row.Creature, listWidth, avail)
+			}
 		}
 	}
 
@@ -192,23 +214,106 @@ func (m model) viewAlmanac() string {
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, "  ", detail)
 	}
-	keys := "↑↓ browse · ←→ stage · v variety · ✓ grown here · esc back"
-	if len(m.almanac) > 0 {
-		switch m.almanac[m.almanacCursor].Kind {
+	keys := "↑↓ browse · enter fold · C fold all · ←→ stage · v variety · esc back"
+	if len(vis) > 0 {
+		switch vis[cursor].Kind {
+		case rowHeader:
+			keys = "↑↓ browse · enter fold or open · C fold all · esc back"
 		case rowCreature:
-			keys = "↑↓ browse · ✓ seen in this garden · esc back"
+			keys = "↑↓ browse · enter fold · C fold all · ✓ seen in this garden · esc back"
 		case rowCultivar:
-			keys = "↑↓ browse · n rename · ◆ stable line · esc back"
+			keys = "↑↓ browse · n rename · enter fold · ◆ stable line · esc back"
 		case rowRibbon:
-			keys = "↑↓ browse · esc back"
+			keys = "↑↓ browse · enter fold · C fold all · esc back"
 		case rowGuide:
-			keys = "↑↓ browse · pgup/pgdn read · esc back"
+			keys = "↑↓ browse · enter fold · C fold all · pgup/pgdn read · esc back"
 		}
 	}
 	if clipped {
 		keys += " · pgup/pgdn read the page"
 	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
+}
+
+// headerLine is a category heading in the list: an arrow that says whether it
+// is open, its name, and how many rows it holds.
+func (m model) headerLine(group string, selected bool, width int) string {
+	arrow := "▾"
+	if m.g.Folded[group] {
+		arrow = "▸"
+	}
+	count := subtleStyle.Render(fmt.Sprintf(" %d", m.groupCount(group)))
+	if selected {
+		return titleStyle.Render("› "+arrow+" "+strings.ToUpper(group)) + count
+	}
+	return "  " + labelStyle.Render(arrow+" "+strings.ToUpper(group)) + count
+}
+
+// almanacNote is the one line shown under the list in a window too narrow for
+// a card.
+func (m model) almanacNote(row almanacRow, width int) string {
+	switch row.Kind {
+	case rowHeader:
+		if m.g.Folded[row.Group] {
+			return fit(subtleStyle.Render("folded · enter opens it"), width)
+		}
+		return fit(subtleStyle.Render("enter folds it away"), width)
+	case rowGuide:
+		return fit(subtleStyle.Render(guideChapters()[row.Chapter].Lede), width)
+	case rowPlant:
+		return fit(latinStyle.Render(row.Species.Latin), width)
+	case rowCultivar:
+		if c := m.g.CultivarByID(row.Cultivar); c != nil {
+			return fit(swatch(c.Genome.Hex(), 2)+" "+subtleStyle.Render(c.Genome.ColourName()), width)
+		}
+	case rowRibbon:
+		if row.Ribbon < len(m.g.Fair.Ribbons) {
+			return fit(subtleStyle.Render(fmt.Sprintf("%s place", ordinalPlace(m.g.Fair.Ribbons[row.Ribbon].Place))), width)
+		}
+	case rowCreature:
+		return fit(subtleStyle.Render(row.Creature.kind().when), width)
+	}
+	return ""
+}
+
+// groupDetail is the card for a category heading: what is under it and how
+// to fold it.
+func (m model) groupDetail(group string, listWidth, avail int) string {
+	width := m.width - listWidth - 6
+	if width < 30 {
+		width = 30
+	}
+	n := m.groupCount(group)
+	rows := []string{titleStyle.Render(strings.ToUpper(group)), subtleStyle.Render(fmt.Sprintf("%d in this category", n)), ""}
+	switch group {
+	case "guide":
+		rows = append(rows, wrapped(valueStyle, "How the garden works: every feature, with the real numbers and keys.", width-2)...)
+	case "your cultivars":
+		rows = append(rows, wrapped(valueStyle, "Hybrid lines you have bred that flowered unlike any named form. ◆ marks a stable line.", width-2)...)
+	case "ribbons":
+		rows = append(rows, wrapped(valueStyle, "Your results at the weekly fair, newest first.", width-2)...)
+	case "visitors":
+		seen := len(m.g.Sightings)
+		rows = append(rows, valueStyle.Render(fmt.Sprintf("%d of %d seen in this garden", seen, n)))
+	default:
+		pressed := 0
+		for _, r := range m.almanac {
+			if r.IsPlant() && r.group() == group {
+				if _, ok := m.g.Collected(r.Species); ok {
+					pressed++
+				}
+			}
+		}
+		rows = append(rows, valueStyle.Render(fmt.Sprintf("%d of %d pressed in the herbarium", pressed, n)))
+	}
+	state := "open. enter folds it away; C folds every category."
+	if m.g.Folded[group] {
+		state = "folded. enter opens it again; C folds or opens every category."
+	}
+	rows = append(rows, "")
+	rows = append(rows, wrapped(subtleStyle, state, width-2)...)
+	visible, _, _ := window(rows, 0, max(1, avail-2))
+	return cardBorder.Width(width).Render(strings.Join(visible, "\n"))
 }
 
 // almanacDetail shows every drawn stage of a species side by side, with the

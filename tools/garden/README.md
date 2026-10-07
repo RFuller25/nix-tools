@@ -181,7 +181,9 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 
 | key | action |
 | --- | --- |
-| `↑↓ / jk` | browse the guide, species and visitors |
+| `↑↓ / jk` | browse the guide, species and visitors; category headings are rows too |
+| `enter / c` | fold or open the category the cursor is in |
+| `C` | fold every category, or open them all if they are all folded |
 | `←→ / hl, space` | step through a plant's five stages |
 | `v` | flick through a species' varieties |
 | `n` | name a cultivar you have bred (on a cultivar's page) |
