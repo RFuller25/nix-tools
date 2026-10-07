@@ -222,7 +222,7 @@ func (m model) viewAlmanac() string {
 		case rowCreature:
 			keys = "↑↓ browse · enter fold · C fold all · ✓ seen in this garden · esc back"
 		case rowCultivar:
-			keys = "↑↓ browse · n rename · enter fold · ◆ stable line · esc back"
+			keys = "↑↓ browse · n rename · e share · enter fold · ◆ stable line · esc back"
 		case rowRibbon:
 			keys = "↑↓ browse · enter fold · C fold all · esc back"
 		case rowGuide:

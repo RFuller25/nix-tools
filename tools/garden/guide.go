@@ -33,6 +33,7 @@ func guideChapters() []chapter {
 		chGold(),
 		chOrders(),
 		chFair(),
+		chSharing(),
 		chWorthDoing(),
 		chKeys(),
 		chCommandLine(),
@@ -357,6 +358,9 @@ func cliDocs() []cliDoc {
 		{"--species", "list the whole catalogue and exit"},
 		{"--cultivars", "list the hybrid lines your garden has found, and exit"},
 		{"--keys", "print the key tables as markdown, and exit"},
+		{"--export <name|number>", "make a code for one of your cultivars to give a friend, and exit"},
+		{"--import <code>", "redeem a friend's code: three seeds of their cultivar and a place in your almanac, then exit"},
+		{"--gardener <name>", "the name your shared codes are signed with (saved)"},
 		{"--color <mode>", "truecolor, 256, 16 or off; default is to detect the terminal"},
 		{"--version", "print the version and exit"},
 	}
@@ -492,6 +496,27 @@ func chFair() chapter {
 				gp("Judging is hashed from the week, so a show missed while the program was closed is judged exactly as if you had been watching, whenever you next open the garden.", w),
 				append([]string{gh("The classes")}, gp(joinWords(classes)+".", w)...),
 				append([]string{gh("Keys")}, keyRows(w, setFair)...),
+			)
+		},
+	}
+}
+
+func chSharing() chapter {
+	return chapter{
+		Title: "Sharing cultivars",
+		Lede:  "Give a friend a line you have bred, as a short code.",
+		Build: func(m model, w int) []string {
+			return join(
+				gp("A cultivar you have bred can be given to a friend as text. Open its page under YOUR CULTIVARS in this almanac and press e: you get a code beginning GD1- (it is also sent to your clipboard if your terminal allows). Paste it into a message. From the command line, garden --export \"name\" prints the same.", w),
+				gp(fmt.Sprintf("Your friend presses i in the seed shed and pastes it (or runs garden --import <code>). They receive %d seeds of the line, which sell at the ordinary price like any seed of that quality, and the line is added to their almanac under YOUR CULTIVARS with the name you gave it and who it came from. If they already had that line, the seed joins it.", giftSeeds), w),
+				append([]string{gh("What a code holds")},
+					gp("The species, all seven genes, the name you gave the line, its generation, whether it is a stable line, and the name you signed it with (garden --gardener \"name\" sets that; it is saved). Nothing else about your garden is in it.", w)...),
+				append([]string{gh("The rules")}, join(
+					gk("once", "A code can be redeemed once in any one garden, and never in the garden that made it. There is no server to say it has been used elsewhere, so a friend can pass it on; but every time you share you make a new code, and each is its own.", w),
+					gk("checked", "A code is checked when it is read. A mistyped, cut-off or edited code is refused with the reason, and genes outside the possible range are refused, so a bad code can never make a broken plant.", w),
+					gk("new line", "Seedlings of a gift vary a little, like any bred line, and keep its name.", w),
+				)...),
+				append([]string{gh("Keys")}, keyRows(w, setShare)...),
 			)
 		},
 	}

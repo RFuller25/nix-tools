@@ -60,7 +60,7 @@ func (m model) cultivarDetail(id, listWidth, avail int) (string, bool) {
 	}
 	rows = append(rows, labelStyle.Render("IN YOUR GARDEN"),
 		valueStyle.Render(fmt.Sprintf("%d growing now · %d seed(s) in the shed", growing, packets)), "")
-	rows = append(rows, wrapped(subtleStyle, "Press n to give the line a name of your own. Seed gathered from a plant of the line, and not crossed with anything unlike it, stays in the line.", width-2)...)
+	rows = append(rows, wrapped(subtleStyle, "Press n to give the line a name of your own, and e to make a code to share it with a friend. Seed gathered from a plant of the line, and not crossed with anything unlike it, stays in the line.", width-2)...)
 
 	lines := strings.Split(strings.Join(rows, "\n"), "\n")
 	visible, above, below := window(lines, m.cardScroll, max(1, avail-2))

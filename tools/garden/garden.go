@@ -247,6 +247,9 @@ type Garden struct {
 	OrdersDay   int             `json:"orders_day,omitempty"`
 	OrdersDone  int             `json:"orders_done,omitempty"`
 	Fair        FairState       `json:"fair"`
+	Exports     int             `json:"exports,omitempty"`      // codes made, so each is its own
+	Redeemed    []string        `json:"redeemed,omitempty"`     // codes already used here
+	Received    int             `json:"received,omitempty"`     // gifts received
 	CrossedSeed int             `json:"crossed_seed,omitempty"` // seed gathered that was crossed
 	Crossed     int             `json:"crossed,omitempty"`
 	HandCrossed int             `json:"hand_crossed,omitempty"`

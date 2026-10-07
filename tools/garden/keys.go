@@ -29,6 +29,7 @@ const (
 	setTpl     keySet = "layouts"
 	setOrders  keySet = "orders"
 	setFair    keySet = "fair"
+	setShare   keySet = "share"
 	setInfo    keySet = "card"
 	setAlmanac keySet = "almanac"
 	setJournal keySet = "journal"
@@ -61,6 +62,7 @@ var setTitles = map[keySet]string{
 	setTpl:     "on the layouts screen (T)",
 	setOrders:  "on the order board",
 	setFair:    "at the fair",
+	setShare:   "on the share screen",
 	setInfo:    "on a plant's card",
 	setAlmanac: "in the almanac",
 	setJournal: "in the journal",
@@ -68,7 +70,7 @@ var setTitles = map[keySet]string{
 }
 
 // setOrder is the order sets are listed in.
-var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
+var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setShare, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
 
 var (
 	bindingsOnce sync.Once
@@ -130,6 +132,8 @@ func (m model) screenSet() keySet {
 		return setOrders
 	case screenFair:
 		return setFair
+	case screenShare:
+		return setShare
 	}
 	return setGarden
 }
@@ -444,6 +448,7 @@ func buildBindings() []binding {
 	})
 	add(setShop, k("enter", "p", " "), "enter / p / space", "buy one seed and sow it in the selected bed", "enter buy & sow", func(m *model) tea.Cmd { return m.actSow() })
 	add(setShop, k("b"), "b", "buy one seed into your shed without sowing it", "b buy", func(m *model) tea.Cmd { return m.actBuySeed() })
+	add(setShop, k("i"), "i", "import a friend's code: three seeds of their cultivar, and the line goes in your almanac", "i import", func(m *model) tea.Cmd { m.startImport(); return nil })
 	add(setShop, k("s"), "s", "switch to your own seeds", "s my seeds", func(m *model) tea.Cmd { return m.actShelf(shelfMine) })
 
 	// ---- the seed shed: my seeds ---------------------------------------
@@ -478,6 +483,7 @@ func buildBindings() []binding {
 		m.startNamingPacket()
 		return nil
 	})
+	add(setMine, k("i"), "i", "import a friend's code: three seeds of their cultivar, and the line goes in your almanac", "i import", func(m *model) tea.Cmd { m.startImport(); return nil })
 	add(setMine, k("s"), "s", "switch to the shop", "s shop", func(m *model) tea.Cmd { return m.actShelf(shelfShop) })
 
 	// ---- a plant's card -------------------------------------------------
@@ -566,6 +572,7 @@ func buildBindings() []binding {
 		}
 		return nil
 	})
+	add(setAlmanac, k("e"), "e", "share a cultivar you have bred: make a code to give a friend (on its page)", "", func(m *model) tea.Cmd { return m.actShare() })
 	add(setAlmanac, k("n"), "n", "name a cultivar you have bred (on a cultivar's page)", "", func(m *model) tea.Cmd {
 		m.startNamingCultivar()
 		return nil
@@ -590,6 +597,12 @@ func buildBindings() []binding {
 	add(setJournal, k("pgup"), "", "", "", func(m *model) tea.Cmd { m.journalScroll = max(0, m.journalScroll-10); return nil })
 	add(setJournal, k("pgdown"), "", "", "", func(m *model) tea.Cmd { m.journalScroll += 10; return nil })
 	add(setJournal, k("home", "g"), "home / g", "newest entry", "", func(m *model) tea.Cmd { m.journalScroll = 0; return nil })
+
+	// ---- the share screen -----------------------------------------------
+	add(setShare, k(anyKey), "any key", "back to the almanac", "", func(m *model) tea.Cmd {
+		m.screen = screenAlmanac
+		return nil
+	})
 
 	// ---- help -----------------------------------------------------------
 	add(setHelp, k("up", "k"), "↑↓ / jk, pgup / pgdn", "scroll", "", func(m *model) tea.Cmd { scrollBy(m, -1); return nil })
