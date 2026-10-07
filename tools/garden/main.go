@@ -19,8 +19,19 @@ func main() {
 		postcard     = flag.Bool("postcard", false, "print the garden as it stands and exit")
 		status       = flag.Bool("status", false, "print a one-line summary and exit, for a prompt or status bar")
 		width        = flag.Int("width", 80, "how wide to draw the postcard")
+		colorMode    = flag.String("color", "", "colour mode: truecolor, 256, 16 or off (default: detect; also GARDEN_COLOR)")
+		keysMD       = flag.Bool("keys", false, "print the key table as markdown and exit")
 	)
 	flag.Parse()
+
+	if *keysMD {
+		fmt.Print(keysMarkdown())
+		return
+	}
+	if _, err := applyColourMode(*colorMode); err != nil {
+		fmt.Fprintln(os.Stderr, "garden:", err)
+		os.Exit(2)
+	}
 
 	if *showVersion {
 		fmt.Printf("garden %s\n", version)

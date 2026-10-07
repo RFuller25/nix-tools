@@ -32,28 +32,87 @@ nix run .#garden      # or: go run ./tools/garden
 
 ## Keys
 
+<!-- keys:start -->
+
+**In the garden**
+
 | key | action |
 | --- | --- |
-| `←↑↓→` / `hjkl` | move between beds |
-| `p` / `enter` | sow a seed in the selected bed |
-| `w` / `W` | water this bed / every bed |
-| `c` / `C` | clear weeds here / everywhere |
-| `f` / `F` | gather ripe seed here / everywhere |
-| `n` | name the plant in this bed |
-| `u` | lift a plant and turn the soil |
-| `i` / `space` | open the plant's info card |
-| `s` | seed shed |
-| `a` | almanac — every species, every stage |
-| `tab` | cycle garden → shed → almanac → journal |
+| `←↑↓→ / hjkl` | move between beds |
+| `home / end / G` | first bed / last bed |
+| `p / enter` | sow in the selected bed (opens the seed shed), or open the card of what is growing |
+| `i / space` | open the plant's info card |
+| `w / W` | water this bed / every bed |
+| `c / C` | clear weeds here / everywhere |
+| `f / F` | gather ripe seed here / everywhere |
+| `n / r` | name the plant in this bed |
+| `u` | lift a plant and compost it into the bed |
 | `b` | break new ground: one more bed |
 | `d` | dig a pond here, or fill it back in |
+| `a` | the almanac |
+| `s` | the seed shed |
+
+**In the seed shed**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk` | browse |
+| `←→ / hl` | choose a variety |
+| `pgup / pgdn` | read a long card |
+| `home / g, end / G` | first / last |
+| `t` | show only what is happy in this season, or the whole rack |
+| `enter / p / space` | sow the chosen seed in the selected bed |
+
+**On a plant's card**
+
+| key | action |
+| --- | --- |
+| `w` | water the bed |
+| `c` | clear the weeds |
+| `f` | gather ripe seed |
+| `n / r` | name the plant |
+| `u` | lift the plant and compost it |
+| `←→ / hl` | the previous / next bed |
+| `↑↓ / jk, pgup / pgdn` | scroll the card |
+| `home` | back to the top of the card |
+
+**In the almanac**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk` | browse the guide, species and visitors |
+| `←→ / hl, space` | step through a plant's five stages |
+| `v` | flick through a species' varieties |
+| `pgup / pgdn` | read a long page |
+| `home / g, end / G` | first / last entry |
+
+**In the journal**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk, pgup / pgdn` | scroll back through the log |
+| `home / g` | newest entry |
+
+**On this screen**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk, pgup / pgdn` | scroll |
+| `home / g` | back to the top |
+| `any other key` | close help |
+
+**Anywhere**
+
+| key | action |
+| --- | --- |
+| `ctrl+c` | quit at once (the garden saves itself) |
 | `m` | calming music on or off |
-| `↑↓` | scroll the info card and the help screen |
-| `←→` | choose a variety in the seed shed |
-| `v` | flick through the varieties in the almanac |
-| `PgUp`/`PgDn` | read a long card in the shed or almanac |
-| `?` | help |
-| `q` | quit (the garden saves itself) |
+| `q` | back to the garden; from the garden, quit (it saves itself) |
+| `?` | this help, from anywhere; again to close it |
+| `tab` | cycle garden → shed → almanac → journal |
+| `esc` | back to the garden |
+
+<!-- keys:end -->
 
 ## The garden itself
 

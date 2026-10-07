@@ -40,7 +40,7 @@ func (m model) viewJournal() string {
 		m.g.Created.Format("2 Jan 2006")))
 
 	head := fit(titleStyle.Render("✎ journal")+"  "+stats, m.width)
-	keys := "↑↓ scroll · esc back · q garden"
+	keys := m.hintLine(setJournal, "q garden")
 
 	body := strings.Join(lines, "\n")
 	if len(tasks) > 0 {

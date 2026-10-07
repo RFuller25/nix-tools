@@ -227,9 +227,7 @@ func (m model) viewGarden() string {
 		}
 	}
 
-	keys := keyHints(m.width, "←↑↓→ move", "p plant", "w water", "c weed", "f gather",
-		"n name", "i info", "a almanac", "m music", "b new bed", "d pond",
-		"W water all", "C weed all", "tab screens", "? help", "q quit")
+	keys := keyHints(m.width, m.hintParts(setGarden)...)
 	if m.naming {
 		return strings.Join([]string{
 			head,

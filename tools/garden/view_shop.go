@@ -78,9 +78,9 @@ func (m model) viewShop() string {
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
 	}
-	keys := "↑↓ browse · ←→ variety · enter sow · t season · esc back"
+	keys := m.hintLine(setShop)
 	if clipped {
-		keys = "↑↓ browse · ←→ variety · enter sow · pgup/pgdn read the card · esc"
+		keys = m.hintLine(setShop, "pgup/pgdn read the card")
 	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
 }

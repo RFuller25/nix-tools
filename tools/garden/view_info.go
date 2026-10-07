@@ -118,7 +118,7 @@ func (m model) viewInfo() string {
 		}, "\n")
 	}
 
-	keys := scrollHint(above, below, "w water · c weed · f gather · n name · u lift · ←→ other beds · esc back")
+	keys := scrollHint(above, below, m.hintLine(setInfo))
 	return strings.Join([]string{body, m.footer(keys)}, "\n")
 }
 

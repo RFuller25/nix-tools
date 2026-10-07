@@ -7,29 +7,48 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// almanacRow is one line of the almanac: a plant, or one of the creatures
-// that comes to visit them.
+// rowKind says what an almanac row is.
+type rowKind int
+
+const (
+	rowGuide rowKind = iota
+	rowPlant
+	rowCreature
+)
+
+// almanacRow is one line of the almanac: a chapter of the guide, a plant, or
+// one of the creatures that comes to visit them.
 type almanacRow struct {
+	Kind     rowKind
+	Chapter  int // index into guideChapters, for guide rows
 	Species  *Species
 	Creature creature
-	IsPlant  bool
 }
 
-// almanacRows is the whole book: every species, then the visitors.
+func (r almanacRow) IsPlant() bool { return r.Kind == rowPlant }
+
+// almanacRows is the whole book: the guide, every species, then the visitors.
 func almanacRows() []almanacRow {
-	rows := make([]almanacRow, 0, len(AllSpecies())+len(creatureOrder))
+	chapters := guideChapters()
+	rows := make([]almanacRow, 0, len(chapters)+len(AllSpecies())+len(creatureOrder))
+	for i := range chapters {
+		rows = append(rows, almanacRow{Kind: rowGuide, Chapter: i})
+	}
 	for _, sp := range AllSpecies() {
-		rows = append(rows, almanacRow{Species: sp, IsPlant: true})
+		rows = append(rows, almanacRow{Kind: rowPlant, Species: sp})
 	}
 	for _, c := range creatureOrder {
-		rows = append(rows, almanacRow{Creature: c})
+		rows = append(rows, almanacRow{Kind: rowCreature, Creature: c})
 	}
 	return rows
 }
 
 // group is the heading a row sits under.
 func (r almanacRow) group() string {
-	if r.IsPlant {
+	switch r.Kind {
+	case rowGuide:
+		return "guide"
+	case rowPlant:
 		return r.Species.Kind.String()
 	}
 	return "visitors"
@@ -37,7 +56,10 @@ func (r almanacRow) group() string {
 
 // title is how the row reads in the list.
 func (r almanacRow) title() string {
-	if r.IsPlant {
+	switch r.Kind {
+	case rowGuide:
+		return guideChapters()[r.Chapter].Title
+	case rowPlant:
 		return r.Species.Common
 	}
 	return upperFirst(r.Creature.kind().name)
@@ -77,14 +99,15 @@ func (m model) viewAlmanac() string {
 		}
 
 		seen := "  "
-		if row.IsPlant {
+		switch row.Kind {
+		case rowPlant:
 			if !m.g.Unlocked(row.Species) {
 				style = lockedStyle
 			}
 			if _, ok := m.g.Collected(row.Species); ok {
 				seen = okStyle.Render("✓ ")
 			}
-		} else {
+		case rowCreature:
 			if _, ok := m.g.Sightings[row.Creature.kind().name]; ok {
 				seen = okStyle.Render("✓ ")
 			} else {
@@ -99,11 +122,15 @@ func (m model) viewAlmanac() string {
 	if len(m.almanac) > 0 {
 		row := m.almanac[m.almanacCursor]
 		switch {
-		case narrow && row.IsPlant:
+		case narrow && row.Kind == rowGuide:
+			lines = append(lines, "", fit(subtleStyle.Render(guideChapters()[row.Chapter].Lede), listWidth))
+		case narrow && row.IsPlant():
 			lines = append(lines, "", fit(latinStyle.Render(row.Species.Latin), listWidth))
 		case narrow:
 			lines = append(lines, "", fit(subtleStyle.Render(row.Creature.kind().when), listWidth))
-		case row.IsPlant:
+		case row.Kind == rowGuide:
+			detail, clipped = m.guideDetail(row.Chapter, listWidth, avail)
+		case row.IsPlant():
 			detail, clipped = m.almanacDetail(row.Species, listWidth, avail)
 		default:
 			detail, clipped = m.creatureDetail(row.Creature, listWidth, avail)
@@ -120,12 +147,12 @@ func (m model) viewAlmanac() string {
 	if detail != "" {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, "  ", detail)
 	}
-	keys := "↑↓ species · ←→ stage · v variety · ✓ grown here · esc back"
-	if len(m.almanac) > 0 && !m.almanac[m.almanacCursor].IsPlant {
+	keys := "↑↓ browse · ←→ stage · v variety · ✓ grown here · esc back"
+	if len(m.almanac) > 0 && !m.almanac[m.almanacCursor].IsPlant() {
 		keys = "↑↓ browse · ✓ seen in this garden · esc back"
 	}
 	if clipped {
-		keys += " · pgup/pgdn read the card"
+		keys += " · pgup/pgdn read the page"
 	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
 }
@@ -212,6 +239,19 @@ func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 
 	lines := strings.Split(strings.Join(rows, "\n"), "\n")
 	visible, above, below := window(lines, m.cardScroll, max(1, avail-2)) // less the card's border
+	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), above || below
+}
+
+// guideDetail is one chapter of the guide, read in the pane beside the list.
+func (m model) guideDetail(idx, listWidth, avail int) (string, bool) {
+	width := m.width - listWidth - 6
+	if width < 30 {
+		width = 30
+	}
+	ch := guideChapters()[idx]
+	body := ch.Build(m, width-2)
+	rows := append([]string{titleStyle.Render(ch.Title), subtleStyle.Render(ch.Lede), ""}, body...)
+	visible, above, below := window(rows, m.cardScroll, max(1, avail-2))
 	return cardBorder.Width(width).Render(strings.Join(visible, "\n")), above || below
 }
 
