@@ -218,7 +218,7 @@ func TestPlanModeKeyFlow(t *testing.T) {
 	if n := len(cur.(model).ghosts); n != 2 {
 		t.Errorf("placed a third ghost from two seeds: %d", n)
 	}
-	if v := cur.View(); !strings.Contains(v, "plan") {
+	if v := cur.View(); !strings.Contains(v, "C sow it") {
 		t.Error("plan mode does not say it is plan mode")
 	}
 	if !g.Plots[0].Empty() {
@@ -304,5 +304,83 @@ func TestPlannerScreensFitEverySize(t *testing.T) {
 		if v := m.View(); len(strings.Split(v, "\n")) > size[1] {
 			t.Errorf("my seeds at %dx%d is %d lines", size[0], size[1], len(strings.Split(v, "\n")))
 		}
+	}
+}
+
+// Plan mode offers the whole almanac, the shop's stock before what is not yet
+// stocked, and a search to find any of it.
+func TestPlanPaletteOffersEverySpeciesAndSearches(t *testing.T) {
+	g := newTestGarden(testStart())
+	g.Matured = 0
+	m := newModel(g, t.TempDir()+"/g.json", testStart())
+	m.startPlan()
+	pal := m.palette()
+	if len(pal) != len(AllSpecies()) {
+		t.Fatalf("the palette has %d seeds, the almanac %d species", len(pal), len(AllSpecies()))
+	}
+	seenLocked := false
+	for _, e := range pal {
+		if e.Locked > 0 {
+			seenLocked = true
+		} else if seenLocked {
+			t.Fatal("a buyable seed comes after a locked one")
+		}
+	}
+	if pal[0].Locked > 0 {
+		t.Error("the first seed offered is one the shop does not stock")
+	}
+	m.planFilter = "rose"
+	found := false
+	for _, e := range m.palette() {
+		found = found || strings.Contains(strings.ToLower(e.Label), "rose")
+	}
+	if !found || len(m.palette()) >= len(pal) {
+		t.Error("searching for rose did not narrow the list to it")
+	}
+	m.planFilter = "zzzz"
+	if len(m.palette()) != 0 {
+		t.Error("a search with no match should be empty")
+	}
+	if !strings.Contains(m.tray(), "no seed matches") {
+		t.Error("an empty search says nothing")
+	}
+}
+
+func TestPlanKeysAreOnTheFooterAndLockedSeedIsLeftOut(t *testing.T) {
+	now := testStart()
+	g := newTestGarden(now)
+	g.Matured, g.Gold = 0, 100
+	m := newModel(g, t.TempDir()+"/g.json", now)
+	m.width, m.height = 100, 34
+	var cur tea.Model = m
+	cur = keyPress(cur, "P")
+	v := cur.View()
+	for _, hint := range []string{"[ ] pick seed", "/ search", "enter place", "C sow it"} {
+		if !strings.Contains(v, hint) {
+			t.Errorf("plan mode's footer lacks %q", hint)
+		}
+	}
+	if strings.Contains(v, "w water") {
+		t.Error("the garden's own keys are shown in plan mode")
+	}
+	// Walk to the first locked seed and place it, then sow the plan.
+	pm := cur.(model)
+	for i, e := range pm.palette() {
+		if e.Locked > 0 {
+			pm.planPick = i
+			break
+		}
+	}
+	cur = pm
+	cur = keyPress(cur, "enter")
+	if len(cur.(model).ghosts) != 1 {
+		t.Fatal("a locked seed could not be planned with")
+	}
+	cur = keyPress(cur, "C")
+	if !g.Plots[0].Empty() {
+		t.Error("a locked seed was sown")
+	}
+	if !strings.Contains(cur.(model).status, "Nothing could be sown") {
+		t.Errorf("no explanation: %q", cur.(model).status)
 	}
 }

@@ -21,6 +21,8 @@ func keyToken(k string) string {
 		return "↓"
 	case " ":
 		return "space"
+	case "/":
+		return "slash"
 	case "pgdown":
 		return "pgdn"
 	}

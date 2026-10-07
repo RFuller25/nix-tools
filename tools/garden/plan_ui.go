@@ -53,14 +53,14 @@ func planBindings() []binding {
 
 	// ---- plan mode ------------------------------------------------------
 	moves(setPlan, "move to a bed", "←↑↓→ move")
-	add(setPlan, k("["), "[ / ]", "choose which seed to place: yours first, then anything the shop sells", "[ ] seed", func(m *model) tcmd { m.planStep(-1); return nil })
+	add(setPlan, k("["), "[ / ]", "choose which seed to place: yours first, then anything the shop sells", "[ ] pick seed", func(m *model) tcmd { m.planStep(-1); return nil })
 	add(setPlan, k("]"), "", "", "", func(m *model) tcmd { m.planStep(1); return nil })
 	add(setPlan, k("{"), "{ / }", "jump ten along the seed list", "", func(m *model) tcmd { m.planStep(-10); return nil })
 	add(setPlan, k("}"), "", "", "", func(m *model) tcmd { m.planStep(10); return nil })
+	add(setPlan, k("/"), "slash", "search the seed list by name, kind or family (empty clears it)", "/ search", func(m *model) tcmd { m.planSearch(); return nil })
 	add(setPlan, k("enter", " ", "p"), "enter / space / p", "place the chosen seed in this bed as a ghost", "enter place", func(m *model) tcmd { return m.planPlace() })
 	add(setPlan, k("backspace", "x", "delete"), "backspace / x / delete", "take the ghost out of this bed", "x remove", func(m *model) tcmd { return m.planRemove() })
 	add(setPlan, k("C"), "C", "sow the whole plan: your own seed where you have it, bought seed where you do not", "C sow it", func(m *model) tcmd { return m.planCommit() })
-	add(setPlan, k("g"), "g", "the neighbour overlay is always on in plan mode; g is not needed", "", func(m *model) tcmd { return nil })
 	add(setPlan, k("esc"), "esc", "leave plan mode without sowing anything", "esc cancel", func(m *model) tcmd { m.endMode("Plan put away."); return nil })
 
 	// ---- stamping -------------------------------------------------------
@@ -126,7 +126,7 @@ type tcmd = tea.Cmd
 func (m *model) startPlan() {
 	m.mode, m.ghosts, m.planPick = modePlan, map[int]ghost{}, 0
 	m.rescore()
-	m.setStatus(goldStyle, "Plan mode. Pick a seed with [ and ], place it with enter. Nothing is sown until you press C.")
+	m.setStatus(goldStyle, "Plan mode: pick a seed with [ ] (or / to search), move to a bed, press enter to place it. Nothing is sown or paid for until C.")
 }
 
 func (m *model) startSelect() {
@@ -150,14 +150,30 @@ func (m *model) afterMove() {
 // rescore rebuilds the garden-with-ghosts the planner scores against.
 func (m *model) rescore() { m.plan = m.g.withGhosts(m.ghosts) }
 
-// palette is every seed plan mode can place: the shed first, then the shop.
+// paletteEntry is one seed plan mode can place.
 type paletteEntry struct {
 	Label  string
 	Ghost  ghost
 	Shed   bool
 	Remain int
+	Locked int // matured plants still needed before the shop sells it, or 0
+	Price  int
 }
 
+// tag is the short note on where the seed would come from.
+func (e paletteEntry) tag() string {
+	switch {
+	case e.Shed:
+		return fmt.Sprintf("yours ×%d", e.Remain)
+	case e.Locked > 0:
+		return fmt.Sprintf("locked: %d plants to grow first", e.Locked)
+	}
+	return fmt.Sprintf("shop %dg", e.Price)
+}
+
+// palette is every seed plan mode can place: your own packets first, then every
+// species in the almanac. Species the shop does not stock yet can still be
+// planned with; they are left out when the plan is sown.
 func (m *model) palette() []paletteEntry {
 	used := map[int64]int{}
 	for _, gh := range m.ghosts {
@@ -165,10 +181,23 @@ func (m *model) palette() []paletteEntry {
 			used[gh.Packet]++
 		}
 	}
+	filter := strings.ToLower(strings.TrimSpace(m.planFilter))
+	match := func(parts ...string) bool {
+		if filter == "" {
+			return true
+		}
+		for _, p := range parts {
+			if strings.Contains(strings.ToLower(p), filter) {
+				return true
+			}
+		}
+		return false
+	}
 	var out []paletteEntry
 	for _, i := range m.g.ShedOrder() {
 		pk := m.g.Shed[i]
-		if pk.Species() == nil {
+		sp := pk.Species()
+		if sp == nil || !match(pk.Name(), sp.Common, sp.Latin) {
 			continue
 		}
 		out = append(out, paletteEntry{
@@ -176,15 +205,24 @@ func (m *model) palette() []paletteEntry {
 			Ghost: ghost{Species: pk.SpeciesID, Variety: pk.Variety, Packet: pk.ID, Genome: pk.Mean()},
 		})
 	}
+	// What the shop sells now comes before what it does not stock yet.
+	var later []paletteEntry
 	for _, sp := range AllSpecies() {
-		if !m.g.Unlocked(sp) {
+		if !match(sp.Common, sp.Latin, sp.Kind.String(), sp.Family) {
 			continue
 		}
-		out = append(out, paletteEntry{
-			Label: sp.Common + " (shop)", Ghost: ghost{Species: sp.ID, Genome: sp.VarietyGenome(0)},
-		})
+		e := paletteEntry{
+			Label: sp.Common, Price: sp.seedPrice(),
+			Ghost: ghost{Species: sp.ID, Genome: sp.VarietyGenome(0)},
+		}
+		if !m.g.Unlocked(sp) {
+			e.Locked = sp.Unlock - m.g.Matured
+			later = append(later, e)
+			continue
+		}
+		out = append(out, e)
 	}
-	return out
+	return append(out, later...)
 }
 
 func (m *model) planStep(delta int) {
@@ -195,10 +233,75 @@ func (m *model) planStep(delta int) {
 	m.planPick = ((m.planPick+delta)%n + n) % n
 }
 
+// planSearch asks for a name to narrow the seed list to.
+func (m *model) planSearch() {
+	m.naming, m.namingFor = true, namePlanFilter
+	m.input.Placeholder = "part of a name, e.g. rose, herb, Lamiaceae"
+	m.input.SetValue(m.planFilter)
+	m.input.CursorEnd()
+	m.input.Focus()
+}
+
+// trayRows is how many extra rows the garden screen carries for the seed tray.
+func (m model) trayRows() int {
+	if m.screen == screenGarden && (m.mode == modePlan || m.mode == modeStamp || m.mode == modeSelect) {
+		return 1
+	}
+	return 0
+}
+
+// tray is the row above the footer while a mode is active: for plan mode, the
+// seeds you can place, with the chosen one in the middle.
+func (m model) tray() string {
+	if m.trayRows() == 0 {
+		return ""
+	}
+	switch m.mode {
+	case modePlan:
+		pal := m.palette()
+		if len(pal) == 0 {
+			return goldStyle.Render("no seed matches “" + m.planFilter + "” — / to search again")
+		}
+		pick := min(m.planPick, len(pal)-1)
+		one := func(i int, chosen bool) string {
+			e := pal[((i%len(pal))+len(pal))%len(pal)]
+			sw := swatch(e.Ghost.Genome.Hex(), 1)
+			text := e.Label
+			style := subtleStyle
+			if e.Locked > 0 {
+				style = lockedStyle
+			}
+			if chosen {
+				return sw + " " + titleStyle.Render("‹ "+text+" · "+e.tag()+" ›")
+			}
+			return sw + " " + style.Render(truncate(text, 14))
+		}
+		var parts []string
+		if len(pal) > 1 {
+			parts = append(parts, one(pick-2, false), one(pick-1, false))
+		}
+		parts = append(parts, one(pick, true))
+		if len(pal) > 2 {
+			parts = append(parts, one(pick+1, false), one(pick+2, false))
+		}
+		filter := ""
+		if m.planFilter != "" {
+			filter = subtleStyle.Render("  [" + m.planFilter + "]")
+		}
+		return fit(strings.Join(parts, subtleStyle.Render(" · "))+filter+subtleStyle.Render(fmt.Sprintf("  %d/%d", pick+1, len(pal))), m.width)
+	case modeStamp:
+		return fit(goldStyle.Render("placing ‘"+m.stampTpl.Name+"’")+subtleStyle.Render(" — move it with the arrows; it is scored as you go"), m.width)
+	case modeSelect:
+		r := rectOf(m.selAnchor, m.cursor)
+		return fit(goldStyle.Render(fmt.Sprintf("selecting %d × %d beds", r.c1-r.c0+1, r.r1-r.r0+1))+subtleStyle.Render(" — stretch with the arrows over what to keep"), m.width)
+	}
+	return ""
+}
+
 func (m *model) planPlace() tcmd {
 	pal := m.palette()
 	if len(pal) == 0 {
-		m.setStatus(warnStyle, "There is nothing to place.")
+		m.setStatus(warnStyle, "No seed to place. Press / to search again.")
 		return nil
 	}
 	m.planPick = min(m.planPick, len(pal)-1)
@@ -209,13 +312,18 @@ func (m *model) planPlace() tcmd {
 		m.setStatus(warnStyle, "%s", err.Error())
 		return nil
 	case e.Shed && e.Remain < 1:
-		m.setStatus(warnStyle, "You have no more of that seed to place; pick another.")
+		m.setStatus(warnStyle, "You have no more of that seed to place; pick another with [ ].")
 		return nil
 	}
 	m.ghosts[m.cursor] = e.Ghost
 	m.rescore()
 	net := m.plan.Synergy(m.cursor).Net()
-	m.setStatus(subtleStyle, "%s in bed %d: %s (%+.0f%% growth).", e.Label, m.cursor+1, SynergyWord(net), net*100)
+	cost, _, locked := m.g.PlanCost(m.ghosts)
+	note := fmt.Sprintf("%d placed, %s to buy", len(m.ghosts), goldLabel(cost))
+	if locked > 0 {
+		note += fmt.Sprintf(", %d not in the shop yet", locked)
+	}
+	m.setStatus(subtleStyle, "%s in bed %d: %s (%+.0f%% growth). %s. C sows.", e.Label, m.cursor+1, SynergyWord(net), net*100, note)
 	return nil
 }
 
@@ -227,33 +335,36 @@ func (m *model) planRemove() tcmd {
 	return nil
 }
 
-// planCommit sows the ghosts.
+// planCommit sows the ghosts. Whatever cannot be sown (seed the shop does not
+// stock yet, or that you cannot afford) is left out and reported.
 func (m *model) planCommit() tcmd {
 	if len(m.ghosts) == 0 {
-		m.setStatus(subtleStyle, "Nothing is planned yet.")
-		return nil
-	}
-	cost, _, locked := m.g.PlanCost(m.ghosts)
-	if cost > m.g.Gold {
-		m.setStatus(warnStyle, "Buying what is missing costs %s and you have %s.", goldLabel(cost), goldLabel(m.g.Gold))
-		return nil
-	}
-	if locked > 0 {
-		m.setStatus(warnStyle, "%d seed(s) in the plan are not in the shop yet.", locked)
+		m.setStatus(subtleStyle, "Nothing is planned yet: pick a seed with [ ] and press enter on a bed.")
 		return nil
 	}
 	sown, bought, spent, problems := m.g.CommitGhosts(m.ghosts, m.now)
+	if sown == 0 {
+		m.setStatus(warnStyle, "Nothing could be sown: %s", firstOr(problems, "no seed to hand"))
+		return nil
+	}
 	m.dirty = true
 	msg := fmt.Sprintf("Sowed %d bed(s)", sown)
 	if bought > 0 {
 		msg += fmt.Sprintf(", buying %d seed(s) for %s", bought, goldLabel(spent))
 	}
 	if len(problems) > 0 {
-		msg += fmt.Sprintf(" — left out %d: %s", len(problems), problems[0])
+		msg += fmt.Sprintf(". Left out %d: %s", len(problems), problems[0])
 	}
 	m.endMode(msg + ".")
 	m.screen = screenGarden
 	return m.save()
+}
+
+func firstOr(list []string, def string) string {
+	if len(list) == 0 {
+		return def
+	}
+	return list[0]
 }
 
 // ---- stamping -----------------------------------------------------------------
@@ -381,31 +492,27 @@ func (m model) renderGhost(idx int, gh ghost, selected bool) string {
 // selectBorder frames the beds in a selection.
 var selectBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#6ea8fe"))
 
-// modeLine is the prompt shown in the footer while a mode is active.
+// modeLine is the summary shown in the footer while a mode is active and
+// there is no message to show instead.
 func (m model) modeLine() string {
 	switch m.mode {
 	case modePlan:
-		pal := m.palette()
-		pick := "nothing to place"
-		if len(pal) > 0 {
-			e := pal[min(m.planPick, len(pal)-1)]
-			pick = e.Label
-			if e.Shed {
-				pick += fmt.Sprintf(" ×%d", e.Remain)
-			}
+		cost, fromShed, locked := m.g.PlanCost(m.ghosts)
+		line := fmt.Sprintf("plan: %d placed · %d from your seed · %s to buy", len(m.ghosts), fromShed, goldLabel(cost))
+		if locked > 0 {
+			line += fmt.Sprintf(" · %d not in the shop yet", locked)
 		}
-		cost, fromShed, _ := m.g.PlanCost(m.ghosts)
-		return goldStyle.Render(fmt.Sprintf("plan · %d placed (%d from your seed, %s to buy) · placing %s", len(m.ghosts), fromShed, goldLabel(cost), pick))
+		return goldStyle.Render(line + " · C sows it")
 	case modeStamp:
 		cost, fromShed, _ := m.g.PlanCost(m.ghosts)
-		line := fmt.Sprintf("‘%s’ · %d beds (%d from your seed, %s to buy)", m.stampTpl.Name, len(m.ghosts), fromShed, goldLabel(cost))
+		line := fmt.Sprintf("‘%s’: %d beds · %d from your seed · %s to buy", m.stampTpl.Name, len(m.ghosts), fromShed, goldLabel(cost))
 		if len(m.stampSkipped) > 0 {
 			line += fmt.Sprintf(" · %d left out: %s", len(m.stampSkipped), m.stampSkipped[0])
 		}
 		return goldStyle.Render(line)
 	case modeSelect:
 		r := rectOf(m.selAnchor, m.cursor)
-		return goldStyle.Render(fmt.Sprintf("selecting %d × %d beds", r.c1-r.c0+1, r.r1-r.r0+1))
+		return goldStyle.Render(fmt.Sprintf("selecting %d × %d beds · enter saves them as a layout", r.c1-r.c0+1, r.r1-r.r0+1))
 	}
 	return ""
 }

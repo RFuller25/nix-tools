@@ -38,7 +38,7 @@ func (m model) visibleCols() int {
 
 // visibleRows is how many rows of beds fit under the header and footer.
 func (m model) visibleRows() int {
-	avail := m.height - 5 // header, divider, status, help
+	avail := m.height - 5 - m.trayRows() // header, divider, status, help, and the tray in a mode
 	rows := avail / cellTall
 	if rows < 1 {
 		rows = 1
@@ -147,10 +147,10 @@ func (m model) footer(keys string) string {
 	switch {
 	case m.saveErr != nil:
 		line = errStyle.Render("save failed: " + m.saveErr.Error())
-	case m.mode != modeNone && m.screen == screenGarden:
-		line = m.modeLine()
 	case m.status != "":
 		line = m.statusStyle.Render(m.status)
+	case m.mode != modeNone && m.screen == screenGarden:
+		line = m.modeLine()
 	default:
 		line = subtleStyle.Render(m.ambient())
 	}
@@ -230,7 +230,7 @@ func (m model) viewGarden() string {
 		}
 	}
 
-	keys := keyHints(m.width, m.hintParts(setGarden)...)
+	keys := keyHints(m.width, m.hintParts(m.hintSet())...)
 	if m.naming {
 		return strings.Join([]string{
 			head,
@@ -246,17 +246,14 @@ func (m model) viewGarden() string {
 	// rather than the header and the status line, which are what a gardener
 	// in a small terminal most needs to read.
 	grid := strings.Split(strings.Join(body, "\n"), "\n")
-	if room := m.height - 5; room > 0 && len(grid) > room {
+	if room := m.height - 5 - m.trayRows(); room > 0 && len(grid) > room {
 		grid = grid[:room]
 	}
-
-	return strings.Join([]string{
-		head,
-		m.divider(),
-		strings.Join(grid, "\n"),
-		m.divider(),
-		m.footer(keys),
-	}, "\n")
+	parts := []string{head, m.divider(), strings.Join(grid, "\n")}
+	if tray := m.tray(); tray != "" {
+		parts = append(parts, tray)
+	}
+	return strings.Join(append(parts, m.divider(), m.footer(keys)), "\n")
 }
 
 func joinWithGap(cells []string) []string {
