@@ -19,6 +19,17 @@ const (
 	screenAlmanac
 	screenJournal
 	screenHelp
+	screenTemplates
+)
+
+// mode is a state layered over the garden screen that changes what the keys mean.
+type mode int
+
+const (
+	modeNone   mode = iota
+	modePlan        // placing ghosts of seed to see how a layout would do
+	modeStamp       // placing a saved layout
+	modeSelect      // choosing a block of beds to save as a layout
 )
 
 // nameTarget is what the name being typed is for.
@@ -28,6 +39,7 @@ const (
 	namePlant nameTarget = iota
 	namePacket
 	nameCultivar
+	nameTemplate
 )
 
 type tickMsg time.Time
@@ -77,6 +89,14 @@ type model struct {
 	cardScroll    int // scrolling inside the info card and the help screen
 
 	overlay      bool // colour the beds by how well they get on with their neighbours
+	mode         mode // plan, stamp or select, layered over the garden
+	ghosts       map[int]ghost
+	plan         *Garden // the garden as it would be if the ghosts were sown
+	planPick     int     // the highlighted seed in the plan palette
+	selAnchor    int     // where a layout selection began
+	stampTpl     Template
+	stampSkipped []string
+	tplCursor    int
 	pollinating  bool // choosing a donor for pollenTarget
 	pollenTarget int
 	naming       bool
@@ -356,6 +376,10 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.naming = false
 		m.input.Blur()
 		m.dirty = true
+		if m.namingFor == nameTemplate {
+			m.finishSaveTemplate(name)
+			return m, nil
+		}
 		if m.namingFor == nameCultivar {
 			if row := m.almanac[m.almanacCursor]; row.Kind == rowCultivar && m.g.RenameCultivar(row.Cultivar, name, m.now) {
 				m.setStatus(okStyle, "The line is now ‘%s’.", name)
@@ -415,6 +439,8 @@ func (m model) View() string {
 		view = m.viewJournal()
 	case screenHelp:
 		view = m.viewHelp()
+	case screenTemplates:
+		view = m.viewTemplates()
 	default:
 		view = m.viewGarden()
 	}

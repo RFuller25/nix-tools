@@ -25,6 +25,7 @@ func guideChapters() []chapter {
 		chGrowing(),
 		chSoil(),
 		chNeighbours(),
+		chPlanner(),
 		chYear(),
 		chGenetics(),
 		chBreeding(),
@@ -409,6 +410,33 @@ func chBreeding() chapter {
 					gp(fmt.Sprintf("A line breeds true when seed from a plant of it, crossed with nothing unlike it, grows into seedlings that come out within %.0f%% of their packet's centre. Do that %d generations running and the line is stable (◆ in the almanac): its seed is worth %.0f%% more in the shed. A wide cross, or a mutation, breaks the run and it starts again; a mutation is about one seed in four.", stableGap*100, stableRuns, sellStable*100), w)...),
 				append([]string{gh("Making a line")},
 					gp("Sow a packet, keep the seedlings you like best (the tallest, the bluest, the quickest), and breed from those. Because seed is a blend of two parents plus noise, and the noise shrinks as the parents come to resemble each other, each generation of selection moves the line a little further and steadies it. The card shows the spread to expect, and a sample of the colours the family could be.", w)...),
+			)
+		},
+	}
+}
+
+func chPlanner() chapter {
+	return chapter{
+		Title: "Layout planner and layouts",
+		Lede:  "Plan a garden before sowing it, and stamp layouts down.",
+		Build: func(m model, w int) []string {
+			var names []string
+			for _, t := range builtinTemplates() {
+				names = append(names, t.Name)
+			}
+			return join(
+				gp("Because neighbours matter, it pays to see an arrangement before committing seed to it. Three tools help, and none of them costs anything until you sow.", w),
+				append([]string{gh("The overlay (g)")},
+					gp("Outlines every planted bed green or red by the net of what its neighbours do for it and what it does for them, and prints the figure under it (▲ for a gain in growth speed, ▼ for a loss). It counts the planting rules and the gene rules in Neighbours.", w)...),
+				append([]string{gh("Plan mode (P)")}, join(
+					gp("Lays ghosts of seed over the beds. [ and ] choose the seed (yours first, then anything the shop sells), enter places it, x takes it out, and every bed is scored as though the plan were already grown, so you can see what a marigold would do for a tomato before you sow either. The footer counts what the plan would cost: seed from your own shed is free, anything else is bought from the shop at its price when you press C to sow the lot. esc puts the plan away; nothing is sown or spent until C.", w),
+					keyRows(w, setPlan),
+				)...),
+				append([]string{gh("Layouts (V, T)")}, join(
+					gp("Press V, stretch a block of beds with the arrow keys over a planting you like, and press enter to name it: it is saved with what is growing there. T lists layouts, with a preview, what you already have the seed for and what the rest would cost. Choose one, move it over the garden (it is re-scored as it goes, and anything that does not fit is left out and listed) and press enter to sow it: your own seed first, shop seed for the rest. Some layouts ask for the tallest seed you have where it matters, such as the back of a border.", w),
+					gp("Built in: "+joinWords(names)+". Layouts you save are kept in your garden; x deletes one of your own, never a built-in.", w),
+					keyRows(w, setSelect, setStamp, setTpl),
+				)...),
 			)
 		},
 	}

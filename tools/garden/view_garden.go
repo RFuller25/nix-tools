@@ -147,6 +147,8 @@ func (m model) footer(keys string) string {
 	switch {
 	case m.saveErr != nil:
 		line = errStyle.Render("save failed: " + m.saveErr.Error())
+	case m.mode != modeNone && m.screen == screenGarden:
+		line = m.modeLine()
 	case m.status != "":
 		line = m.statusStyle.Render(m.status)
 	default:
@@ -275,6 +277,9 @@ func joinWithGap(cells []string) []string {
 func (m model) renderCell(idx int) string {
 	p := &m.g.Plots[idx]
 	selected := idx == m.cursor
+	if gh, ok := m.ghosts[idx]; ok && (m.mode == modePlan || m.mode == modeStamp) {
+		return m.renderGhost(idx, gh, selected)
+	}
 
 	var lines []string
 	if fx, ok := m.compost[idx]; ok && !fx.done(m.now) {
@@ -333,8 +338,8 @@ func (m model) renderCell(idx int) string {
 			nameStyle = titleStyle
 		}
 		lines = append(lines, pad(nameStyle.Render(truncate(name, cellInner)), cellInner))
-		if m.overlay {
-			lines = append(lines, pad(synergyBadge(m.g.Synergy(idx).Net()), cellInner))
+		if m.showSynergy() {
+			lines = append(lines, pad(synergyBadge(m.synergyGarden().Synergy(idx).Net()), cellInner))
 		} else {
 			lines = append(lines, pad(m.statStrip(p), cellInner))
 		}
@@ -342,8 +347,10 @@ func (m model) renderCell(idx int) string {
 
 	border := plainBorder
 	switch {
-	case m.overlay && !p.Empty() && !selected:
-		border = synergyBorder(m.g.Synergy(idx).Net())
+	case m.mode == modeSelect && rectOf(m.selAnchor, m.cursor).contains(idx):
+		border = selectBorder
+	case m.showSynergy() && !p.Empty() && !selected:
+		border = synergyBorder(m.synergyGarden().Synergy(idx).Net())
 	case selected:
 		border = selBorder
 	case m.pollinating && idx == m.pollenTarget:

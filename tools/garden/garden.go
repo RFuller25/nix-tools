@@ -238,6 +238,8 @@ type Garden struct {
 	// done with the brush.
 	Cultivars   []Cultivar `json:"cultivars,omitempty"`
 	CultivarSeq int        `json:"cultivar_seq,omitempty"`
+	Templates   []Template `json:"templates,omitempty"`
+	TemplateSeq int        `json:"template_seq,omitempty"`
 	CrossedSeed int        `json:"crossed_seed,omitempty"` // seed gathered that was crossed
 	Crossed     int        `json:"crossed,omitempty"`
 	HandCrossed int        `json:"hand_crossed,omitempty"`

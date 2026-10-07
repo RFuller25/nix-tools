@@ -53,6 +53,9 @@ nix run .#garden      # or: go run ./tools/garden
 | `x` | pollinate by hand: brush pollen from another flower of the same species onto this one, so its next seed is that cross |
 | `a` | the almanac |
 | `s` | the seed shed (shop and your own seeds) |
+| `P` | plan mode: lay ghosts of your seed over the beds and see how the layout would get on before sowing anything |
+| `V` | select a block of beds, then save what is growing in them as a layout |
+| `T` | layouts: the built-in ones and your own, to stamp down anywhere |
 
 **Choosing a pollen donor (after x)**
 
@@ -61,6 +64,43 @@ nix run .#garden      # or: go run ./tools/garden
 | `←↑↓→ / hjkl` | move to the flower to take pollen from (flowers that will do are outlined in gold) |
 | `enter / x / space` | take pollen from the selected flower |
 | `esc` | cancel |
+
+**In plan mode (P)**
+
+| key | action |
+| --- | --- |
+| `←↑↓→ / hjkl` | move to a bed |
+| `[ / ]` | choose which seed to place: yours first, then anything the shop sells |
+| `{ / }` | jump ten along the seed list |
+| `enter / space / p` | place the chosen seed in this bed as a ghost |
+| `backspace / x / delete` | take the ghost out of this bed |
+| `C` | sow the whole plan: your own seed where you have it, bought seed where you do not |
+| `g` | the neighbour overlay is always on in plan mode; g is not needed |
+| `esc` | leave plan mode without sowing anything |
+
+**Placing a layout (T, then enter)**
+
+| key | action |
+| --- | --- |
+| `←↑↓→ / hjkl` | move the layout over the garden |
+| `enter / space` | sow the layout here: your own seed where you have it, bought seed where you do not |
+| `esc` | put the layout away |
+
+**Selecting beds to save as a layout (V)**
+
+| key | action |
+| --- | --- |
+| `←↑↓→ / hjkl` | stretch the selection |
+| `enter / space` | save what is growing in the selected beds as a layout, and name it |
+| `esc` | cancel |
+
+**On the layouts screen (T)**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk` | browse layouts |
+| `enter / p / space` | place the layout: choose where in the garden it goes, then enter again |
+| `x / delete / backspace` | delete a layout of your own (the built-in ones stay) |
 
 **In the shed: the shop shelf**
 

@@ -23,6 +23,10 @@ const (
 	setShop    keySet = "shed"
 	setMine    keySet = "mine"
 	setPollen  keySet = "pollinate"
+	setPlan    keySet = "plan"
+	setStamp   keySet = "stamp"
+	setSelect  keySet = "select"
+	setTpl     keySet = "layouts"
 	setInfo    keySet = "card"
 	setAlmanac keySet = "almanac"
 	setJournal keySet = "journal"
@@ -49,6 +53,10 @@ var setTitles = map[keySet]string{
 	setShop:    "in the shed: the shop shelf",
 	setMine:    "in the shed: my seeds shelf",
 	setPollen:  "choosing a pollen donor (after x)",
+	setPlan:    "in plan mode (P)",
+	setStamp:   "placing a layout (T, then enter)",
+	setSelect:  "selecting beds to save as a layout (V)",
+	setTpl:     "on the layouts screen (T)",
 	setInfo:    "on a plant's card",
 	setAlmanac: "in the almanac",
 	setJournal: "in the journal",
@@ -56,7 +64,7 @@ var setTitles = map[keySet]string{
 }
 
 // setOrder is the order sets are listed in.
-var setOrder = []keySet{setGarden, setPollen, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
+var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
 
 var (
 	bindingsOnce sync.Once
@@ -84,6 +92,14 @@ func (m model) activeSets() []keySet {
 	if m.pollinating {
 		return []keySet{setPollen, setGlobal}
 	}
+	switch m.mode {
+	case modePlan:
+		return []keySet{setPlan, setGlobal}
+	case modeStamp:
+		return []keySet{setStamp, setGlobal}
+	case modeSelect:
+		return []keySet{setSelect, setGlobal}
+	}
 	var sets []keySet
 	sets = append(sets, m.screenSet())
 	return append(sets, setGlobal)
@@ -104,6 +120,8 @@ func (m model) screenSet() keySet {
 		return setJournal
 	case screenHelp:
 		return setHelp
+	case screenTemplates:
+		return setTpl
 	}
 	return setGarden
 }
@@ -542,7 +560,7 @@ func buildBindings() []binding {
 		m.screen = screenGarden
 		return nil
 	})
-	return list
+	return append(list, planBindings()...)
 }
 
 // keysMarkdown renders the documented keys as the markdown tables the README

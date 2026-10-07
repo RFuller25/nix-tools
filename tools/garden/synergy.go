@@ -12,8 +12,8 @@ import (
 // can help or hinder depending on how it has been bred.
 
 const (
-	shadeHeightCM  = 80   // a neighbour has to be at least this tall to shade anything
-	shadeRatio     = 2.0  // and at least this many times as tall as the plant it shades
+	shadeHeightCM  = 80  // a neighbour has to be at least this tall to shade anything
+	shadeRatio     = 2.0 // and at least this many times as tall as the plant it shades
 	shadeDelta     = -0.06
 	shelterDelta   = 0.05 // a shade-lover beside a tall plant
 	crowdShape     = 75   // a neighbour fuller than this crowds a smaller plant
