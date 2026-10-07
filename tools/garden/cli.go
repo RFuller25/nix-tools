@@ -68,10 +68,32 @@ func renderPostcard(g *Garden, now time.Time, width int) string {
 		}
 	}
 	foot := fit(subtleStyle.Render(fmt.Sprintf(
-		"%d growing  ·  %d in flower  ·  %d species pressed  ·  tending since %s",
-		growing, flowering, len(g.Herbarium), g.Created.Format("2 January 2006"))), width)
+		"%d growing  ·  %d in flower  ·  %d species pressed  ·  %d cultivars  ·  tending since %s",
+		growing, flowering, len(g.Herbarium), len(g.Cultivars), g.Created.Format("2 January 2006"))), width)
 
 	return strings.Join(append([]string{head, ""}, append(rows, "", foot)...), "\n")
+}
+
+// renderCultivars lists the hybrid lines the garden has found, for a terminal.
+func renderCultivars(g *Garden) string {
+	if len(g.Cultivars) == 0 {
+		return "No cultivars yet: cross two plants of a species and flower something unlike either.\n"
+	}
+	var b strings.Builder
+	for _, c := range g.Cultivars {
+		sp := c.SpeciesRef()
+		if sp == nil {
+			continue
+		}
+		mark := "◇"
+		if c.Stable {
+			mark = "◆"
+		}
+		fmt.Fprintf(&b, "%s %-28s %-18s %-12s %s, %s, %s, %s\n", mark, c.Name, sp.Common, c.Genome.Hex(),
+			c.Genome.ColourName(), sp.HeightText(c.Genome), c.Genome.SpeedWord(), c.Genome.YieldWord())
+	}
+	fmt.Fprintf(&b, "\n%d cultivars, %d stable\n", len(g.Cultivars), g.StableLines())
+	return b.String()
 }
 
 // renderStatus is the one-liner: what the garden would tell you in passing.

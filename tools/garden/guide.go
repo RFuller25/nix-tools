@@ -354,6 +354,8 @@ func cliDocs() []cliDoc {
 		{"--width <n>", "how wide to draw the postcard (default 80; the garden wants 79, narrower wraps the beds into blocks)"},
 		{"--status", "print a one-line summary for a prompt or status bar, and exit"},
 		{"--species", "list the whole catalogue and exit"},
+		{"--cultivars", "list the hybrid lines your garden has found, and exit"},
+		{"--keys", "print the key tables as markdown, and exit"},
 		{"--color <mode>", "truecolor, 256, 16 or off; default is to detect the terminal"},
 		{"--version", "print the version and exit"},
 	}

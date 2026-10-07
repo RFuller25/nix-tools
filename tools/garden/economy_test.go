@@ -274,3 +274,41 @@ func TestGatheringCrossedSeedUsesPollen(t *testing.T) {
 		t.Error("an unpollinated plant should self")
 	}
 }
+
+// A plain seed always sells for less than it costs, so the shop cannot be
+// farmed; and the rewards on offer are worth the trouble of earning them.
+func TestTheEconomyHangsTogether(t *testing.T) {
+	cheapest := 1 << 30
+	for _, sp := range AllSpecies() {
+		if sp.Unlock == 0 && sp.SeedCost < cheapest {
+			cheapest = sp.SeedCost
+		}
+		for vi := range sp.Varieties() {
+			gn := sp.VarietyGenome(vi)
+			pk := Packet{ID: 1, SpeciesID: sp.ID, A: gn, B: gn, Count: 1, Pure: true}
+			if v := seedValue(pk); v >= sp.SeedCost && sp.SeedCost > 1 {
+				t.Errorf("%s form %d sells for %d, costs %d: the shop can be farmed", sp.ID, vi, v, sp.SeedCost)
+			}
+		}
+	}
+	if startGold < 4*cheapest {
+		t.Errorf("a new gardener's %d gold buys fewer than four of the cheapest seeds (%d)", startGold, cheapest)
+	}
+	// Bed prices rise, and an easy order beats the seed it asks for.
+	g := newTestGarden(testStart())
+	g.Gold = 10000
+	prev := 0
+	for len(g.Plots) < maxPlots {
+		cost := g.BedCost()
+		if cost <= prev {
+			t.Fatal("beds do not get dearer")
+		}
+		prev = cost
+		_ = g.BuyBed(testStart())
+	}
+	for _, sp := range AllSpecies() {
+		if reward := orderEasyMult*sp.SeedCost + orderEasyBase; reward <= sp.SeedCost {
+			t.Errorf("an easy %s order pays %d for a %d gold seed", sp.ID, reward, sp.SeedCost)
+		}
+	}
+}

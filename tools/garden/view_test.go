@@ -32,6 +32,16 @@ func demoModel(t *testing.T, w, h int) model {
 		g.Plots[i].Weeds = float64(i) / 14
 	}
 	g.Rename(0, "Big Yellow", now)
+	// Everything the newer screens show: seed, a hybrid, a ribbon and orders.
+	odd := SpeciesByID("zinnia").VarietyGenome(0)
+	odd.Hue, odd.Sat, odd.Light, odd.Height = 190, 80, 45, 90
+	g.AddPacket(Packet{SpeciesID: "zinnia", A: odd, B: SpeciesByID("zinnia").VarietyGenome(1), Count: 3, Gen: 2, From: "Big Yellow", Descent: "teal, towering × red, tall"})
+	g.AddPacket(Packet{SpeciesID: "basil", A: SpeciesByID("basil").VarietyGenome(0), B: SpeciesByID("basil").VarietyGenome(0), Count: 5, Pure: true})
+	g.Cultivars = []Cultivar{{ID: 1, Name: "Zinnia hybrid No. 1", Species: "zinnia", Genome: odd, Gen: 2, Found: now, Descent: "teal × red"}}
+	g.CultivarSeq = 1
+	g.Fair.Ribbons = []Ribbon{{Week: 202624, Category: "tallest", Place: 2, Entrants: 6, Species: "sunflower", Name: "Big Yellow", Genome: SpeciesByID("sunflower").VarietyGenome(0), Score: 71, Prize: 30, Judged: now}}
+	g.Templates = []Template{{ID: "saved-1", Name: "My border", W: 2, H: 1, Cells: []TemplateCell{{Species: "tomato"}, {DX: 1, Species: "basil"}}}}
+	g.Advance(now.Add(time.Second))
 
 	m := newModel(g, "/tmp/garden.json", now)
 	m.width, m.height = w, h
@@ -42,7 +52,7 @@ func demoModel(t *testing.T, w, h int) model {
 // cramped one.
 func TestScreensRender(t *testing.T) {
 	sizes := [][2]int{{100, 40}, {80, 24}, {60, 20}, {40, 14}, {24, 10}}
-	screens := []screen{screenGarden, screenShop, screenInfo, screenAlmanac, screenJournal, screenHelp}
+	screens := []screen{screenGarden, screenShop, screenInfo, screenAlmanac, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair}
 
 	for _, size := range sizes {
 		for _, s := range screens {
@@ -100,7 +110,7 @@ func TestKeyPressesAreSafe(t *testing.T) {
 		"p", "w", "W", "c", "C", "f", "F", "n", "u", "i", "a", "s", "t",
 		"enter", " ", "tab", "esc", "?", "pgup", "pgdown", "home", "end"}
 
-	for _, s := range []screen{screenGarden, screenShop, screenInfo, screenAlmanac, screenJournal, screenHelp} {
+	for _, s := range []screen{screenGarden, screenShop, screenInfo, screenAlmanac, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair} {
 		m := demoModel(t, 90, 30)
 		m.screen = s
 		var cur tea.Model = m

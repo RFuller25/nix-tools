@@ -35,8 +35,8 @@ func (m model) viewJournal() string {
 	}
 
 	stats := subtleStyle.Render(fmt.Sprintf(
-		"sown %d  ·  matured %d  ·  gathered %d  ·  volunteers %d  ·  pressed %d  ·  done %d  ·  since %s",
-		m.g.Planted, m.g.Matured, m.g.Gathered, m.g.Volunteers, len(m.g.Herbarium), m.g.TasksDone(),
+		"sown %d  ·  matured %d  ·  gathered %d  ·  sold %d  ·  crossed %d  ·  orders %d  ·  pressed %d  ·  done %d  ·  since %s",
+		m.g.Planted, m.g.Matured, m.g.Gathered, m.g.Sold, m.g.Crossed, m.g.OrdersDone, len(m.g.Herbarium), m.g.TasksDone(),
 		m.g.Created.Format("2 Jan 2006")))
 
 	head := fit(titleStyle.Render("✎ journal")+"  "+stats, m.width)

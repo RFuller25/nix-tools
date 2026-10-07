@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	var (
@@ -21,6 +21,7 @@ func main() {
 		width        = flag.Int("width", 80, "how wide to draw the postcard")
 		colorMode    = flag.String("color", "", "colour mode: truecolor, 256, 16 or off (default: detect; also GARDEN_COLOR)")
 		keysMD       = flag.Bool("keys", false, "print the key table as markdown and exit")
+		cultivars    = flag.Bool("cultivars", false, "list the hybrid lines your garden has found and exit")
 	)
 	flag.Parse()
 
@@ -64,6 +65,11 @@ func main() {
 	}
 	g.Advance(now)
 	bonus := g.Visit(now)
+
+	if *cultivars {
+		fmt.Print(renderCultivars(g))
+		return
+	}
 
 	if *postcard {
 		fmt.Println(renderPostcard(g, now, *width))

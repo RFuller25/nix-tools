@@ -15,7 +15,10 @@ var helpPrimer = [][2]string{
 	{"neighbours", "what grows alongside helps or hinders — see the info card"},
 	{"the year", "annuals go to seed, perennials sleep through winter"},
 	{"visitors", "bees, moths and foxes come for what you have planted"},
-	{"gold", "earned by selling your own seed, weeding and doing; spent on seed, beds and ponds"},
+	{"gold", "earned by selling your own seed, weeding, orders, the fair and doing; spent on seed, beds and ponds"},
+	{"breeding", "x pollinates by hand; gather seed (f) to get crossed seed; keep the plants you like best"},
+	{"planning", "g shows how neighbours get on; P plans a layout, V saves one, T stamps one"},
+	{"orders & fair", "O is the order board, E the weekly fair: both pay gold for plants you have bred"},
 	{"genes", "every plant has colour, height, shape, speed and yield genes; seed blends its parents"},
 }
 

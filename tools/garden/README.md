@@ -1,34 +1,53 @@
 # garden
 
-A garden that grows in real time. Sow a seed, name the plant, water it, pull
-the weeds, and come back tomorrow to something taller.
+A garden that grows in real time, and that you breed. Sow a seed, tend it, cross
+it with its neighbour, keep the seedlings you like best, and come back tomorrow
+to something taller, bluer or quicker than anything the shop sells.
 
 ```sh
 nix run .#garden      # or: go run ./tools/garden
 ```
 
-## How it grows
+Everything below is also in the game: open the **almanac** (`a`) and read the
+**guide**, which is generated from the same tables the game runs on.
 
-* **Five drawn stages** per plant — seed, sprout, seedling, budding, mature —
-  each one hand-drawn for that species and coloured from its own palette.
-* **A day to adulthood.** A watered, weeded plant reaches its mature stage
-  within a day of real time, faster for radishes than for magnolias.
-* **Time passes while the program is closed.** On startup the garden replays
-  the hours you were away, weather and all.
-* **Nothing dies.** Dry soil and weeds slow a plant down and make it sulk; they
-  never kill it. Come back after a fortnight and your garden is overgrown, not
-  gone.
-* **Composting.** Lifting a plant with `u` collapses it into the soil over a
-  second or so, and the bed says what it gained. A tree returns twice what a
-  seedling does and a plant gone to seed most of all; beds wear their richness
-  in the soil line, from thin and dotted to dark and solid.
-* **Weather and seasons** are derived from the calendar and your garden's seed,
-  so they are the same every time the missing hours are replayed. Rain waters
-  the beds for you; a plant out of season takes its time.
-* **Seeds** are the currency: gather ripe pods from mature plants, earn one for
-  clearing a properly overgrown bed, and collect a few from the shed on your
-  first visit each day. Rarer species unlock as more of your plants reach
-  maturity.
+## What it is
+
+* **Plants with genes.** Every plant has seven blended genes: a colour (hue,
+  saturation and lightness, so any shade a terminal can show), height, shape,
+  speed and yield. A seed is the average of its two parents plus a little noise,
+  and the noise widens the more unlike the parents are, so crossing different
+  plants gives something to choose between and breeding near-identical siblings
+  steadies a line.
+* **Real time.** A watered, weeded plant of a bought form reaches its mature
+  stage within a day. Time passes while the program is closed: on startup the
+  garden replays the hours you were away, weather and all.
+* **Nothing dies.** Dry soil and weeds slow a plant and make it sulk; they never
+  kill it.
+* **Gold, and your own seed shed.** Gold buys seed, beds and ponds. Seed lives
+  in packets in your shed: buy it, or gather it from your own plants, sow it and
+  sell what you do not need.
+* **Pollination.** Bees by day and moths by night cross neighbouring flowers of
+  one species on their own; `x` crosses two by hand, with a brush.
+* **Cultivars.** A plant that flowers unlike any named form is written down in
+  the almanac as a new hybrid. Breed it true three generations running and it is
+  a stable line you can name.
+* **Neighbours.** The old companion-planting rules (marigolds guard tomatoes,
+  mint crowds everything) plus rules from the genes: a giant shades a sun-lover,
+  a bushy plant crowds a smaller one, a heavy cropper takes the water. `g` shows
+  how every bed gets on with the ones around it.
+* **A planner.** `P` lays ghosts of your seed over the beds and scores the
+  layout as though it were grown; `V` saves a block of beds as a layout and `T`
+  stamps one down: three sisters, a tomato guild, a cottage border, or your own.
+* **Orders and a fair.** Three orders a day ask for a plant with a height or a
+  colour; fill one and the plant is used up and you are paid. Once a week the
+  fair judges one plant of yours against a field that rises as you win.
+* **Weather, light and the year.** Weather and seasons come from the calendar and
+  your garden's seed, so they are the same every time the missing hours are
+  replayed. The garden runs on the real sun and some flowers close for the dark.
+  Annuals go to seed, perennials sleep through winter.
+* **Visitors.** Bees, butterflies, finches, dragonflies, moths, foxes and
+  hedgehogs call, and the journal notes each first visit.
 
 ## Keys
 
@@ -197,146 +216,113 @@ nix run .#garden      # or: go run ./tools/garden
 
 <!-- keys:end -->
 
+## Colour
+
+Colours are full 24-bit RGB. If your terminal advertises true colour
+(`COLORTERM=truecolor`) you see exactly the shade a plant carries; otherwise
+they are snapped to the nearest of 256 colours. Force a mode with
+`--color truecolor|256|16|off` or `GARDEN_COLOR`, which helps under tmux or ssh
+when the terminal under-reports. `NO_COLOR` turns colour off.
+
+## Genes
+
+| gene | what it does |
+| --- | --- |
+| colour | hue, saturation and lightness of the flowers (or the fruit, or the leaves on a lettuce) |
+| height | dwarf to giant within the species' own range; giants grow up to 20% slower |
+| shape | slim to bushy; changes the drawing and how much wind and room a plant takes |
+| speed | ×0.80 to ×1.25 growth, and quick annuals finish their year sooner |
+| yield | how fast pods ripen and how many a plant holds, at the price of thirstier ground |
+
+Every roll in the garden is a hash of the garden's seed rather than a random
+number, so a garden left running and one catching up on a fortnight it spent
+closed grow exactly the same plants, make the same crosses and judge the same
+show.
+
 ## The garden itself
 
 Five beds wide, three rows to start, growing downwards to thirty as you break
-new ground (`b`). Beds keep their positions — a narrow terminal scrolls across
-the garden rather than reflowing it — because what grows next door matters.
+new ground (`b`). Beds keep their positions, so a narrow terminal scrolls
+across the garden rather than reflowing it: what grows next door matters.
 
-Every bed has its own pH and its own richness, derived from the garden's seed.
-Mediterranean herbs want chalk, bog and woodland plants want acid, and a plant
-in ground it dislikes grows slowly rather than badly. Lifting a plant (`u`)
-composts it into the bed it came from. Bigleaf hydrangea reads its bed and
-flowers blue in acid soil and pink in lime, which is the one plant here doing
-its own chemistry.
+Every bed has its own pH and its own richness. Mediterranean herbs want chalk,
+bog and woodland plants want acid, and a plant in ground it dislikes grows
+slowly rather than badly. Lifting a plant (`u`) composts it into its bed. Ponds
+(`d`) never dry out and are the only place the water lily and the sacred lotus
+will grow.
 
-Ponds (`d`) never dry out, never weed over, and are the only place the water
-lily and the sacred lotus will grow.
+## Species
 
-## Light
+88 real species in 264 varieties, each with its Latin binomial, family, origin,
+flowering time, sun and water needs, height, a gardener's note and a
+description, from sweet basil to the sacred lotus by way of the Venus flytrap
+and a bonsai black pine. Each variety is a real cultivar or colour form, and
+has a genome of its own. `garden --species` lists them.
 
-The garden runs on the real sun. Dawn comes up rose, dusk goes amber, night
-settles blue and dim, and day length follows the season — a January evening is
-dark by five. Crocus, tulip, water lily, lotus, morning glory and chamomile
-fold shut for the dark. Moonflower, evening primrose and night-scented stock do
-the opposite: shut all day, open at dusk, and scent the garden for the moths.
+## If you played the first version
 
-## Neighbours
+The first version used seeds as both money and planting stock. On first load of
+an old save, once and once only:
 
-What you plant alongside matters, using the relationships gardeners have
-actually used. Marigolds guard the nightshades against nematodes, basil sits
-beside tomatoes, alliums keep aphids off roses, chives muddle the carrot fly,
-legumes feed the ground around them and corn gives beans a frame to climb —
-while mint crowds out whatever it is next to, sunflowers sour the ground for
-beans, and a birch drinks its neighbours dry. The info card lists what the beds
-alongside are doing and why.
-
-## The year
-
-Every species leads the life it really leads. Annuals and biennials flower, set
-seed and finish: a spent plant is not dead, it stands there bleached to straw
-with a last handful of seed until you lift it. Perennials die back over winter,
-deciduous trees stand bare, evergreens carry on, and all of them wake in spring.
-
-Self-seeders — poppies, cosmos, foxgloves, chamomile and a dozen more — drop
-volunteers into bare ground beside them, free. That decision is hashed from the
-garden's seed rather than rolled at random, so a garden left running and one
-catching up on a fortnight it spent closed grow exactly the same plants.
-
-## Visitors
-
-Bees work the flowers on a dry day, butterflies follow the nectar, finches drop
-in on seed heads, dragonflies patrol a pond, and after dark moths come to the
-night-scented flowers while a fox or a hedgehog crosses the beds. Nothing
-visits a garden with nothing in it. The journal notes each one's first visit,
-and the almanac gives all seven a page of their own — what brings them, when
-they come, how long they stay, and a tick with the date once you have seen one.
-
-## Wind
-
-Gusts blow through the garden at random, more often in a storm than in fog.
-Each one starts off to the left and crosses the beds, so plants lean one after
-another rather than all together — and they bend, with the tip of a plant
-moving furthest and the base staying rooted. A tall, mature plant catches more
-of the wind than a seedling does.
+* every old seed became one gold;
+* every plant standing in a bed became a packet of its own form in your shed
+  (plus one seed for each ripe pod it held);
+* the beds were cleared, keeping the ground itself (beds, ponds, pH, richness)
+  and every record: herbarium, sightings, journal, tasks and tallies;
+* the old file was copied to `garden.json.v1.bak` beside the new one.
 
 ## Music
 
 `m` plays a slow ambient piece: a low drone with single notes from a D major
 pentatonic scale drifting over it, generated as samples at run time rather than
 loaded from a file. Each garden's seed gives it its own drift. The setting is
-saved, so a garden left humming is humming when you return.
+saved.
 
 Playback pipes raw PCM to the first of these found on `PATH`: `pw-play`,
-`paplay`, `aplay`, `ffplay`, or sox's `play`. With none installed the garden
-says so and stays quiet. `GARDEN_AUDIO=off` disables it entirely.
-
-To hear the piece without a sound card:
+`paplay`, `aplay`, `ffplay`, or sox's `play`. With none installed the garden says
+so and stays quiet. `GARDEN_AUDIO=off` disables it entirely.
 
 ```sh
 RENDER_DIR=/tmp go test ./tools/garden -run TestRenderCalmMusic
 ```
 
-## Worth doing
-
-The journal keeps three gentle suggestions — grow three things that flower in
-autumn, put a marigold beside a tomato, wait for a moth — each worth a few
-seeds. Never a timer, never a failure; finish one and another appears.
-
-## Varieties
-
-No species is one plant. Each comes in two to five real forms — cultivars
-where the plant has famous ones, honest colour forms where it does not — and
-they differ in flower colour, foliage, or, where the plant really does grow
-to another shape, in their drawings. A sunflower can be a four-metre Russian
-Giant, a mahogany Velvet Queen or a knee-high shaggy Teddy Bear; hydrangea
-varieties differ by the shape of the head rather than its colour, because a
-hydrangea takes its colour from the soil.
-
-Pick one with `←→` in the seed shed before sowing. Self-sown volunteers come
-true to their parent. The almanac lists every form with a tick against the
-ones you have grown, and `v` flicks the drawings through them.
-
-## What a plant does
-
-Both the almanac page and the info card carry an **in the garden** block: what
-the plant needs, how its year goes, whether it sows itself about, what it gives
-to and takes from its neighbours with the actual percentages, whether it keeps
-night hours, which creatures it draws, and what it costs and unlocks. The
-companion lines are generated from the rules the simulation runs on, so the
-text cannot drift away from the behaviour.
-
-## The almanac
-
-88 real species in 264 varieties, each species with its Latin binomial, family, origin, flowering time,
-sun and water needs, eventual height, a gardener's note and a description —
-from sweet basil to the sacred lotus, by way of the Venus flytrap and a bonsai
-black pine. Bring one into flower and it is pressed into the herbarium, marked
-with a tick and the date it first flowered.
-
 ## Small terminals
 
 Every screen is built to the window it is given. The garden scrolls both ways
-rather than reflowing, so beds keep their neighbours; the info card and the
-help screen scroll with `↑↓`; and the seed shed and almanac drop their side
-card when the window is too narrow to hold one, leaving the list the full
-width. Nothing is ever drawn taller or wider than the terminal, because a view
-that overflows scrolls its own header out of reach.
+rather than reflowing; the info card, the almanac and the help screen scroll
+with `↑↓`; and the shed, almanac and layouts drop their side card when the
+window is too narrow for one. Nothing is ever drawn taller or wider than the
+terminal.
 
-## Saved state
+## Command line and files
 
-`$XDG_DATA_HOME/garden/garden.json`, or `~/.local/share/garden/garden.json`.
-Override with `--save <path>` or `GARDEN_SAVE`. Writes are atomic, so an
-interrupted save cannot shred an existing garden.
+The garden is saved to `$XDG_DATA_HOME/garden/garden.json`, or
+`~/.local/share/garden/garden.json`. Override with `--save <path>` or
+`GARDEN_SAVE`. Writes are atomic, so an interrupted save cannot shred an
+existing garden.
 
 ```sh
-garden --species    # list the whole catalogue and exit
-garden --postcard   # print the garden as it stands, to share or redirect
-garden --status     # one line for a prompt or a status bar
+garden --species      # list the whole catalogue and exit
+garden --cultivars    # list the hybrid lines you have found and exit
+garden --postcard     # print the garden as it stands, to share or redirect
+garden --status       # one line for a prompt or a status bar
+garden --keys         # the key tables, as markdown
+garden --color 256    # truecolor, 256, 16 or off (also GARDEN_COLOR)
 garden --version
 ```
 
 `--postcard` draws the beds with no cursor and no chrome. The garden is five
-beds across, which wants 79 columns; `--width` narrower than that wraps the
-beds into blocks rather than cropping them. `--status` prints something like
-`❀ 7/15 growing · 3 in flower · 2 thirsty · 21 seeds`.
+beds across, which wants 79 columns; `--width` narrower than that wraps the beds
+into blocks rather than cropping them. `--status` prints something like
+`❀ 7/15 growing · 3 in flower · 2 thirsty · 21 gold · 5 seeds`.
+
+## Development
+
+```sh
+go test ./tools/garden
+UPDATE_README=1 go test ./tools/garden -run TestReadmeKeyTablesAreCurrent
+```
+
+The key tables above are generated from the binding table in `keys.go`, and
+tests fail if a key, a flag, an environment variable, a task, a fair class or a
+companion rule is missing from the almanac's guide or the README.
