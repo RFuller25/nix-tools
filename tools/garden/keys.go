@@ -219,6 +219,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		cmd = b.Do(&m)
 	}
 	m.ensureVisible()
+	m.fixAlmanac()
 	return m, cmd
 }
 
@@ -523,7 +524,7 @@ func buildBindings() []binding {
 	add(setInfo, k("home"), "home", "back to the top of the card", "", func(m *model) tea.Cmd { m.cardScroll = 0; return nil })
 
 	// ---- the almanac ----------------------------------------------------
-	add(setAlmanac, k("up", "k"), "↑↓ / jk", "browse the guide, species and visitors", "↑↓ browse", func(m *model) tea.Cmd {
+	add(setAlmanac, k("up", "k"), "↑↓ / jk", "browse the guide, species and visitors; category headings are rows too", "↑↓ browse", func(m *model) tea.Cmd {
 		if m.almanacCursor > 0 {
 			m.almanacCursor--
 			m.cardScroll, m.almanacVariety = 0, 0
@@ -531,10 +532,20 @@ func buildBindings() []binding {
 		return nil
 	})
 	add(setAlmanac, k("down", "j"), "", "", "", func(m *model) tea.Cmd {
-		if m.almanacCursor < len(m.almanac)-1 {
+		if m.almanacCursor < len(m.almanacVisible())-1 {
 			m.almanacCursor++
 			m.cardScroll, m.almanacVariety = 0, 0
 		}
+		return nil
+	})
+	add(setAlmanac, k("enter", "c"), "enter / c", "fold or open the category the cursor is in", "enter fold", func(m *model) tea.Cmd {
+		if row, ok := m.almanacCur(); ok {
+			m.toggleGroup(row.group())
+		}
+		return nil
+	})
+	add(setAlmanac, k("C"), "C", "fold every category, or open them all if they are all folded", "C fold all", func(m *model) tea.Cmd {
+		m.toggleAllGroups()
 		return nil
 	})
 	add(setAlmanac, k("left", "h"), "←→ / hl, space", "step through a plant's five stages", "←→ stage", func(m *model) tea.Cmd {
@@ -550,7 +561,7 @@ func buildBindings() []binding {
 		return nil
 	})
 	add(setAlmanac, k("v"), "v", "flick through a species' varieties", "v variety", func(m *model) tea.Cmd {
-		if row := m.almanac[m.almanacCursor]; row.IsPlant() {
+		if row, ok := m.almanacCur(); ok && row.IsPlant() {
 			m.almanacVariety = (m.almanacVariety + 1) % len(row.Species.Varieties())
 		}
 		return nil
@@ -566,7 +577,7 @@ func buildBindings() []binding {
 		return nil
 	})
 	add(setAlmanac, k("end", "G"), "", "", "", func(m *model) tea.Cmd {
-		m.almanacCursor, m.cardScroll = len(m.almanac)-1, 0
+		m.almanacCursor, m.cardScroll = len(m.almanacVisible())-1, 0
 		return nil
 	})
 

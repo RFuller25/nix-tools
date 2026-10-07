@@ -138,6 +138,7 @@ func chGettingStarted() chapter {
 						gk("info card", "one plant in full (i, or enter on a planted bed).", w),
 						gk("help", "the key list (?).", w),
 					)...),
+				gp("In this almanac every category (the guide, your cultivars, each kind of plant, the visitors) has a heading you can stand on: enter folds it away and opens it again, and C folds or opens them all. Folds are remembered in your garden's save.", w),
 				gp("tab cycles garden → shed → orders → fair → almanac → journal. esc or q returns to the garden; q in the garden quits, and the garden saves itself.", w),
 				gp("Every screen is built to the window it is given and never drawn larger than the terminal. The garden scrolls both ways rather than reflowing; the card, help and almanac scroll with the arrows or pgup/pgdn.", w),
 			)

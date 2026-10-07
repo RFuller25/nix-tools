@@ -138,8 +138,12 @@ func TestGuideNamesEveryClassAndRule(t *testing.T) {
 // Every chapter title is unique and the guide leads the almanac.
 func TestAlmanacOpensWithTheGuide(t *testing.T) {
 	m := demoModel(t, 100, 40)
-	if len(m.almanac) == 0 || m.almanac[0].Kind != rowGuide {
+	vis := m.almanacVisible()
+	if len(vis) < 2 || vis[0].Kind != rowHeader || vis[1].Kind != rowGuide {
 		t.Fatal("the almanac should open on the guide")
+	}
+	if cur, _ := m.almanacCur(); cur.Kind != rowGuide {
+		t.Errorf("the cursor starts on a %v row, want the first chapter", cur.Kind)
 	}
 	seen := map[string]bool{}
 	for _, ch := range guideChapters() {

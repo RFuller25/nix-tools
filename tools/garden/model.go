@@ -142,6 +142,7 @@ func newModel(g *Garden, path string, now time.Time) model {
 		height:           30,
 	}
 	m.refreshShop()
+	m.almanacCursor = 1 // the first chapter of the guide, not its heading
 	return m
 }
 
@@ -236,6 +237,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.fixAlmanac()
 		return m, nil
 
 	case tickMsg:
@@ -324,24 +326,23 @@ func nextScreen(s screen) screen {
 // refreshAlmanac rebuilds the almanac's rows after the garden has found a
 // new cultivar, keeping the cursor on the same entry where it can.
 func (m *model) refreshAlmanac() {
-	var keep almanacRow
-	if m.almanacCursor < len(m.almanac) {
-		keep = m.almanac[m.almanacCursor]
-	}
+	keep, _ := m.almanacCur()
 	m.almanac = almanacRows(m.g)
 	m.almanacCultivars = m.almanacKey()
-	for i, r := range m.almanac {
-		if r.Kind == keep.Kind && r.Chapter == keep.Chapter && r.Species == keep.Species && r.Creature == keep.Creature && r.Cultivar == keep.Cultivar && r.Ribbon == keep.Ribbon {
+	for i, r := range m.almanacVisible() {
+		if r.Kind == keep.Kind && r.Chapter == keep.Chapter && r.Species == keep.Species && r.Creature == keep.Creature &&
+			r.Cultivar == keep.Cultivar && r.Ribbon == keep.Ribbon && r.Group == keep.Group {
 			m.almanacCursor = i
+			m.fixAlmanac()
 			return
 		}
 	}
-	m.almanacCursor = min(m.almanacCursor, len(m.almanac)-1)
+	m.fixAlmanac()
 }
 
 // startNamingCultivar renames the cultivar highlighted in the almanac.
 func (m *model) startNamingCultivar() {
-	row := m.almanac[m.almanacCursor]
+	row, _ := m.almanacCur()
 	c := m.g.CultivarByID(row.Cultivar)
 	if row.Kind != rowCultivar || c == nil {
 		return
@@ -402,7 +403,7 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.namingFor == nameCultivar {
-			if row := m.almanac[m.almanacCursor]; row.Kind == rowCultivar && m.g.RenameCultivar(row.Cultivar, name, m.now) {
+			if row, _ := m.almanacCur(); row.Kind == rowCultivar && m.g.RenameCultivar(row.Cultivar, name, m.now) {
 				m.setStatus(okStyle, "The line is now ‘%s’.", name)
 				m.refreshAlmanac()
 			} else {
