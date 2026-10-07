@@ -89,7 +89,7 @@ func renderCultivars(g *Garden) string {
 		if c.Stable {
 			mark = "◆"
 		}
-		fmt.Fprintf(&b, "%s %-28s %-18s %-12s %s, %s, %s, %s\n", mark, c.Name, sp.Common, c.Genome.Hex(),
+		fmt.Fprintf(&b, "%s %2d %-28s %-18s %-12s %s, %s, %s, %s\n", mark, c.ID, c.Name, sp.Common, c.Genome.Hex(),
 			c.Genome.ColourName(), sp.HeightText(c.Genome), c.Genome.SpeedWord(), c.Genome.YieldWord())
 	}
 	fmt.Fprintf(&b, "\n%d cultivars, %d stable\n", len(g.Cultivars), g.StableLines())
@@ -138,4 +138,33 @@ func renderStatus(g *Garden, now time.Time) string {
 	}
 
 	return "❀ " + strings.Join(parts, " · ")
+}
+
+// findCultivar picks one of the garden's cultivars by number or by part of
+// its name. A name that fits more than one is refused rather than guessed.
+func findCultivar(g *Garden, query string) (Cultivar, error) {
+	query = strings.TrimSpace(query)
+	if len(g.Cultivars) == 0 {
+		return Cultivar{}, fmt.Errorf("you have no cultivars yet: cross two plants and flower something new")
+	}
+	var hits []Cultivar
+	for _, c := range g.Cultivars {
+		if fmt.Sprint(c.ID) == query || strings.EqualFold(c.Name, query) {
+			return c, nil
+		}
+		if strings.Contains(strings.ToLower(c.Name), strings.ToLower(query)) {
+			hits = append(hits, c)
+		}
+	}
+	switch len(hits) {
+	case 1:
+		return hits[0], nil
+	case 0:
+		return Cultivar{}, fmt.Errorf("none of your cultivars is called %q (garden --cultivars lists them)", query)
+	}
+	names := make([]string, len(hits))
+	for i, h := range hits {
+		names[i] = fmt.Sprintf("%d: %s", h.ID, h.Name)
+	}
+	return Cultivar{}, fmt.Errorf("%q fits several cultivars (%s); use its number", query, strings.Join(names, ", "))
 }

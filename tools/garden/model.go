@@ -22,6 +22,7 @@ const (
 	screenTemplates
 	screenOrders
 	screenFair
+	screenShare
 )
 
 // mode is a state layered over the garden screen that changes what the keys mean.
@@ -43,6 +44,7 @@ const (
 	nameCultivar
 	nameTemplate
 	namePlanFilter
+	nameImport
 )
 
 type tickMsg time.Time
@@ -103,6 +105,8 @@ type model struct {
 	tplCursor    int
 	ordersCursor int
 	fairCursor   int
+	shareCode    string // the code on the share screen
+	shareName    string
 	pollinating  bool // choosing a donor for pollenTarget
 	pollenTarget int
 	naming       bool
@@ -381,12 +385,17 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.naming = false
 		m.input.Blur()
+		m.input.CharLimit = 24
 		return m, nil
 	case "enter":
 		name := strings.TrimSpace(m.input.Value())
 		m.naming = false
 		m.input.Blur()
 		m.dirty = true
+		if m.namingFor == nameImport {
+			m.importCode(name)
+			return m, nil
+		}
 		if m.namingFor == namePlanFilter {
 			m.planFilter, m.planPick = name, 0
 			if n := len(m.palette()); n == 0 {
@@ -467,6 +476,8 @@ func (m model) View() string {
 		view = m.viewOrders()
 	case screenFair:
 		view = m.viewFair()
+	case screenShare:
+		view = m.viewShare()
 	default:
 		view = m.viewGarden()
 	}

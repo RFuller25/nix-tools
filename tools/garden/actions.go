@@ -1,6 +1,12 @@
 package main
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	"os"
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/muesli/termenv"
+)
 
 // The things a key can do to the garden. Each returns a command only when it
 // has something to run, such as a save.
@@ -363,4 +369,62 @@ func (m *model) actEnterFair() tea.Cmd {
 	c := cands[min(m.fairCursor, len(cands)-1)]
 	m.cursor = c.Bed
 	return m.actEnterHere()
+}
+
+// actShare makes a code for the cultivar open in the almanac and shows it.
+func (m *model) actShare() tea.Cmd {
+	row, ok := m.almanacCur()
+	if !ok || row.Kind != rowCultivar {
+		m.setStatus(subtleStyle, "Open one of your cultivars (under YOUR CULTIVARS) to share it.")
+		return nil
+	}
+	code, sc, err := m.g.ExportCultivar(row.Cultivar)
+	if err != nil {
+		m.setStatus(warnStyle, "%s", err.Error())
+		return nil
+	}
+	m.dirty = true
+	m.shareCode, m.shareName = code, sc.Name
+	m.screen = screenShare
+	return copyToClipboard(code)
+}
+
+// copyToClipboard asks the terminal to put text on the clipboard, which most
+// modern ones will do; the code is on the screen either way.
+func copyToClipboard(text string) tea.Cmd {
+	return func() tea.Msg {
+		termenv.NewOutput(os.Stdout).Copy(text)
+		return nil
+	}
+}
+
+// startImport asks for a friend's code.
+func (m *model) startImport() {
+	m.naming, m.namingFor = true, nameImport
+	m.input.Placeholder = "paste a friend's code (GD1-…)"
+	m.input.CharLimit = 800
+	m.input.SetValue("")
+	m.input.Focus()
+}
+
+// importCode redeems what was pasted.
+func (m *model) importCode(text string) {
+	m.naming = false
+	m.input.Blur()
+	m.input.CharLimit = 24
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	r, err := m.g.Redeem(text, m.now)
+	if err != nil {
+		m.setStatus(errStyle, "%s", err.Error())
+		return
+	}
+	m.dirty = true
+	m.refreshAlmanac()
+	where := "It is in your almanac under YOUR CULTIVARS."
+	if !r.NewLine {
+		where = "You already had that line, so the seed joins it."
+	}
+	m.setStatus(goldStyle, "Received %d seeds of ‘%s’%s. %s", giftSeeds, r.Cultivar.Name, fromText(r.Cultivar.From), where)
 }

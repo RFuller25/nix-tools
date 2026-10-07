@@ -25,6 +25,9 @@ type Cultivar struct {
 	Stable  bool      `json:"stable,omitempty"`
 	Named   bool      `json:"named,omitempty"`
 	Variety int       `json:"variety,omitempty"`
+	// Gifted lines came from a friend's code; From is who made them.
+	Gifted bool   `json:"gifted,omitempty"`
+	From   string `json:"from,omitempty"`
 }
 
 func (c Cultivar) SpeciesRef() *Species { return SpeciesByID(c.Species) }

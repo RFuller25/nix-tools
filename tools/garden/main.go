@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "0.2.2"
+const version = "0.3.0"
 
 func main() {
 	var (
@@ -22,6 +22,9 @@ func main() {
 		colorMode    = flag.String("color", "", "colour mode: truecolor, 256, 16 or off (default: detect; also GARDEN_COLOR)")
 		keysMD       = flag.Bool("keys", false, "print the key table as markdown and exit")
 		cultivars    = flag.Bool("cultivars", false, "list the hybrid lines your garden has found and exit")
+		exportName   = flag.String("export", "", "make a code for one of your cultivars (by name or number) to give a friend, and exit")
+		importCode   = flag.String("import", "", "redeem a friend's code: three seeds of their cultivar, and it goes in your almanac, then exit")
+		gardener     = flag.String("gardener", "", "the name codes you share are signed with (saved)")
 	)
 	flag.Parse()
 
@@ -66,6 +69,39 @@ func main() {
 	g.Advance(now)
 	bonus := g.Visit(now)
 
+	if *gardener != "" {
+		g.Gardener = cleanText(*gardener, shareNameMax)
+		fmt.Printf("Your codes will be signed %q.\n", g.Gardener)
+		if *exportName == "" && *importCode == "" {
+			saveOrWarn(path, g)
+			return
+		}
+	}
+	if *exportName != "" {
+		c, err := findCultivar(g, *exportName)
+		if err == nil {
+			var code string
+			if code, _, err = g.ExportCultivar(c.ID); err == nil {
+				fmt.Println(code)
+				fmt.Fprintf(os.Stderr, "That is a code for ‘%s’. A friend redeems it with: garden --import <code>, or i in the seed shed.\n", c.Name)
+				saveOrWarn(path, g)
+				return
+			}
+		}
+		fmt.Fprintln(os.Stderr, "garden:", err)
+		os.Exit(1)
+	}
+	if *importCode != "" {
+		r, err := g.Redeem(*importCode, now)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "garden:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Received %d seeds of ‘%s’%s, a %s. It is in your almanac under your cultivars.\n",
+			giftSeeds, r.Cultivar.Name, fromText(r.Cultivar.From), r.Cultivar.SpeciesRef().Common)
+		saveOrWarn(path, g)
+		return
+	}
 	if *cultivars {
 		fmt.Print(renderCultivars(g))
 		return
@@ -100,6 +136,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "garden:", err)
 		os.Exit(1)
 	}
+	if err := Save(path, g); err != nil {
+		fmt.Fprintln(os.Stderr, "garden: saving:", err)
+		os.Exit(1)
+	}
+}
+
+// saveOrWarn writes the garden for the commands that change it and exit.
+func saveOrWarn(path string, g *Garden) {
 	if err := Save(path, g); err != nil {
 		fmt.Fprintln(os.Stderr, "garden: saving:", err)
 		os.Exit(1)

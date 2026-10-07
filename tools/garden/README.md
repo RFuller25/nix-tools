@@ -39,6 +39,10 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 * **A planner.** `P` lays ghosts of your seed over the beds and scores the
   layout as though it were grown; `V` saves a block of beds as a layout and `T`
   stamps one down: three sisters, a tomato guild, a cottage border, or your own.
+* **Sharing.** Press `e` on a cultivar you have bred in the almanac for a short
+  code (`GD1-…`) to give a friend. They paste it into their seed shed (`i`) and get
+  three seeds of the line, and it goes in their almanac under your name. A code
+  works once in any one garden.
 * **Orders and a fair.** Three orders a day ask for a plant with a height or a
   colour; fill one and the plant is used up and you are paid. Once a week the
   fair judges one plant of yours against a field that rises as you win.
@@ -139,6 +143,12 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `↑↓ / jk` | choose a plant |
 | `enter / e / space` | enter the chosen plant in this week's show, replacing any earlier entry |
 
+**On the share screen**
+
+| key | action |
+| --- | --- |
+| `any key` | back to the almanac |
+
 **In the shed: the shop shelf**
 
 | key | action |
@@ -150,6 +160,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `t` | show only what is happy in this season, or the whole rack |
 | `enter / p / space` | buy one seed and sow it in the selected bed |
 | `b` | buy one seed into your shed without sowing it |
+| `i` | import a friend's code: three seeds of their cultivar, and the line goes in your almanac |
 | `s` | switch to your own seeds |
 
 **In the shed: my seeds shelf**
@@ -162,6 +173,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `enter / p / space` | sow one seed from the packet in the selected bed |
 | `$ / S` | sell one seed from the packet / the whole packet |
 | `r / n` | give the packet a name of your own |
+| `i` | import a friend's code: three seeds of their cultivar, and the line goes in your almanac |
 | `s` | switch to the shop |
 
 **On a plant's card**
@@ -186,6 +198,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `C` | fold every category, or open them all if they are all folded |
 | `←→ / hl, space` | step through a plant's five stages |
 | `v` | flick through a species' varieties |
+| `e` | share a cultivar you have bred: make a code to give a friend (on its page) |
 | `n` | name a cultivar you have bred (on a cultivar's page) |
 | `pgup / pgdn` | read a long page |
 | `home / g, end / G` | first / last entry |
@@ -308,6 +321,9 @@ garden --species      # list the whole catalogue and exit
 garden --cultivars    # list the hybrid lines you have found and exit
 garden --postcard     # print the garden as it stands, to share or redirect
 garden --status       # one line for a prompt or a status bar
+garden --export Moss  # a code for one of your cultivars, to give a friend
+garden --import GD1-…  # redeem a friend's code
+garden --gardener Ann # the name your shared codes are signed with
 garden --keys         # the key tables, as markdown
 garden --color 256    # truecolor, 256, 16 or off (also GARDEN_COLOR)
 garden --version
