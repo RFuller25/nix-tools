@@ -104,6 +104,41 @@ func (g *Garden) discover(p *Plot, sp *Species, idx int, at, now time.Time) {
 	}
 }
 
+// nameSeedLine files a hybrid packet the gardener has named in the almanac
+// straight away, without waiting for a plant of it to flower. Seed that is
+// still the shop's named form is not new, so is left alone.
+func (g *Garden) nameSeedLine(packet int, label string, now time.Time) {
+	pk := &g.Shed[packet]
+	label = strings.TrimSpace(label)
+	sp := pk.Species()
+	if label == "" || sp == nil || pk.Pure {
+		return
+	}
+	if pk.Line != 0 && g.CultivarByID(pk.Line) != nil {
+		g.RenameCultivar(pk.Line, label, now)
+		return
+	}
+	gn := pk.Mean()
+	variety, gap := sp.NearestVariety(gn)
+	c := g.cultivarFor(sp, gn)
+	if c == nil {
+		if gap <= hybridGap {
+			return
+		}
+		g.CultivarSeq++
+		g.Cultivars = append(g.Cultivars, Cultivar{
+			ID: g.CultivarSeq, Name: label, Species: sp.ID, Genome: gn, Gen: pk.Gen,
+			Descent: pk.Descent, Found: now, Variety: variety, Named: true, Stable: pk.Stable(),
+		})
+		c = &g.Cultivars[len(g.Cultivars)-1]
+		g.Log(now, "Named a new hybrid seed ‘%s’: it is in the almanac.", label)
+	} else if !c.Named {
+		g.RenameCultivar(c.ID, label, now)
+	}
+	pk.Line = c.ID
+	pk.Label = c.Name
+}
+
 // RenameCultivar gives a discovered line a name of the gardener's choosing,
 // carrying it to the plants and seed that belong to it.
 func (g *Garden) RenameCultivar(id int, name string, now time.Time) bool {
@@ -135,6 +170,21 @@ func (g *Garden) CultivarsOf(sp *Species) []Cultivar {
 		if c.Species == sp.ID {
 			out = append(out, c)
 		}
+	}
+	return out
+}
+
+// UniqueCultivarsOf lists the lines of one species with each genome once, the
+// first found, for showing beside the species' named forms.
+func (g *Garden) UniqueCultivarsOf(sp *Species) []Cultivar {
+	var out []Cultivar
+	seen := map[Genome]bool{}
+	for _, c := range g.CultivarsOf(sp) {
+		if seen[c.Genome] {
+			continue
+		}
+		seen[c.Genome] = true
+		out = append(out, c)
 	}
 	return out
 }

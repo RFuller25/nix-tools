@@ -280,10 +280,11 @@ func (g *Garden) SellSeeds(packet, n int, now time.Time) (int, error) {
 }
 
 // RenamePacket gives a packet the gardener's own name.
-func (g *Garden) RenamePacket(packet int, label string) bool {
+func (g *Garden) RenamePacket(packet int, label string, now time.Time) bool {
 	if packet < 0 || packet >= len(g.Shed) {
 		return false
 	}
 	g.Shed[packet].Label = label
+	g.nameSeedLine(packet, label, now)
 	return true
 }

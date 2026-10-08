@@ -122,3 +122,28 @@ func (m *model) toggleAllGroups() {
 	}
 	m.fixAlmanac()
 }
+
+// openOwnVariety jumps from a species page to the page of the variety picked
+// under YOUR VARIETIES, opening the category if it is folded.
+func (m *model) openOwnVariety() {
+	row, ok := m.almanacCur()
+	if !ok || !row.IsPlant() {
+		return
+	}
+	lines := m.g.UniqueCultivarsOf(row.Species)
+	if len(lines) == 0 {
+		m.setStatus(subtleStyle, "No variety of your own in this species yet.")
+		return
+	}
+	id := lines[min(m.almanacOwn, len(lines)-1)].ID
+	delete(m.g.Folded, "your cultivars")
+	for i, r := range m.almanacVisible() {
+		if r.Kind == rowCultivar && r.Cultivar == id {
+			m.almanacCursor = i
+			m.cardScroll, m.almanacVariety, m.almanacOwn = 0, 0, 0
+			m.dirty = true
+			m.fixAlmanac()
+			return
+		}
+	}
+}
