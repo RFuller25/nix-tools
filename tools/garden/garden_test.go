@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -383,5 +384,16 @@ func TestPodsAccumulateAndCap(t *testing.T) {
 	g.Advance(now.Add(20 * 24 * time.Hour))
 	if g.Plots[0].Pods > g.Plots[0].Genes().PodCap() {
 		t.Errorf("pods reached %.2f, cap is %.0f", g.Plots[0].Pods, g.Plots[0].Genes().PodCap())
+	}
+}
+
+// A timestamp from a running clock carries a monotonic reading that stops
+// during sleep, so Sub would miss the night. Advance must work on wall time.
+func TestAdvanceUsesWallClockNotMonotonic(t *testing.T) {
+	g := NewGarden(time.Now())
+	g.LastTick = time.Now() // has a monotonic reading
+	g.Advance(time.Now().Add(8 * time.Hour))
+	if strings.Contains(g.LastTick.String(), "m=") {
+		t.Fatalf("LastTick kept a monotonic reading: %s", g.LastTick)
 	}
 }
