@@ -246,7 +246,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
-		m.now = time.Time(msg)
+		// Round(0) drops the monotonic reading, which stops while the machine
+		// sleeps; the garden keeps wall-clock time.
+		m.now = time.Time(msg).Round(0)
 		m.g.Advance(m.now)
 		if m.almanacKey() != m.almanacCultivars {
 			m.refreshAlmanac()

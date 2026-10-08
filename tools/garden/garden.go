@@ -450,6 +450,9 @@ func (g *Garden) Unlocked(sp *Species) bool { return g.Matured >= sp.Unlock }
 // while the program is closed, so the simulation steps through the elapsed
 // time in small increments using each day's deterministic weather.
 func (g *Garden) Advance(now time.Time) {
+	// Compare wall clocks. A monotonic reading does not tick while the machine
+	// sleeps, so a garden left open on a laptop would skip the whole night.
+	now, g.LastTick = now.Round(0), g.LastTick.Round(0)
 	if g.LastTick.IsZero() {
 		g.LastTick = now
 		return
