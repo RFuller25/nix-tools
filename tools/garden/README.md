@@ -198,6 +198,8 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `C` | fold every category, or open them all if they are all folded |
 | `←→ / hl, space` | step through a plant's five stages |
 | `v` | flick through a species' varieties |
+| `y` | on a species page: pick one of YOUR VARIETIES |
+| `o` | on a species page: open the picked variety's cultivar page |
 | `e` | share a cultivar you have bred: make a code to give a friend (on its page) |
 | `n` | name a cultivar you have bred (on a cultivar's page) |
 | `pgup / pgdn` | read a long page |

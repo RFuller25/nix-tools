@@ -388,13 +388,17 @@ func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 		}
 	}
 	if lines := m.g.UniqueCultivarsOf(sp); len(lines) > 0 {
-		rows = append(rows, "", labelStyle.Render("YOUR VARIETIES"))
-		for _, c := range lines {
+		rows = append(rows, "", labelStyle.Render("YOUR VARIETIES")+subtleStyle.Render("  y to pick, o to open"))
+		for i, c := range lines {
 			mark := subtleStyle.Render("◇ ")
 			if c.Stable {
 				mark = okStyle.Render("◆ ")
 			}
-			rows = append(rows, mark+valueStyle.Render("‘"+c.Name+"’")+" "+swatch(c.Genome.Hex(), 2),
+			name := valueStyle.Render("‘" + c.Name + "’")
+			if i == min(m.almanacOwn, len(lines)-1) {
+				mark, name = titleStyle.Render("▸ "), titleStyle.Render("‘"+c.Name+"’")
+			}
+			rows = append(rows, mark+name+" "+swatch(c.Genome.Hex(), 2),
 				subtleStyle.Render("  "+describeGenome(c.Genome)))
 		}
 	}

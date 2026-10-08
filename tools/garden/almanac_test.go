@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -275,5 +276,21 @@ func TestUniqueCultivarsOfDedupesByGenome(t *testing.T) {
 	}}
 	if got := g.UniqueCultivarsOf(sp); len(got) != 2 || got[0].ID != 1 {
 		t.Fatalf("want 2 unique lines starting with #1, got %+v", got)
+	}
+}
+
+func TestNamingAHybridSeedFilesACultivar(t *testing.T) {
+	sp := AllSpecies()[0]
+	far := sp.VarietyGenome(0)
+	far.Hue = (far.Hue + 150) % 360
+	far.Height = 100 - far.Height%50
+	g := &Garden{Shed: []Packet{{ID: 1, SpeciesID: sp.ID, A: far, B: far, Count: 3}}}
+	g.RenamePacket(0, "Ember", time.Now())
+	if len(g.Cultivars) != 1 || g.Cultivars[0].Name != "Ember" || !g.Cultivars[0].Named || g.Shed[0].Line != 1 {
+		t.Fatalf("want one named cultivar linked to the packet, got %+v / line %d", g.Cultivars, g.Shed[0].Line)
+	}
+	g.RenamePacket(0, "Blaze", time.Now())
+	if len(g.Cultivars) != 1 || g.Cultivars[0].Name != "Blaze" {
+		t.Fatalf("renaming should rename the line, got %+v", g.Cultivars)
 	}
 }

@@ -533,14 +533,14 @@ func buildBindings() []binding {
 	add(setAlmanac, k("up", "k"), "↑↓ / jk", "browse the guide, species and visitors; category headings are rows too", "↑↓ browse", func(m *model) tea.Cmd {
 		if m.almanacCursor > 0 {
 			m.almanacCursor--
-			m.cardScroll, m.almanacVariety = 0, 0
+			m.cardScroll, m.almanacVariety, m.almanacOwn = 0, 0, 0
 		}
 		return nil
 	})
 	add(setAlmanac, k("down", "j"), "", "", "", func(m *model) tea.Cmd {
 		if m.almanacCursor < len(m.almanacVisible())-1 {
 			m.almanacCursor++
-			m.cardScroll, m.almanacVariety = 0, 0
+			m.cardScroll, m.almanacVariety, m.almanacOwn = 0, 0, 0
 		}
 		return nil
 	})
@@ -570,6 +570,18 @@ func buildBindings() []binding {
 		if row, ok := m.almanacCur(); ok && row.IsPlant() {
 			m.almanacVariety = (m.almanacVariety + 1) % len(row.Species.Varieties())
 		}
+		return nil
+	})
+	add(setAlmanac, k("y"), "y", "on a species page: pick one of YOUR VARIETIES", "", func(m *model) tea.Cmd {
+		if row, ok := m.almanacCur(); ok && row.IsPlant() {
+			if n := len(m.g.UniqueCultivarsOf(row.Species)); n > 0 {
+				m.almanacOwn = (m.almanacOwn + 1) % n
+			}
+		}
+		return nil
+	})
+	add(setAlmanac, k("o"), "o", "on a species page: open the picked variety's cultivar page", "", func(m *model) tea.Cmd {
+		m.openOwnVariety()
 		return nil
 	})
 	add(setAlmanac, k("e"), "e", "share a cultivar you have bred: make a code to give a friend (on its page)", "", func(m *model) tea.Cmd { return m.actShare() })

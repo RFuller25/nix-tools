@@ -89,6 +89,7 @@ type model struct {
 	almanacScroll    int
 	almanacStage     int
 	almanacVariety   int
+	almanacOwn       int // the highlighted entry under a species' YOUR VARIETIES
 
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
@@ -422,7 +423,7 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.namingFor == namePacket {
 			if order := m.g.ShedOrder(); len(order) > 0 {
-				m.g.RenamePacket(order[min(m.mineCursor, len(order)-1)], name)
+				m.g.RenamePacket(order[min(m.mineCursor, len(order)-1)], name, m.now)
 			}
 			if name == "" {
 				m.setStatus(subtleStyle, "Label cleared.")
