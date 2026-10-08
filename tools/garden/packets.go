@@ -215,6 +215,11 @@ func (g *Garden) SowPacket(idx, packet int, now time.Time) error {
 	gn := pk.Child(g.Seed)
 	pk.Used++
 	pk.Count--
+	// A named packet that was never filed as a line (named before seed could
+	// be, or too close to a named form) is filed now if it can be.
+	if pk.Line == 0 && pk.Label != "" {
+		g.nameSeedLine(packet, pk.Label, now)
+	}
 	line, gen, label, descent := pk.Line, pk.Gen, pk.Label, pk.Descent
 	// A seed that comes out close to its packet's centre carries the line's
 	// run of true-breeding generations forward; one that does not starts again.
@@ -226,9 +231,8 @@ func (g *Garden) SowPacket(idx, packet int, now time.Time) error {
 	g.Plots[idx].Line = line
 	g.Plots[idx].Streak = streak
 	g.Plots[idx].Descent = descent
-	if line != 0 {
-		g.Plots[idx].LineName = label
-	}
+	// Whatever the gardener called the packet is what the plant is called.
+	g.Plots[idx].LineName = label
 	if pk.Count <= 0 {
 		g.Shed = append(g.Shed[:packet], g.Shed[packet+1:]...)
 	}

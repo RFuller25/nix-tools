@@ -294,3 +294,16 @@ func TestNamingAHybridSeedFilesACultivar(t *testing.T) {
 		t.Fatalf("renaming should rename the line, got %+v", g.Cultivars)
 	}
 }
+
+func TestSowingANamedPacketKeepsItsName(t *testing.T) {
+	sp := AllSpecies()[0]
+	far := sp.VarietyGenome(0)
+	far.Hue = (far.Hue + 150) % 360
+	g := &Garden{Plots: make([]Plot, 1), Shed: []Packet{{ID: 1, SpeciesID: sp.ID, A: far, B: far, Count: 2, Label: "Rubenza"}}}
+	if err := g.SowPacket(0, 0, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if got := g.Plots[0].FullName(); !strings.Contains(got, "Rubenza") || strings.Contains(got, "type)") {
+		t.Fatalf("plant should carry the packet's name, got %q", got)
+	}
+}
