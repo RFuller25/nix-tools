@@ -262,3 +262,18 @@ func TestHeadingCardsRender(t *testing.T) {
 		}
 	}
 }
+
+func TestUniqueCultivarsOfDedupesByGenome(t *testing.T) {
+	sp := AllSpecies()[0]
+	gn := sp.VarietyGenome(0)
+	other := gn
+	other.Hue = (other.Hue + 90) % 360
+	g := &Garden{Cultivars: []Cultivar{
+		{ID: 1, Species: sp.ID, Genome: gn},
+		{ID: 2, Species: sp.ID, Genome: gn},
+		{ID: 3, Species: sp.ID, Genome: other},
+	}}
+	if got := g.UniqueCultivarsOf(sp); len(got) != 2 || got[0].ID != 1 {
+		t.Fatalf("want 2 unique lines starting with #1, got %+v", got)
+	}
+}

@@ -139,6 +139,21 @@ func (g *Garden) CultivarsOf(sp *Species) []Cultivar {
 	return out
 }
 
+// UniqueCultivarsOf lists the lines of one species with each genome once, the
+// first found, for showing beside the species' named forms.
+func (g *Garden) UniqueCultivarsOf(sp *Species) []Cultivar {
+	var out []Cultivar
+	seen := map[Genome]bool{}
+	for _, c := range g.CultivarsOf(sp) {
+		if seen[c.Genome] {
+			continue
+		}
+		seen[c.Genome] = true
+		out = append(out, c)
+	}
+	return out
+}
+
 // StableLines counts how many discovered lines have settled.
 func (g *Garden) StableLines() int {
 	n := 0
