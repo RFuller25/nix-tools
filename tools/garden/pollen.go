@@ -99,7 +99,7 @@ func (g *Garden) maybePollinate(p *Plot, idx int, sp *Species, w Weather, season
 		}
 		donor := mates[int(hashUnit(g.Seed, q, int64(idx)+0xD0D0)*float64(len(mates)))%len(mates)]
 		pollen := g.Plots[donor].Genes()
-		p.Pollen = &pollen
+		p.Pollen, p.PollenFrom = &pollen, ""
 		g.Crossed++
 		return
 	}
@@ -133,7 +133,7 @@ func (g *Garden) HandPollinate(target, donor int, now time.Time) error {
 		return fmt.Errorf("the %s has the pollen washed out of the air — try again when it is dry", w.Name())
 	}
 	pollen := d.Genes()
-	t.Pollen = &pollen
+	t.Pollen, t.PollenFrom = &pollen, ""
 	g.Crossed++
 	g.HandCrossed++
 	g.Log(now, "Brushed pollen from %s (bed %d) onto %s (bed %d).", d.DisplayName(), donor+1, t.DisplayName(), target+1)

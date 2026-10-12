@@ -18,6 +18,7 @@ var helpPrimer = [][2]string{
 	{"gold", "earned by selling your own seed, weeding, orders, the fair and doing; spent on seed, beds and ponds"},
 	{"breeding", "x pollinates by hand; gather seed (f) to get crossed seed; keep the plants you like best"},
 	{"planning", "g shows how neighbours get on; P plans a layout, V saves one, T stamps one"},
+	{"gnomes", "N is the gnome shop: pay gold for weather, seasons, growth spurts, mutations, cross-species matches, soil and a wild seed"},
 	{"orders & fair", "O is the order board, E the weekly fair: both pay gold for plants you have bred"},
 	{"genes", "every plant has colour, height, shape, speed and yield genes; seed blends its parents"},
 }

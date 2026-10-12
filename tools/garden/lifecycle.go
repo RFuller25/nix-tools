@@ -89,7 +89,7 @@ var selfSeeders = map[string]bool{
 
 // Life is what kind of life the species leads.
 func (s *Species) Life() LifeKind {
-	if l, ok := lives[s.ID]; ok {
+	if l, ok := lives[s.Lead().ID]; ok {
 		return l
 	}
 	// Anything that slipped the table is treated by its kind.
@@ -104,10 +104,10 @@ func (s *Species) Life() LifeKind {
 }
 
 // Evergreen reports whether the plant keeps its leaves all winter.
-func (s *Species) Evergreen() bool { return evergreens[s.ID] }
+func (s *Species) Evergreen() bool { return evergreens[s.Lead().ID] }
 
 // SelfSeeds reports whether the plant sows itself into nearby ground.
-func (s *Species) SelfSeeds() bool { return selfSeeders[s.ID] }
+func (s *Species) SelfSeeds() bool { return selfSeeders[s.Lead().ID] }
 
 // seedSpan is how long a plant carries on after reaching maturity before it
 // finishes and goes to seed. Perennials and woody plants never do.

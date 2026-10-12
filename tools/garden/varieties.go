@@ -31,6 +31,9 @@ func (s *Species) Varieties() []Variety {
 	if vs, ok := varieties[s.ID]; ok && len(vs) > 0 {
 		return vs
 	}
+	if s.IsCross() {
+		return []Variety{{Name: "the hybrid", Note: "a gnome-made cross of " + s.Parents[0].Common + " and " + s.Parents[1].Common}}
+	}
 	// A species with no table entry is still itself.
 	return []Variety{{Name: "the species", Note: "as it grows in the wild"}}
 }

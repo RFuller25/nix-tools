@@ -43,6 +43,14 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
   code (`GD1-…`) to give a friend. They paste it into their seed shed (`i`) and get
   three seeds of the line, and it goes in their almanac under your name. A code
   works once in any one garden.
+* **Gnomes.** A stall of magic gnomes (`N`, or tab) sells spells for gold: turn
+  the day's weather (20 gold) or borrow another season (40), give a plant one
+  stage of growth (15), mutate a random gene (10) or a chosen one (100), match
+  two flowers for a cross, even of different species, which gives a true hybrid
+  species of its own (25 to 150), stir a bed's
+  soil (25), and buy one wild, wildly mutated seed a day. Little gnomes wander
+  the stall, throw sparks and hop for joy when you buy. Every spell is
+  deterministic, so a garden replays the same.
 * **Orders and a fair.** Three orders a day ask for a plant with a height or a
   colour; fill one and the plant is used up and you are paid. Once a week the
   fair judges one plant of yours against a field that rises as you win.
@@ -83,6 +91,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `O` | the order board |
 | `e` | enter the plant in this bed in this week's show |
 | `E` | the fair: this week's class, your entry and your ribbons |
+| `N` | the gnome shop: weather, seasons, growth, mutations, matches, soil and a wild seed (tab reaches it too) |
 
 **Choosing a pollen donor (after x)**
 
@@ -142,6 +151,14 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | --- | --- |
 | `↑↓ / jk` | choose a plant |
 | `enter / e / space` | enter the chosen plant in this week's show, replacing any earlier entry |
+
+**At the gnome shop (N)**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk` | browse the stall |
+| `enter / space` | buy the highlighted service, or choose it and go on: a sky, season, mutation or recipe, then the plant or bed to work it on (a match asks for two flowers) |
+| `esc` | step back; from the front of the stall, back to the garden |
 
 **On the share screen**
 
@@ -228,7 +245,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `m` | calming music on or off |
 | `q` | back to the garden; from the garden, quit (it saves itself) |
 | `?` | this help, from anywhere; again to close it |
-| `tab` | cycle garden → shed → orders → fair → almanac → journal |
+| `tab` | cycle garden → shed → orders → fair → gnomes → almanac → journal |
 | `esc` | back to the garden |
 
 <!-- keys:end -->

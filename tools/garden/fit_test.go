@@ -27,7 +27,7 @@ func TestEveryScreenFitsTheTerminal(t *testing.T) {
 	screens := map[string]screen{
 		"garden": screenGarden, "shed": screenShop, "info": screenInfo,
 		"almanac": screenAlmanac, "journal": screenJournal, "help": screenHelp,
-		"layouts": screenTemplates, "orders": screenOrders, "fair": screenFair,
+		"layouts": screenTemplates, "orders": screenOrders, "fair": screenFair, "gnomes": screenGnomes,
 	}
 
 	for _, size := range sizes {
@@ -197,7 +197,7 @@ func TestResizingIsHandled(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {200, 50}, {45, 14}, {100, 30}} {
 		next, _ := cur.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		cur = next
-		for _, s := range []screen{screenGarden, screenInfo, screenAlmanac, screenShop, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair} {
+		for _, s := range []screen{screenGarden, screenInfo, screenAlmanac, screenShop, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair, screenGnomes} {
 			got := cur.(model)
 			got.screen = s
 			got.ensureVisible()

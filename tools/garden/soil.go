@@ -70,7 +70,7 @@ var soilPrefs = map[string]soilPref{
 }
 
 // PrefersSoil is what a species wants underfoot.
-func (s *Species) PrefersSoil() soilPref { return soilPrefs[s.ID] }
+func (s *Species) PrefersSoil() soilPref { return soilPrefs[s.Lead().ID] }
 
 // suitsPH reports whether a pH reading suits a preference.
 func (p soilPref) suitsPH(ph float64) bool {

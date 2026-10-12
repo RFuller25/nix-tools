@@ -177,6 +177,12 @@ var seasonTable = map[Season][]WeatherKind{
 // that passed while the program was closed, and it must reach the same answer
 // every run.
 func WeatherFor(seed int64, day time.Time) Weather {
+	return weatherIn(seed, day, SeasonOf(day))
+}
+
+// weatherIn is the same draw from a given season's table, for a day the
+// gnomes have moved into another season.
+func weatherIn(seed int64, day time.Time, season Season) Weather {
 	y, m, d := day.Date()
 	h := fnv.New64a()
 	var buf [24]byte
@@ -186,7 +192,6 @@ func WeatherFor(seed int64, day time.Time) Weather {
 	_, _ = h.Write(buf[:])
 	rng := rand.New(rand.NewSource(int64(h.Sum64())))
 
-	season := SeasonOf(day)
 	table := seasonTable[season]
 	return weatherFor(table[rng.Intn(len(table))])
 }

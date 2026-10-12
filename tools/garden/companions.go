@@ -19,7 +19,7 @@ func isID(ids ...string) func(*Species) bool {
 	for _, id := range ids {
 		set[id] = true
 	}
-	return func(sp *Species) bool { return set[sp.ID] }
+	return func(sp *Species) bool { return set[sp.Lead().ID] }
 }
 
 func isFamily(family string) func(*Species) bool {

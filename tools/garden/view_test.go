@@ -52,7 +52,7 @@ func demoModel(t *testing.T, w, h int) model {
 // cramped one.
 func TestScreensRender(t *testing.T) {
 	sizes := [][2]int{{100, 40}, {80, 24}, {60, 20}, {40, 14}, {24, 10}}
-	screens := []screen{screenGarden, screenShop, screenInfo, screenAlmanac, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair}
+	screens := []screen{screenGarden, screenShop, screenInfo, screenAlmanac, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair, screenGnomes}
 
 	for _, size := range sizes {
 		for _, s := range screens {
@@ -110,7 +110,7 @@ func TestKeyPressesAreSafe(t *testing.T) {
 		"p", "w", "W", "c", "C", "f", "F", "n", "u", "i", "a", "s", "t",
 		"enter", " ", "tab", "esc", "?", "pgup", "pgdown", "home", "end"}
 
-	for _, s := range []screen{screenGarden, screenShop, screenInfo, screenAlmanac, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair} {
+	for _, s := range []screen{screenGarden, screenShop, screenInfo, screenAlmanac, screenJournal, screenHelp, screenTemplates, screenOrders, screenFair, screenGnomes} {
 		m := demoModel(t, 90, 30)
 		m.screen = s
 		var cur tea.Model = m

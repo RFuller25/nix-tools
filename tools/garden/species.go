@@ -116,6 +116,9 @@ type Species struct {
 	Unlock   int     // lifetime matured plants needed before the shop stocks it
 	Hours    float64 // hours of well-tended growth from seed to mature
 
+	// Parents is set only for a hybrid made by the gnomes: mother, then father.
+	Parents [2]*Species
+
 	Palette Palette
 	Art     [StageCount][]string
 	// Glyphs optionally overrides how individual runes in Art are coloured.
@@ -195,5 +198,8 @@ func SpeciesByID(id string) *Species {
 	if speciesByID == nil {
 		buildIndex()
 	}
-	return speciesByID[id]
+	if sp, ok := speciesByID[id]; ok {
+		return sp
+	}
+	return resolveHybrid(id)
 }

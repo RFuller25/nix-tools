@@ -30,6 +30,7 @@ const (
 	setOrders  keySet = "orders"
 	setFair    keySet = "fair"
 	setShare   keySet = "share"
+	setGnomes  keySet = "gnomes"
 	setInfo    keySet = "card"
 	setAlmanac keySet = "almanac"
 	setJournal keySet = "journal"
@@ -63,6 +64,7 @@ var setTitles = map[keySet]string{
 	setOrders:  "on the order board",
 	setFair:    "at the fair",
 	setShare:   "on the share screen",
+	setGnomes:  "at the gnome shop (N)",
 	setInfo:    "on a plant's card",
 	setAlmanac: "in the almanac",
 	setJournal: "in the journal",
@@ -70,7 +72,7 @@ var setTitles = map[keySet]string{
 }
 
 // setOrder is the order sets are listed in.
-var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setShare, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
+var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setGnomes, setShare, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
 
 var (
 	bindingsOnce sync.Once
@@ -134,6 +136,8 @@ func (m model) screenSet() keySet {
 		return setFair
 	case screenShare:
 		return setShare
+	case screenGnomes:
+		return setGnomes
 	}
 	return setGarden
 }
@@ -268,7 +272,7 @@ func buildBindings() []binding {
 		}
 		return nil
 	})
-	add(setGlobal, k("tab"), "tab", "cycle garden → shed → orders → fair → almanac → journal", "tab screens", func(m *model) tea.Cmd {
+	add(setGlobal, k("tab"), "tab", "cycle garden → shed → orders → fair → gnomes → almanac → journal", "tab screens", func(m *model) tea.Cmd {
 		m.screen = nextScreen(m.screen)
 		if m.screen == screenShop {
 			m.refreshShop()
@@ -626,7 +630,8 @@ func buildBindings() []binding {
 		m.screen = screenGarden
 		return nil
 	})
-	return append(list, planBindings()...)
+	list = append(list, planBindings()...)
+	return append(list, gnomeBindings()...)
 }
 
 // keysMarkdown renders the documented keys as the markdown tables the README

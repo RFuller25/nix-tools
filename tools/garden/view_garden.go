@@ -84,8 +84,8 @@ func (m model) header() string {
 	// Most-important facts first; the tail is dropped on a narrow terminal.
 	bits := []string{
 		labelStyle.Render(ph.Glyph()+" ") + valueStyle.Render(ph.String()),
-		labelStyle.Render(season.Glyph()+" ") + valueStyle.Render(season.String()),
-		labelStyle.Render(w.Glyph()+" ") + valueStyle.Render(w.Name()),
+		labelStyle.Render(season.Glyph()+" ") + valueStyle.Render(season.String()+m.seasonMark()),
+		labelStyle.Render(w.Glyph()+" ") + valueStyle.Render(w.Name()+m.spellMark()),
 		goldStyle.Render(fmt.Sprintf("● %d gold", m.g.Gold)),
 		seedStyle.Render(fmt.Sprintf("✦ %d seeds", m.g.SeedsInShed())),
 		subtleStyle.Render(fmt.Sprintf("%d grown", m.g.Matured)),
@@ -441,4 +441,20 @@ func synergyBadge(net float64) string {
 		return errStyle.Render(fmt.Sprintf("▼ %+.0f%% growth", pct))
 	}
 	return subtleStyle.Render("● neutral")
+}
+
+// spellMark flags a sky the gnomes have turned.
+func (m model) spellMark() string {
+	if m.g.Spelled(m.now) {
+		return " ✧"
+	}
+	return ""
+}
+
+// seasonMark flags a season the gnomes have borrowed.
+func (m model) seasonMark() string {
+	if m.g.SeasonSwapped(m.now) {
+		return " ✧"
+	}
+	return ""
 }
