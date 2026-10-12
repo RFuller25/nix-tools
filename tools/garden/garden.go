@@ -389,6 +389,9 @@ func (g *Garden) DigPond(idx int, now time.Time) error {
 
 // collect files a species in the herbarium the first time it flowers.
 func (g *Garden) collect(sp *Species, variety int, at time.Time) {
+	if sp.IsCross() {
+		return // gnome-made crosses are not in the catalogue the herbarium counts
+	}
 	if g.Forms == nil {
 		g.Forms = map[string]bool{}
 	}
@@ -638,19 +641,18 @@ func (g *Garden) Gather(idx int, now time.Time) int {
 	mother := p.Genes()
 	father := mother
 	crossed := false
-	// When the gnomes matched this flower with another species, the batch
-	// comes up as one parent's kind or the other's, and a cross between
-	// families sets only half as much seed.
+	// When the gnomes matched this flower with another species, the batch is
+	// a hybrid species of the two, and a cross between families sets only
+	// half as much seed.
 	seedSp, partner := sp, (*Species)(nil)
 	if p.Pollen != nil {
 		father = *p.Pollen
 		crossed = true
 		if donor := SpeciesByID(p.PollenFrom); donor != nil && donor.ID != sp.ID {
-			partner = donor
-			if hashUnit(g.Seed, int64(g.Gathered), g.PacketSeq+0x3A7C) < 0.5 {
-				seedSp = donor
+			if cross := hybridOf(sp, donor); cross != nil {
+				partner, seedSp = donor, cross
 			}
-			if donor.Family != sp.Family {
+			if partner != nil && donor.Family != sp.Family {
 				got = (got + 1) / 2
 			}
 		}

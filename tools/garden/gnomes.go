@@ -69,7 +69,7 @@ var gnomeInfos = [serviceCount]GnomeInfo{
 	ServiceChosen: {"Chosen mutation", "Grandmaster Thistlewhistle",
 		"Grandmaster Thistlewhistle does it properly. Name the change you want (taller, bushier, quicker, a particular colour) and the plant is pushed that way, every time. It costs a good deal more than a roll of the dice."},
 	ServiceMatch: {"Matchmaker", "Madame Bumblewick",
-		"Madame Bumblewick matches any two flowers in bloom, wherever they stand and whatever the hour or weather. Two of one species is a plain cross. Two species of one family are cousins and will often take. Two strangers will take too, if you pay for it: the seed comes up as one parent's kind or the other's, carrying a blend of both sets of genes, and sets only half as much."},
+		"Madame Bumblewick matches any two flowers in bloom, wherever they stand and whatever the hour or weather. Two of one species is a plain cross. Two species of one family are cousins and will often take. Two strangers will take too, if you pay for it: the seed is a brand-new hybrid species, named for both parents and carrying a blend of both sets of genes, and it sets only half as much."},
 	ServiceSoil: {"Soil alchemy", "Wort Underhill",
 		"Wort Underhill stirs a bed's ground to order: more acid, more chalky, back to neutral, or richer. Acid-lovers like a lower pH and the Mediterranean herbs a higher one, and a hydrangea's flowers follow the soil from blue to pink."},
 	ServiceSeed: {"Today's wild seed", "Pip Mushling",
@@ -617,6 +617,12 @@ func MatchCost(a, b *Species) (int, MatchKind) {
 	switch {
 	case a == nil || b == nil:
 		return 0, MatchNever
+	case a.IsCross() || b.IsCross():
+		// A hybrid breeds with its own kind and with nothing else.
+		if a.ID == b.ID {
+			return gnomeMatchSame, MatchSame
+		}
+		return 0, MatchNever
 	case (a.Kind == KindAquatic) != (b.Kind == KindAquatic):
 		return 0, MatchNever // a seed has to be sowable somewhere
 	case a.ID == b.ID:
@@ -655,7 +661,7 @@ func (g *Garden) Matchmake(target, donor int, now time.Time) (int, error) {
 	t, d := &g.Plots[target], &g.Plots[donor]
 	cost, kind := MatchCost(t.Species(), d.Species())
 	if kind == MatchNever {
-		return 0, fmt.Errorf("a water plant cannot be matched with a land plant: the seed would have nowhere to go")
+		return 0, fmt.Errorf("the gnomes will not make that match: a water plant cannot cross with a land plant, and a hybrid crosses only with its own kind")
 	}
 	if !g.spend(cost) {
 		return 0, fmt.Errorf("matching %s costs %s", kind.Name(), goldLabel(cost))

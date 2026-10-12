@@ -321,7 +321,8 @@ func (m model) gnomeMatchCard(father, width int) []string {
 	case MatchSame:
 		rows = append(rows, field("seed", "comes up as "+ms.Common, width))
 	default:
-		rows = append(rows, field("seed", ms.Common+" or "+fs.Common+", even odds", width))
+		cross := hybridOf(ms, fs)
+		rows = append(rows, field("seed", "a new hybrid species, "+cross.Common, width), field("latin", cross.Latin, width))
 		if kind == MatchWide {
 			rows = append(rows, field("yield", "half as much seed", width))
 		}

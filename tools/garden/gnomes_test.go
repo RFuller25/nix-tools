@@ -826,31 +826,180 @@ func TestMatchmakerRefusals(t *testing.T) {
 	}
 }
 
-func TestCrossSpeciesSeedComesUpAsEitherParent(t *testing.T) {
+func TestCrossSpeciesSeedIsAHybridSpecies(t *testing.T) {
 	g, now := sunflowerGarden(t)
-	g.Gold = 100000
-	seen := map[string]bool{}
-	for i := 0; i < 40; i++ {
-		flowering(g, 0, "sunflower", now)
-		flowering(g, 1, "zinnia", now)
-		if _, err := g.Matchmake(0, 1, now); err != nil {
-			t.Fatal(err)
-		}
-		if g.Plots[0].PollenFrom != "zinnia" {
-			t.Fatalf("PollenFrom = %q", g.Plots[0].PollenFrom)
-		}
-		g.Gather(0, now)
-		pk := g.Shed[len(g.Shed)-1]
-		seen[pk.SpeciesID] = true
-		if pk.Descent == "" || pk.Count != 4 {
-			t.Fatalf("family cross packet %+v", pk)
-		}
-		if g.Plots[0].Pollen != nil || g.Plots[0].PollenFrom != "" {
-			t.Fatal("gathering left the pollen on the plant")
+	flowering(g, 0, "sunflower", now)
+	flowering(g, 1, "zinnia", now)
+	if _, err := g.Matchmake(0, 1, now); err != nil {
+		t.Fatal(err)
+	}
+	if g.Plots[0].PollenFrom != "zinnia" {
+		t.Fatalf("PollenFrom = %q", g.Plots[0].PollenFrom)
+	}
+	g.Gather(0, now)
+	pk := g.Shed[len(g.Shed)-1]
+	want := "x:sunflower+zinnia"
+	if pk.SpeciesID != want || pk.Count != 4 || pk.Descent == "" {
+		t.Fatalf("packet %+v, want a %s hybrid of 4", pk, want)
+	}
+	if g.Plots[0].Pollen != nil || g.Plots[0].PollenFrom != "" {
+		t.Fatal("gathering left the pollen on the plant")
+	}
+	sp := pk.Species()
+	if sp == nil || !sp.IsCross() || sp.Parents[0].ID != "sunflower" || sp.Parents[1].ID != "zinnia" {
+		t.Fatalf("hybrid species = %+v", sp)
+	}
+	if sp != SpeciesByID(want) || sp != hybridOf(SpeciesByID("sunflower"), SpeciesByID("zinnia")) {
+		t.Error("the same cross gave two different species objects")
+	}
+	for _, listed := range AllSpecies() {
+		if listed.ID == want {
+			t.Error("a hybrid appeared in the catalogue")
 		}
 	}
-	if !seen["sunflower"] || !seen["zinnia"] {
-		t.Errorf("40 gatherings only ever gave %v", seen)
+}
+
+func TestHybridsAreWellFormed(t *testing.T) {
+	pairs := [][2]string{{"sunflower", "zinnia"}, {"sunflower", "foxglove"}, {"foxglove", "sunflower"}, {"tomato", "japanesemaple"}, {"lavender", "bamboo"}}
+	for _, pair := range pairs {
+		a, b := SpeciesByID(pair[0]), SpeciesByID(pair[1])
+		h := hybridOf(a, b)
+		if h == nil {
+			t.Fatalf("%v: no hybrid", pair)
+		}
+		if h.Common == "" || h.Common == a.Common || h.Common == b.Common || !strings.Contains(h.Latin, "×") {
+			t.Errorf("%v: names %q / %q", pair, h.Common, h.Latin)
+		}
+		if h.Kind != a.Kind || h.Family != a.Family || h.Rarity <= a.Rarity && h.Rarity != Legendary {
+			t.Errorf("%v: kind %v family %q rarity %v", pair, h.Kind, h.Family, h.Rarity)
+		}
+		if lo, hi := h.HeightRange(); lo <= 0 || hi < lo {
+			t.Errorf("%v: height %q gives %v-%v", pair, h.Height, lo, hi)
+		}
+		if h.Hours <= 0 || h.SeedCost <= 0 || len(h.Varieties()) != 1 {
+			t.Errorf("%v: hours %v cost %v varieties %d", pair, h.Hours, h.SeedCost, len(h.Varieties()))
+		}
+		gn := h.VarietyGenome(0)
+		if gn.Blank() {
+			t.Errorf("%v: blank base genome", pair)
+		}
+		for st := 0; st < StageCount; st++ {
+			if len(h.Art[st]) == 0 {
+				t.Errorf("%v: no art at stage %d", pair, st)
+			}
+			if out := renderGene(h, 0, gn, st, h.PaletteFor(0, nil), 24, 8, 0, nil); len(out) == 0 {
+				t.Errorf("%v: stage %d did not render", pair, st)
+			}
+		}
+	}
+	if a, b := hybridOf(SpeciesByID("sunflower"), SpeciesByID("foxglove")), hybridOf(SpeciesByID("foxglove"), SpeciesByID("sunflower")); a == b || a.ID == b.ID {
+		t.Error("the reciprocal cross should be a different hybrid")
+	}
+}
+
+func TestHybridsTakeAfterTheirMother(t *testing.T) {
+	sun, fox := SpeciesByID("sunflower"), SpeciesByID("foxglove")
+	h := hybridOf(sun, fox)
+	if h.SelfSeeds() != sun.SelfSeeds() || h.Life() != sun.Life() || h.PrefersSoil() != sun.PrefersSoil() ||
+		h.ClosesAtNight() != sun.ClosesAtNight() || h.Evergreen() != sun.Evergreen() {
+		t.Error("a hybrid does not live by its mother's rules")
+	}
+	// Some pair where the mother is distinctive.
+	night := hybridOf(SpeciesByID("eveningprimrose"), sun)
+	if night != nil && night.OpensAtNight() != SpeciesByID("eveningprimrose").OpensAtNight() {
+		t.Error("a night-flowering mother gave a day-flowering hybrid")
+	}
+}
+
+func TestHybridsAreHardToCrossFurther(t *testing.T) {
+	sun, zin, fox := SpeciesByID("sunflower"), SpeciesByID("zinnia"), SpeciesByID("foxglove")
+	h := hybridOf(sun, zin)
+	if _, kind := MatchCost(h, zin); kind != MatchNever {
+		t.Error("a hybrid was matched with a parent")
+	}
+	if _, kind := MatchCost(fox, h); kind != MatchNever {
+		t.Error("a species was matched with a hybrid")
+	}
+	if cost, kind := MatchCost(h, h); kind != MatchSame || cost != gnomeMatchSame {
+		t.Errorf("a hybrid with its own kind = %d %v", cost, kind)
+	}
+	if hybridOf(h, fox) != nil || hybridOf(sun, sun) != nil || resolveHybrid("x:nonsense") != nil || resolveHybrid("x:sunflower+nonsense") != nil {
+		t.Error("an impossible hybrid was built")
+	}
+	if SpeciesByID("x:sunflower+nonsense") != nil || SpeciesByID("nonsense") != nil {
+		t.Error("an unknown ID resolved")
+	}
+}
+
+func TestHybridPlantsGrowBloomBreedAndSave(t *testing.T) {
+	g, now := sunflowerGarden(t)
+	flowering(g, 0, "sunflower", now)
+	flowering(g, 1, "zinnia", now)
+	g.Matchmake(0, 1, now)
+	g.Gather(0, now)
+	pk := len(g.Shed) - 1
+	h := g.Shed[pk].Species()
+	if err := g.SowPacket(5, pk, now); err != nil {
+		t.Fatal(err)
+	}
+	g.Plots[5].Moisture = 1
+	matured := g.Matured
+	g.Advance(now.Add(48 * time.Hour))
+	p := &g.Plots[5]
+	if p.SpeciesID != h.ID || p.Growth < 1 || g.Matured <= matured {
+		t.Fatalf("hybrid plant: %s growth %.2f matured %d→%d", p.SpeciesID, p.Growth, matured, g.Matured)
+	}
+	if _, ok := g.Collected(h); ok || len(g.Herbarium) > len(AllSpecies()) {
+		t.Error("a hybrid was entered in the catalogue's herbarium")
+	}
+	// Two hybrids breed together like any species, with no gnomes.
+	flowering(g, 6, h.ID, now)
+	flowering(g, 7, h.ID, now)
+	if _, err := g.Matchmake(6, 7, now); err != nil {
+		t.Fatal(err)
+	}
+	g.Gather(6, now)
+	if last := g.Shed[len(g.Shed)-1]; last.SpeciesID != h.ID {
+		t.Errorf("hybrid × hybrid gave %s", last.SpeciesID)
+	}
+	path := filepath.Join(t.TempDir(), "garden.json")
+	if err := Save(path, g); err != nil {
+		t.Fatal(err)
+	}
+	hybridMu.Lock()
+	hybridCache = map[string]*Species{} // as if a fresh process
+	hybridMu.Unlock()
+	back, err := Load(path, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Plots[5].SpeciesID != h.ID || back.Plots[5].Species() == nil {
+		t.Errorf("the hybrid plant did not survive a reload: %q", back.Plots[5].SpeciesID)
+	}
+}
+
+func TestHybridsShowEverywhere(t *testing.T) {
+	m := demoModel(t, 100, 40)
+	g := m.g
+	flowering(g, 0, "sunflower", m.now)
+	flowering(g, 1, "foxglove", m.now)
+	g.Gold = 1000
+	g.Matchmake(0, 1, m.now)
+	g.Gather(0, m.now)
+	pk := len(g.Shed) - 1
+	g.SowPacket(11, pk, m.now)
+	g.Plots[11].Growth, g.Plots[11].Matured = 1, true
+	for _, s := range []screen{screenGarden, screenInfo, screenShop, screenAlmanac, screenOrders, screenFair, screenJournal, screenGnomes} {
+		m.screen = s
+		m.shelf = shelfMine
+		m.cursor = 11
+		if m.View() == "" {
+			t.Errorf("screen %d blank", s)
+		}
+	}
+	m.screen, m.cursor = screenInfo, 11
+	if v := m.View(); !strings.Contains(v, g.Plots[11].Species().Common) {
+		t.Error("the info card does not name the hybrid")
 	}
 }
 
@@ -864,7 +1013,7 @@ func TestWideCrossesSetHalfTheSeed(t *testing.T) {
 	if got := g.Gather(0, now); got != 2 {
 		t.Errorf("a cross between families set %d seeds from 4 pods, want 2", got)
 	}
-	if pk := g.Shed[len(g.Shed)-1]; pk.Count != 2 || (pk.SpeciesID != "sunflower" && pk.SpeciesID != "foxglove") {
+	if pk := g.Shed[len(g.Shed)-1]; pk.Count != 2 || pk.SpeciesID != "x:sunflower+foxglove" {
 		t.Errorf("packet %+v", pk)
 	}
 }
@@ -880,7 +1029,7 @@ func TestCrossSpeciesSeedCanBeSownAndGrows(t *testing.T) {
 	if err := g.SowPacket(5, pk, now); err != nil {
 		t.Fatal(err)
 	}
-	if g.Plots[5].SpeciesID != species {
+	if g.Plots[5].SpeciesID != species || species != "x:sunflower+foxglove" {
 		t.Errorf("sowed %s, packet was %s", g.Plots[5].SpeciesID, species)
 	}
 	g.Advance(now.Add(36 * time.Hour)) // must simulate without trouble

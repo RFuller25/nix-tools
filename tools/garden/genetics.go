@@ -204,7 +204,7 @@ func (s *Species) colourSlot() slot {
 			slotTable[sp.ID] = best
 		}
 	})
-	return slotTable[s.ID]
+	return slotTable[s.Lead().ID]
 }
 
 func slotColour(p Palette, which slot) string {
@@ -314,6 +314,9 @@ var geneHints = []struct {
 // says (a "Russian Giant" is tall) and by a stable hash so the shop is not
 // uniform.
 func (s *Species) VarietyGenome(i int) Genome {
+	if s.IsCross() {
+		return meanGenome(s.Parents[0].VarietyGenome(0), s.Parents[1].VarietyGenome(0))
+	}
 	vgOnce.Do(func() { vgTable = map[string][]Genome{} })
 	if cached, ok := vgTable[s.ID]; ok && i >= 0 && i < len(cached) {
 		return cached[i]

@@ -223,10 +223,10 @@ var nightScented = map[string]bool{
 }
 
 // ClosesAtNight reports whether the flowers shut for the dark.
-func (s *Species) ClosesAtNight() bool { return closers[s.ID] }
+func (s *Species) ClosesAtNight() bool { return closers[s.Lead().ID] }
 
 // OpensAtNight reports whether the flowers wait for the dark.
-func (s *Species) OpensAtNight() bool { return nightFlowers[s.ID] }
+func (s *Species) OpensAtNight() bool { return nightFlowers[s.Lead().ID] }
 
 // NightScented reports whether the plant perfumes the evening.
-func (s *Species) NightScented() bool { return nightScented[s.ID] }
+func (s *Species) NightScented() bool { return nightScented[s.Lead().ID] }
