@@ -241,18 +241,25 @@ type Garden struct {
 	Templates   []Template `json:"templates,omitempty"`
 	TemplateSeq int        `json:"template_seq,omitempty"`
 	// Folded is the almanac categories the gardener has folded away.
-	Folded      map[string]bool `json:"folded,omitempty"`
-	Orders      []Order         `json:"orders,omitempty"`
-	OrderSeq    int             `json:"order_seq,omitempty"`
-	OrdersDay   int             `json:"orders_day,omitempty"`
-	OrdersDone  int             `json:"orders_done,omitempty"`
-	Fair        FairState       `json:"fair"`
-	Exports     int             `json:"exports,omitempty"`      // codes made, so each is its own
-	Redeemed    []string        `json:"redeemed,omitempty"`     // codes already used here
-	Received    int             `json:"received,omitempty"`     // gifts received
-	CrossedSeed int             `json:"crossed_seed,omitempty"` // seed gathered that was crossed
-	Crossed     int             `json:"crossed,omitempty"`
-	HandCrossed int             `json:"hand_crossed,omitempty"`
+	Folded     map[string]bool `json:"folded,omitempty"`
+	Orders     []Order         `json:"orders,omitempty"`
+	OrderSeq   int             `json:"order_seq,omitempty"`
+	OrdersDay  int             `json:"orders_day,omitempty"`
+	OrdersDone int             `json:"orders_done,omitempty"`
+	Fair       FairState       `json:"fair"`
+	// The gnome shop: the weather the gnomes have set for a day (keyed by
+	// date), how many spells they have cast, the day the wild seed was last
+	// bought and what the gardener has spent on magic.
+	GnomeSpells  map[int]WeatherKind `json:"gnome_spells,omitempty"`
+	GnomeCasts   int                 `json:"gnome_casts,omitempty"`
+	GnomeSeedDay int                 `json:"gnome_seed_day,omitempty"`
+	GnomeSpent   int                 `json:"gnome_spent,omitempty"`
+	Exports      int                 `json:"exports,omitempty"`      // codes made, so each is its own
+	Redeemed     []string            `json:"redeemed,omitempty"`     // codes already used here
+	Received     int                 `json:"received,omitempty"`     // gifts received
+	CrossedSeed  int                 `json:"crossed_seed,omitempty"` // seed gathered that was crossed
+	Crossed      int                 `json:"crossed,omitempty"`
+	HandCrossed  int                 `json:"hand_crossed,omitempty"`
 	// Seeds is the old currency, read only so a version 1 save can be moved
 	// across; it is never written again.
 	Seeds      int  `json:"seeds,omitempty"`
@@ -438,7 +445,7 @@ func (g *Garden) Log(at time.Time, format string, args ...any) {
 func (g *Garden) Level() int { return g.Matured }
 
 // Weather is today's sky over this particular garden.
-func (g *Garden) Weather(now time.Time) Weather { return WeatherFor(g.Seed, now) }
+func (g *Garden) Weather(now time.Time) Weather { return g.WeatherAt(now) }
 
 // Season is the season the garden currently sits in.
 func (g *Garden) Season(now time.Time) Season { return SeasonOf(now) }
@@ -486,7 +493,7 @@ func (g *Garden) Advance(now time.Time) {
 }
 
 func (g *Garden) stepAll(at time.Time, dt float64, now time.Time) {
-	w := WeatherFor(g.Seed, at)
+	w := g.WeatherAt(at)
 	season := SeasonOf(at)
 	for i := range g.Plots {
 		g.step(&g.Plots[i], i, w, season, dt, at, now)

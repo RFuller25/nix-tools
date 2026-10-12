@@ -23,6 +23,7 @@ const (
 	screenOrders
 	screenFair
 	screenShare
+	screenGnomes
 )
 
 // mode is a state layered over the garden screen that changes what the keys mean.
@@ -108,7 +109,11 @@ type model struct {
 	fairCursor   int
 	shareCode    string // the code on the share screen
 	shareName    string
-	pollinating  bool // choosing a donor for pollenTarget
+	gnomeStage   gnomeStage   // how far into a purchase at the gnome stall
+	gnomeService GnomeService // the service being bought
+	gnomeCursor  int          // the highlighted row of the stall
+	gnomeOption  int          // the sky or mutation chosen, while a plant is picked
+	pollinating  bool         // choosing a donor for pollenTarget
 	pollenTarget int
 	naming       bool
 	namingFor    nameTarget
@@ -322,6 +327,8 @@ func nextScreen(s screen) screen {
 	case screenOrders:
 		return screenFair
 	case screenFair:
+		return screenGnomes
+	case screenGnomes:
 		return screenAlmanac
 	case screenAlmanac:
 		return screenJournal
@@ -481,6 +488,8 @@ func (m model) View() string {
 		view = m.viewFair()
 	case screenShare:
 		view = m.viewShare()
+	case screenGnomes:
+		view = m.viewGnomes()
 	default:
 		view = m.viewGarden()
 	}

@@ -33,6 +33,7 @@ func guideChapters() []chapter {
 		chGold(),
 		chOrders(),
 		chFair(),
+		chGnomes(),
 		chSharing(),
 		chWorthDoing(),
 		chKeys(),
@@ -133,6 +134,7 @@ func chGettingStarted() chapter {
 						gk("seed shed", "where seed is bought, kept and sown (s).", w),
 						gk("orders", "what the village wants, for gold (O, or o on a bed).", w),
 						gk("fair", "the weekly show (E, or e on a bed).", w),
+						gk("gnome shop", "magic for gold: weather, mutations and a wild seed (N).", w),
 						gk("layouts", "saved arrangements to stamp down (T).", w),
 						gk("almanac", "this book: the guide, every species and every visitor (a).", w),
 						gk("journal", "the log, the tally and what is worth doing next.", w),
@@ -172,7 +174,7 @@ func chGrowing() chapter {
 				gp("Every plant has five drawn stages: seed, sprout, seedling, budding, mature, reached at 10%, 35%, 70% and 100% of its growth. A watered, weeded plant in its own season reaches maturity in the hours its card advertises, always inside a day.", w),
 				gp("Growth speed is moisture, weeds, season, sky, soil and neighbours multiplied together. It never reaches zero. A plant out of its season grows about 30% slower. Moisture under 60% slows it, and weeds take up to 40% off.", w),
 				append([]string{gh("Weather")},
-					gp("Each day's weather comes from the calendar and your garden's own seed, so it is the same every time the missing hours are replayed. Spring, summer, autumn and winter each draw from their own table: sun, clear, cloud, showers, rain, storms, fog, frost, snow and heatwaves. Rain waters the beds for you; heat dries them faster; a storm or a frost slows growth a little.", w)...),
+					gp("Each day's weather comes from the calendar and your garden's own seed, so it is the same every time the missing hours are replayed. Spring, summer, autumn and winter each draw from their own table: sun, clear, cloud, showers, rain, storms, fog, frost, snow and heatwaves. Rain waters the beds for you; heat dries them faster; a storm or a frost slows growth a little. The gnomes will turn the sky for the rest of a day, for gold (see The gnome shop).", w)...),
 				append([]string{gh("Light")},
 					gp("The garden runs on the real sun. Dawn comes up rose, dusk goes amber, night settles blue and dim, and day length follows the season. Crocus, tulip, water lily, lotus, morning glory, snowdrop and chamomile fold shut for the dark. Moonflower, evening primrose and night-scented stock do the opposite: shut all day, open at dusk.", w)...),
 				append([]string{gh("Wind")},
@@ -279,6 +281,7 @@ func chGold() chapter {
 						gk("seed", "the shop price on every card: named forms start at a few gold, rarer species cost more", w),
 						gk(fmt.Sprintf("%d+", bedBaseCost), fmt.Sprintf("a new bed: %d for the first extra, %d more for each after it, to %d beds", bedBaseCost, bedStepCost, maxPlots), w),
 						gk(fmt.Sprintf("%d", pondCost), "a pond", w),
+						gk("gnomes", "magic: weather, mutations and a wild seed; see The gnome shop", w),
 					)...),
 				append([]string{gh("The shed")}, keyRows(w, setShop, setMine)...),
 				gp("In the shop, enter buys one seed and sows it at once and b only buys it. In your own seeds, enter sows one seed from the highlighted packet in the selected bed. A packet is a family: each seed's genes are decided when it is sown, so sowing several from one packet gives different plants. The card shows the parents, the likely spread of each gene, and a sample of the colours the family could be. Rarer species unlock in the shop as more of your plants reach maturity.", w),
@@ -496,6 +499,26 @@ func chFair() chapter {
 				gp("Judging is hashed from the week, so a show missed while the program was closed is judged exactly as if you had been watching, whenever you next open the garden.", w),
 				append([]string{gh("The classes")}, gp(joinWords(classes)+".", w)...),
 				append([]string{gh("Keys")}, keyRows(w, setFair)...),
+			)
+		},
+	}
+}
+
+func chGnomes() chapter {
+	return chapter{
+		Title: "The gnome shop",
+		Lede:  "Magic for gold: the sky, a mutation, a wild seed.",
+		Build: func(m model, w int) []string {
+			return join(
+				gp("A family of gnomes keeps a stall at the bottom of the garden (N, or tab). They sell magic rather than seed, and every spell costs gold. Choose a service with enter, then whatever it needs: a sky, a mutation, a plant. esc steps back.", w),
+				append([]string{gh("What they sell")}, join(
+					gk(fmt.Sprintf("%d gold", gnomeWeatherCost), "change the weather. Pick any of the eleven skies and it holds for the rest of today; tomorrow goes back to the calendar's. Rain waters the beds, a heatwave dries them, a frost slows everything, so choose the one the garden wants. It only changes the hours still to come, never the ones already gone, and a sky you already have is refused without charge.", w),
+					gk(fmt.Sprintf("%d gold", gnomeMutateCost), fmt.Sprintf("a random mutation. Pick a plant and one of its seven genes (colour counts as hue, saturation and lightness), sometimes two, moves by %.0f to %.0f points, or the hue by %.0f to %.0f degrees, up or down. The roll is a hash of your garden's seed and how many spells have been cast, so it is not something to re-roll by reloading.", mutationLow+5, mutationHigh+10, hueMutateLow, hueMutateHigh), w),
+					gk(fmt.Sprintf("%d gold", gnomeChosenCost), fmt.Sprintf("a chosen mutation. Pick the change first (taller, shorter, bushier, slimmer, quicker, slower, more generous, sparer, or a colour: red, orange, yellow, green, teal, blue, violet, magenta, pink, white or midnight), then the plant, which shows what it will look like before you pay. Height, shape, speed and yield move by %d; a colour sets the hue outright. Nothing is charged for a change that would do nothing.", gnomeNudge), w),
+					gk("wild seed", fmt.Sprintf("one seed a day from the teapot: some species, any but a water plant, with every gene thrown to an extreme and a vivid colour. It costs %d gold plus %d times the species' shop price, there is one a day for everyone, and it comes exactly true when sown. It goes in your shed as a packet labelled Wild, and when it flowers it is added to the almanac as a new hybrid.", gnomeSeedBase, gnomeSeedMult), w),
+				)...),
+				gp("A mutated plant is no longer part of the line it was bred in: its streak of true-breeding generations starts again, and if it is already in flower and unlike any named form it is entered in the almanac at once. The seed it sets carries the new genes, so a mutation is a way to start a new line as well as to rescue a stalled one.", w),
+				append([]string{gh("Keys")}, keyRows(w, setGnomes)...),
 			)
 		},
 	}
