@@ -951,3 +951,125 @@ func TestEveryStallStageFitsTheTerminal(t *testing.T) {
 		}
 	}
 }
+
+// ---- the wandering gnomes ---------------------------------------------------
+
+func TestTheCrowdWandersWithinTheWindow(t *testing.T) {
+	var c gnomeCrowd
+	for _, width := range []int{40, 80, 200} {
+		c = gnomeCrowd{}
+		for i := 0; i < 3000; i++ {
+			c.advance(windTick.Seconds(), width, 7)
+			for _, g := range c.gnomes {
+				if g.x < 0 || g.x > float64(width-gnomeWidth) {
+					t.Fatalf("width %d tick %d: a gnome is at %.1f", width, i, g.x)
+				}
+			}
+		}
+		if n := len(c.gnomes); n < gnomeMinCrowd || n > gnomeMaxCrowd {
+			t.Errorf("width %d: %d gnomes", width, n)
+		}
+		if len(c.sparks) > 41 {
+			t.Errorf("sparks pile up: %d", len(c.sparks))
+		}
+	}
+}
+
+func TestGnomesActuallyMoveAndStopAndCast(t *testing.T) {
+	var c gnomeCrowd
+	c.advance(0, 100, 3)
+	start := make([]float64, len(c.gnomes))
+	for i, g := range c.gnomes {
+		start[i] = g.x
+	}
+	paused, cast := false, false
+	for i := 0; i < 600; i++ {
+		c.advance(windTick.Seconds(), 100, 3)
+		for _, g := range c.gnomes {
+			paused = paused || g.pause > 0
+			cast = cast || g.cast > 0
+		}
+	}
+	moved := 0
+	for i, g := range c.gnomes {
+		if g.x != start[i] {
+			moved++
+		}
+	}
+	if moved == 0 {
+		t.Error("nobody walked anywhere in a minute")
+	}
+	if !paused || !cast {
+		t.Errorf("in a minute nobody stopped (%v) or cast (%v)", paused, cast)
+	}
+}
+
+func TestAPurchaseMakesTheGnomesHop(t *testing.T) {
+	m := demoModel(t, 100, 40)
+	m.g.Gold = 1000
+	m = atStall(m, ServiceSeed)
+	for _, g := range m.crowd.gnomes {
+		if g.hop > 0 {
+			t.Fatal("gnomes hopping before anything was bought")
+		}
+	}
+	m = press(t, m, "enter")
+	hopping := 0
+	for _, g := range m.crowd.gnomes {
+		if g.hop > 0 {
+			hopping++
+		}
+	}
+	if hopping != len(m.crowd.gnomes) || len(m.crowd.gnomes) == 0 {
+		t.Errorf("%d of %d gnomes hopped", hopping, len(m.crowd.gnomes))
+	}
+}
+
+func TestTheStallShowsGnomesAndTheyAnimate(t *testing.T) {
+	m := demoModel(t, 100, 40)
+	m = atStall(m, ServiceWeather)
+	frames := map[string]bool{}
+	var cur tea.Model = m
+	for i := 0; i < 40; i++ {
+		cur, _ = cur.Update(windTickMsg(time.Now()))
+		frames[cur.(model).View()] = true
+	}
+	if len(frames) < 10 {
+		t.Errorf("only %d different frames in 40 ticks", len(frames))
+	}
+	if !strings.Contains(cur.(model).View(), "▲") {
+		t.Error("no gnome hats on the screen")
+	}
+	// Away from the stall the crowd stands still.
+	m2 := demoModel(t, 100, 40)
+	m2 = atStall(m2, ServiceWeather)
+	m2.screen = screenGarden
+	before := m2.crowd.gnomes[0].x
+	next, _ := m2.Update(windTickMsg(time.Now()))
+	if next.(model).crowd.gnomes[0].x != before {
+		t.Error("gnomes walked while nobody was looking")
+	}
+}
+
+func TestSceneSizesFollowTheRoom(t *testing.T) {
+	for _, tc := range []struct{ avail, width, want int }{
+		{40, 100, 6}, {24, 100, 6}, {20, 100, 3}, {13, 100, 3}, {12, 100, 0}, {30, 10, 0},
+	} {
+		if got := sceneRows(tc.avail, tc.width); got != tc.want {
+			t.Errorf("sceneRows(%d, %d) = %d, want %d", tc.avail, tc.width, got, tc.want)
+		}
+	}
+	var c gnomeCrowd
+	c.advance(0, 80, 1)
+	for _, rows := range []int{3, 6} {
+		lines := c.scene(80, rows)
+		if len(lines) != rows {
+			t.Fatalf("scene gave %d lines, want %d", len(lines), rows)
+		}
+		for _, l := range lines {
+			if w := lipgloss.Width(l); w != 80 {
+				t.Errorf("scene line is %d wide, want 80", w)
+			}
+		}
+	}
+}

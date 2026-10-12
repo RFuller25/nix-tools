@@ -29,7 +29,9 @@ func (m model) viewGnomes() string {
 	if narrow {
 		listWidth = max(20, m.width-2)
 	}
-	avail := max(3, m.height-5)
+	total := max(3, m.height-5)
+	scene := m.crowd.scene(m.width, sceneRows(total, m.width))
+	avail := total - len(scene)
 
 	scroll := max(0, cursor-avail+1)
 	var lines []string
@@ -86,7 +88,8 @@ func (m model) viewGnomes() string {
 		where = "matched with?"
 	}
 	head := fit(titleStyle.Render("✧ gnome shop")+subtleStyle.Render("  ·  "+where+"  ·  ")+goldStyle.Render(goldLabel(m.g.Gold)), m.width)
-	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(m.hintLine(setGnomes))}, "\n")
+	out := append([]string{head, m.divider()}, scene...)
+	return strings.Join(append(out, body, m.divider(), m.footer(m.hintLine(setGnomes))), "\n")
 }
 
 // gnomeSummary is one line about the highlighted row, for a narrow window.

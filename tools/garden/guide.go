@@ -510,7 +510,7 @@ func chGnomes() chapter {
 		Lede:  "Magic for gold: sky, season, growth, mutations, matches, soil.",
 		Build: func(m model, w int) []string {
 			return join(
-				gp("A family of gnomes keeps a stall at the bottom of the garden (N, or tab). They sell magic rather than seed, and every spell costs gold. Choose a service with enter, then whatever it needs: a sky, a season, a mutation or recipe, then a plant or bed. esc steps back.", w),
+				gp("A family of gnomes keeps a stall at the bottom of the garden (N, or tab). They sell magic rather than seed, and every spell costs gold. Choose a service with enter, then whatever it needs: a sky, a season, a mutation or recipe, then a plant or bed. esc steps back. The gnomes themselves wander along the front of the stall, stop to chat and throw sparks, and hop for joy when you buy something; in a very short window they go home.", w),
 				append([]string{gh("What they sell")}, join(
 					gk(fmt.Sprintf("%d gold", gnomeWeatherCost), "change the weather. Pick any of the eleven skies and it holds for the rest of today; tomorrow goes back to the calendar's. Rain waters the beds, a heatwave dries them, a frost slows everything, so choose the one the garden wants. It only changes the hours still to come, never the ones already gone, and a sky you already have is refused without charge.", w),
 					gk(fmt.Sprintf("%d gold", gnomeSeasonCost), "swap the season. Pick any season and it is that season for the rest of today: plants grow, rest and set seed by its rules (annuals outside their season slow down, perennials sleep through a borrowed winter) and the weather is drawn from its table, unless you have turned the sky as well. Tomorrow the calendar's season returns.", w),

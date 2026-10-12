@@ -47,7 +47,8 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
   the day's weather (20 gold) or borrow another season (40), give a plant one
   stage of growth (15), mutate a random gene (10) or a chosen one (100), match
   two flowers for a cross, even of different species (25 to 150), stir a bed's
-  soil (25), and buy one wild, wildly mutated seed a day. Every spell is
+  soil (25), and buy one wild, wildly mutated seed a day. Little gnomes wander
+  the stall, throw sparks and hop for joy when you buy. Every spell is
   deterministic, so a garden replays the same.
 * **Orders and a fair.** Three orders a day ask for a plant with a height or a
   colour; fill one and the plant is used up and you are paid. Once a week the

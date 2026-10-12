@@ -38,6 +38,7 @@ func choosesABed(s GnomeService) bool {
 // openGnomes walks to the stall.
 func (m *model) openGnomes() {
 	m.screen, m.gnomeStage, m.gnomeCursor = screenGnomes, gnomeMenu, 0
+	m.crowd.ensure(m.width, m.g.Seed^m.now.UnixNano())
 }
 
 // gnomeBeds lists the beds the current service could be worked on.
@@ -259,6 +260,7 @@ func (m *model) gnomeTurnWeather(kind WeatherKind) tea.Cmd {
 	}
 	m.dirty = true
 	m.gnomeStage, m.gnomeCursor = gnomeMenu, int(ServiceWeather)
+	m.crowd.celebrate()
 	m.setStatus(goldStyle, "The gnomes chant, and the sky turns: %s for the rest of today.", weatherFor(kind).Name())
 	return m.save()
 }
@@ -271,6 +273,7 @@ func (m *model) gnomeTurnSeason(season Season) tea.Cmd {
 	m.dirty = true
 	m.refreshShop()
 	m.gnomeStage, m.gnomeCursor = gnomeMenu, int(ServiceSeason)
+	m.crowd.celebrate()
 	m.setStatus(goldStyle, "The gnomes unroll a borrowed %s over the garden for the rest of today.", season)
 	return m.save()
 }
@@ -282,6 +285,7 @@ func (m *model) gnomeBuySeed() tea.Cmd {
 		return nil
 	}
 	m.dirty = true
+	m.crowd.celebrate()
 	m.setStatus(goldStyle, "A wild %s seed is in your shed. Sow it and see.", w.Species.Common)
 	return m.save()
 }
@@ -296,6 +300,7 @@ func (m *model) gnomeMatch(father int) tea.Cmd {
 	}
 	m.dirty = true
 	m.gnomeStage, m.gnomeCursor = gnomeBed, 0
+	m.crowd.celebrate()
 	m.setStatus(goldStyle, "Madame Bumblewick whispers to %s about %s (%s). Gather its seed (f) to see the cross.", mn, fn, goldLabel(cost))
 	return m.save()
 }
@@ -331,6 +336,7 @@ func (m *model) gnomeWork(bed int) tea.Cmd {
 		m.setStatus(goldStyle, "The gnomes lean on %s, and it comes out %s.", name, lower(said))
 	}
 	m.gnomeMove(0)
+	m.crowd.celebrate()
 	return m.save()
 }
 
