@@ -51,6 +51,9 @@ type Plot struct {
 	Genome Genome  `json:"genome"`
 	Gen    int     `json:"gen,omitempty"`
 	Pollen *Genome `json:"pollen,omitempty"`
+	// PollenFrom is the species the pollen came from when the gnomes matched
+	// two different species; empty for pollen of the plant's own kind.
+	PollenFrom string `json:"pollen_from,omitempty"`
 	// Line is the cultivar this plant belongs to (0 for none) and LineName its
 	// name; Streak is how many generations in a row the line has bred true;
 	// Descent says in words how this plant came about.
@@ -251,6 +254,7 @@ type Garden struct {
 	// date), how many spells they have cast, the day the wild seed was last
 	// bought and what the gardener has spent on magic.
 	GnomeSpells  map[int]WeatherKind `json:"gnome_spells,omitempty"`
+	GnomeSeasons map[int]Season      `json:"gnome_seasons,omitempty"`
 	GnomeCasts   int                 `json:"gnome_casts,omitempty"`
 	GnomeSeedDay int                 `json:"gnome_seed_day,omitempty"`
 	GnomeSpent   int                 `json:"gnome_spent,omitempty"`
@@ -448,7 +452,7 @@ func (g *Garden) Level() int { return g.Matured }
 func (g *Garden) Weather(now time.Time) Weather { return g.WeatherAt(now) }
 
 // Season is the season the garden currently sits in.
-func (g *Garden) Season(now time.Time) Season { return SeasonOf(now) }
+func (g *Garden) Season(now time.Time) Season { return g.SeasonAt(now) }
 
 // Unlocked reports whether the seed shop stocks a species yet.
 func (g *Garden) Unlocked(sp *Species) bool { return g.Matured >= sp.Unlock }
@@ -494,7 +498,7 @@ func (g *Garden) Advance(now time.Time) {
 
 func (g *Garden) stepAll(at time.Time, dt float64, now time.Time) {
 	w := g.WeatherAt(at)
-	season := SeasonOf(at)
+	season := g.SeasonAt(at)
 	for i := range g.Plots {
 		g.step(&g.Plots[i], i, w, season, dt, at, now)
 	}
@@ -542,18 +546,24 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season) * g.companionFactor(idx, sp) * gn.GrowthFactor()
 	p.Growth = math.Min(1.0, p.Growth+rate*dt)
 	if p.Growth >= 1.0 && !p.Matured {
-		p.Matured = true
-		p.MaturedAt = at
-		g.Matured++
-		g.collect(sp, p.Variety, at)
-		g.discover(p, sp, idx, at, now)
-		// Journal the moment, dated when it actually happened.
-		when := at
-		if when.After(now) {
-			when = now
-		}
-		g.Log(when, "%s (%s) reached full bloom.", p.DisplayName(), sp.Common)
+		g.bloom(p, idx, sp, at, now)
 	}
+}
+
+// bloom marks a plant's first full flower: it is counted, pressed into the
+// herbarium, entered in the almanac if it is a new hybrid, and journalled.
+func (g *Garden) bloom(p *Plot, idx int, sp *Species, at, now time.Time) {
+	p.Matured = true
+	p.MaturedAt = at
+	g.Matured++
+	g.collect(sp, p.Variety, at)
+	g.discover(p, sp, idx, at, now)
+	// Journal the moment, dated when it actually happened.
+	when := at
+	if when.After(now) {
+		when = now
+	}
+	g.Log(when, "%s (%s) reached full bloom.", p.DisplayName(), sp.Common)
 }
 
 func seasonPodFactor(s Season) float64 {
@@ -628,27 +638,43 @@ func (g *Garden) Gather(idx int, now time.Time) int {
 	mother := p.Genes()
 	father := mother
 	crossed := false
+	// When the gnomes matched this flower with another species, the batch
+	// comes up as one parent's kind or the other's, and a cross between
+	// families sets only half as much seed.
+	seedSp, partner := sp, (*Species)(nil)
 	if p.Pollen != nil {
 		father = *p.Pollen
-		p.Pollen = nil
 		crossed = true
+		if donor := SpeciesByID(p.PollenFrom); donor != nil && donor.ID != sp.ID {
+			partner = donor
+			if hashUnit(g.Seed, int64(g.Gathered), g.PacketSeq+0x3A7C) < 0.5 {
+				seedSp = donor
+			}
+			if donor.Family != sp.Family {
+				got = (got + 1) / 2
+			}
+		}
+		p.Pollen, p.PollenFrom = nil, ""
 	}
-	variety, _ := sp.NearestVariety(meanGenome(mother, father))
+	variety, _ := seedSp.NearestVariety(meanGenome(mother, father))
 	// A line is carried on when both parents are alike; a wide cross starts
 	// again from nothing.
 	streak, label, line := 0, "", 0
-	if mother.Distance(father) <= stableGap {
+	if partner == nil && mother.Distance(father) <= stableGap {
 		streak = p.Streak + 1
 		if p.Line != 0 {
 			label, line = p.LineName, p.Line
 		}
 	}
 	descent := "selfed from " + p.DisplayName()
-	if crossed {
+	switch {
+	case partner != nil:
+		descent = sp.Common + " × " + partner.Common + ", matchmade by the gnomes"
+	case crossed:
 		descent = describeGenome(mother) + " × " + describeGenome(father)
 	}
 	g.AddPacket(Packet{
-		SpeciesID: sp.ID, A: mother, B: father, Count: got, Gen: p.Gen + 1,
+		SpeciesID: seedSp.ID, A: mother, B: father, Count: got, Gen: p.Gen + 1,
 		Variety: variety, From: p.DisplayName(), Line: line, Label: label, Streak: streak, Descent: descent,
 	})
 	g.Gathered += got
@@ -811,7 +837,7 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 		// pollen the parent last took, so it comes close to true but not exactly.
 		mother := p.Genes()
 		father := mother
-		if p.Pollen != nil {
+		if p.Pollen != nil && p.PollenFrom == "" {
 			father = *p.Pollen
 		}
 		child := breed(g.Seed, hashSerial(q, int64(idx), 0x5E1F), mother, father)

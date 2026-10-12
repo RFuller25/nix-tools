@@ -44,9 +44,11 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
   three seeds of the line, and it goes in their almanac under your name. A code
   works once in any one garden.
 * **Gnomes.** A stall of magic gnomes (`N`, or tab) sells spells for gold: turn
-  the day's weather (20 gold), mutate a random gene of a plant (10), push a
-  plant towards the change you choose (100), and one wild, wildly mutated seed a
-  day. Every spell is deterministic, so a garden replays the same.
+  the day's weather (20 gold) or borrow another season (40), give a plant one
+  stage of growth (15), mutate a random gene (10) or a chosen one (100), match
+  two flowers for a cross, even of different species (25 to 150), stir a bed's
+  soil (25), and buy one wild, wildly mutated seed a day. Every spell is
+  deterministic, so a garden replays the same.
 * **Orders and a fair.** Three orders a day ask for a plant with a height or a
   colour; fill one and the plant is used up and you are paid. Once a week the
   fair judges one plant of yours against a field that rises as you win.
@@ -87,7 +89,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `O` | the order board |
 | `e` | enter the plant in this bed in this week's show |
 | `E` | the fair: this week's class, your entry and your ribbons |
-| `N` | the gnome shop: change the weather, mutate a plant, buy the day's wild seed (tab reaches it too) |
+| `N` | the gnome shop: weather, seasons, growth, mutations, matches, soil and a wild seed (tab reaches it too) |
 
 **Choosing a pollen donor (after x)**
 
@@ -153,7 +155,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | key | action |
 | --- | --- |
 | `↑↓ / jk` | browse the stall |
-| `enter / space` | buy the highlighted service, or choose it and go on: a sky, then a mutation, then the plant to work it on |
+| `enter / space` | buy the highlighted service, or choose it and go on: a sky, season, mutation or recipe, then the plant or bed to work it on (a match asks for two flowers) |
 | `esc` | step back; from the front of the stall, back to the garden |
 
 **On the share screen**

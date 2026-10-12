@@ -113,6 +113,7 @@ type model struct {
 	gnomeService GnomeService // the service being bought
 	gnomeCursor  int          // the highlighted row of the stall
 	gnomeOption  int          // the sky or mutation chosen, while a plant is picked
+	gnomeMother  int          // the first flower of a match, while the second is picked
 	pollinating  bool         // choosing a donor for pollenTarget
 	pollenTarget int
 	naming       bool

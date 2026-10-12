@@ -97,8 +97,12 @@ func (m model) viewInfo() string {
 
 	pollen := ""
 	if p.Pollen != nil {
+		kind := ""
+		if donor := SpeciesByID(p.PollenFrom); donor != nil {
+			kind = " " + strings.ToLower(donor.Common)
+		}
 		pollen = swatch(p.Pollen.Hex(), 2) + " " + valueStyle.Render(
-			"carrying "+p.Pollen.ColourName()+" pollen — the next seed you gather will be that cross.")
+			"carrying "+p.Pollen.ColourName()+kind+" pollen — the next seed you gather will be that cross.")
 	}
 	parts := []string{top, "", meters, "", desc, "", care, ""}
 	parts = append(parts, genes...)

@@ -22,9 +22,17 @@ const (
 	gnomeChosenCost  = 100 // a mutation of your choosing in one plant
 	gnomeSeedBase    = 40  // the wild seed: this, plus the multiple below of the species' shop price
 	gnomeSeedMult    = 3
-	gnomeNudge       = 35 // how far a chosen mutation moves a gene
-	gnomeRolled      = 1  // a random mutation changes this many genes, and sometimes one more
-	gnomeSpellDays   = 2  // spells older than this many days are forgotten
+	gnomeNudge       = 35  // how far a chosen mutation moves a gene
+	gnomeRolled      = 1   // a random mutation changes this many genes, and sometimes one more
+	gnomeSpellDays   = 2   // spells older than this many days are forgotten
+	gnomeSeasonCost  = 40  // swap the season for the rest of today
+	gnomeGrowthCost  = 15  // one stage of growth for one plant
+	gnomeSoilCost    = 25  // a change to one bed's ground
+	gnomeMatchSame   = 25  // match two flowers of one species
+	gnomeMatchFamily = 60  // two species of one botanical family
+	gnomeMatchWide   = 150 // two species of different families
+	gnomeSoilPH      = 1.2 // how far a soil spell moves pH
+	gnomeSoilRich    = 0.4 // and how much richness an enriching spell adds
 )
 
 // GnomeService is one thing the gnomes sell.
@@ -32,8 +40,12 @@ type GnomeService int
 
 const (
 	ServiceWeather GnomeService = iota
+	ServiceSeason
+	ServiceGrowth
 	ServiceMutate
 	ServiceChosen
+	ServiceMatch
+	ServiceSoil
 	ServiceSeed
 	serviceCount
 )
@@ -48,10 +60,18 @@ type GnomeInfo struct {
 var gnomeInfos = [serviceCount]GnomeInfo{
 	ServiceWeather: {"Change the weather", "Mistress Drizzlewort",
 		"Mistress Drizzlewort will have the sky turned over for the rest of today. Rain waters every bed, a heatwave dries them, and a frost slows everything: pick the weather your garden is wanting. Tomorrow the sky goes back to the calendar's."},
+	ServiceSeason: {"Swap the season", "Old Mossback",
+		"Old Mossback can borrow another season for the rest of today. Every plant grows, rests and sets seed by the borrowed season's rules, and the day's weather is drawn from its table too, unless you have turned the sky as well. Tomorrow the real season comes back."},
+	ServiceGrowth: {"Growth spurt", "Tansy Greenfinger",
+		"Tansy Greenfinger sings to one plant and it jumps a single stage: seed to sprout, sprout to seedling, seedling to bud, bud to full bloom. Never more than one step, and a plant already in bloom has nowhere left to go."},
 	ServiceMutate: {"Random mutation", "Fennick Quickspore",
 		"Fennick Quickspore taps a plant with a spoon and mutters. One gene, sometimes two, of the plant changes by a fair amount, up or down: it might come out taller, bluer, faster or all three, or the other way. You do not get to pick, and that is half the fun."},
 	ServiceChosen: {"Chosen mutation", "Grandmaster Thistlewhistle",
 		"Grandmaster Thistlewhistle does it properly. Name the change you want (taller, bushier, quicker, a particular colour) and the plant is pushed that way, every time. It costs a good deal more than a roll of the dice."},
+	ServiceMatch: {"Matchmaker", "Madame Bumblewick",
+		"Madame Bumblewick matches any two flowers in bloom, wherever they stand and whatever the hour or weather. Two of one species is a plain cross. Two species of one family are cousins and will often take. Two strangers will take too, if you pay for it: the seed comes up as one parent's kind or the other's, carrying a blend of both sets of genes, and sets only half as much."},
+	ServiceSoil: {"Soil alchemy", "Wort Underhill",
+		"Wort Underhill stirs a bed's ground to order: more acid, more chalky, back to neutral, or richer. Acid-lovers like a lower pH and the Mediterranean herbs a higher one, and a hydrangea's flowers follow the soil from blue to pink."},
 	ServiceSeed: {"Today's wild seed", "Pip Mushling",
 		"Pip Mushling brews one seed a day in a teapot. It is some species or other, with every gene shoved to a wild extreme, and it comes true when sown. There is only one a day, and it is gone when it is bought."},
 }
@@ -67,13 +87,66 @@ func (g *Garden) WeatherAt(at time.Time) Weather {
 	if k, ok := g.GnomeSpells[dayKey(at)]; ok {
 		return weatherFor(k)
 	}
-	return WeatherFor(g.Seed, at)
+	return weatherIn(g.Seed, at, g.SeasonAt(at))
 }
 
 // Spelled reports whether the gnomes have turned the weather on a day.
 func (g *Garden) Spelled(at time.Time) bool {
 	_, ok := g.GnomeSpells[dayKey(at)]
 	return ok
+}
+
+// forgetOldSpells drops spells for days long gone.
+func (g *Garden) forgetOldSpells(now time.Time) {
+	cutoff := dayKey(now.AddDate(0, 0, -gnomeSpellDays))
+	for day := range g.GnomeSpells {
+		if day < cutoff {
+			delete(g.GnomeSpells, day)
+		}
+	}
+	for day := range g.GnomeSeasons {
+		if day < cutoff {
+			delete(g.GnomeSeasons, day)
+		}
+	}
+}
+
+// SeasonAt is the season at a moment: the one the gnomes have borrowed for
+// that day, otherwise the calendar's.
+func (g *Garden) SeasonAt(at time.Time) Season {
+	if s, ok := g.GnomeSeasons[dayKey(at)]; ok {
+		return s
+	}
+	return SeasonOf(at)
+}
+
+// SeasonSwapped reports whether the gnomes have borrowed a season for a day.
+func (g *Garden) SeasonSwapped(at time.Time) bool {
+	_, ok := g.GnomeSeasons[dayKey(at)]
+	return ok
+}
+
+// ChangeSeason has the gnomes borrow a season for the rest of today.
+func (g *Garden) ChangeSeason(season Season, now time.Time) error {
+	if season < Spring || season > Winter {
+		return fmt.Errorf("the gnomes do not know that season")
+	}
+	if g.SeasonAt(now) == season {
+		return fmt.Errorf("it is already %s", season)
+	}
+	if !g.spend(gnomeSeasonCost) {
+		return fmt.Errorf("swapping the season costs %s", goldLabel(gnomeSeasonCost))
+	}
+	g.Advance(now)
+	g.forgetOldSpells(now)
+	if g.GnomeSeasons == nil {
+		g.GnomeSeasons = map[int]Season{}
+	}
+	g.GnomeSeasons[dayKey(now)] = season
+	g.GnomeCasts++
+	g.GnomeSpent += gnomeSeasonCost
+	g.Log(now, "The gnomes swapped the season: %s for the rest of today.", season)
+	return nil
 }
 
 // ChangeWeather has the gnomes turn today's sky for the rest of the day.
@@ -90,14 +163,10 @@ func (g *Garden) ChangeWeather(kind WeatherKind, now time.Time) error {
 	// Bring the garden up to now first, so the hours already gone keep the
 	// sky they had and only the hours still to come are changed.
 	g.Advance(now)
-	today, cutoff := dayKey(now), dayKey(now.AddDate(0, 0, -gnomeSpellDays))
+	today := dayKey(now)
+	g.forgetOldSpells(now)
 	if g.GnomeSpells == nil {
 		g.GnomeSpells = map[int]WeatherKind{}
-	}
-	for day := range g.GnomeSpells {
-		if day < cutoff {
-			delete(g.GnomeSpells, day)
-		}
 	}
 	g.GnomeSpells[today] = kind
 	g.GnomeCasts++
@@ -404,4 +473,201 @@ func (g *Garden) BuyWildSeed(now time.Time) (WildSeed, error) {
 	g.GnomeSpent += w.Price
 	g.Log(now, "Bought a wild %s seed from the gnomes: %s, %s.", w.Species.Common, describeGenome(w.Genome), w.Genome.SpeedWord())
 	return w, nil
+}
+
+// ---- growth spurt -----------------------------------------------------------
+
+// stageStarts is the growth at which each stage begins, after the first.
+var stageStarts = []float64{0.10, 0.35, 0.70, 1.0}
+
+// nextStage is the growth a plant reaches by moving up one stage.
+func nextStage(growth float64) float64 {
+	for _, s := range stageStarts {
+		if growth < s-1e-9 {
+			return s
+		}
+	}
+	return 1
+}
+
+// Growable reports whether a bed holds a plant that has a stage left to climb.
+func (g *Garden) Growable(idx int) bool {
+	if idx < 0 || idx >= len(g.Plots) {
+		return false
+	}
+	p := &g.Plots[idx]
+	return !p.Empty() && p.Species() != nil && p.Growth < 1
+}
+
+// GrowthSpurt moves the plant in a bed up exactly one stage. Reaching full
+// bloom this way counts as blooming in every respect: the plant is entered in
+// the herbarium and the almanac.
+func (g *Garden) GrowthSpurt(idx int, now time.Time) (string, error) {
+	if idx < 0 || idx >= len(g.Plots) {
+		return "", fmt.Errorf("no such bed")
+	}
+	p := &g.Plots[idx]
+	sp := p.Species()
+	switch {
+	case p.Empty() || sp == nil:
+		return "", fmt.Errorf("bed %d is empty: the gnomes need a plant to sing to", idx+1)
+	case p.Growth >= 1:
+		return "", fmt.Errorf("%s is already in full bloom", p.DisplayName())
+	}
+	if !g.spend(gnomeGrowthCost) {
+		return "", fmt.Errorf("a growth spurt costs %s", goldLabel(gnomeGrowthCost))
+	}
+	from := p.StageName()
+	p.Growth = nextStage(p.Growth)
+	g.GnomeCasts++
+	g.GnomeSpent += gnomeGrowthCost
+	name := p.DisplayName()
+	to := p.StageName()
+	g.Log(now, "The gnomes sang to %s in bed %d: %s to %s.", name, idx+1, from, to)
+	if p.Growth >= 1 && !p.Matured {
+		g.bloom(p, idx, sp, now, now)
+	}
+	return from + " to " + to, nil
+}
+
+// ---- soil alchemy -----------------------------------------------------------
+
+// Treatment is a change the gnomes will make to a bed's ground.
+type Treatment struct {
+	ID    string
+	Name  string
+	Blurb string
+	Apply func(ph, richness float64) (float64, float64)
+}
+
+const (
+	phMin = 4.5 // peat bog
+	phMax = 8.0 // chalk
+)
+
+var gnomeTreatments = []Treatment{
+	{"acid", "More acid", fmt.Sprintf("lowers pH by %.1f, towards peat bog: good for hydrangeas (blue), maples, magnolias and the bog plants", gnomeSoilPH),
+		func(ph, r float64) (float64, float64) { return math.Max(phMin, ph-gnomeSoilPH), r }},
+	{"chalk", "More chalky", fmt.Sprintf("raises pH by %.1f, towards chalk: good for lavender, rosemary, thyme and irises, and turns hydrangeas pink", gnomeSoilPH),
+		func(ph, r float64) (float64, float64) { return math.Min(phMax, ph+gnomeSoilPH), r }},
+	{"neutral", "Neutralise", "sets the pH to a gentle 6.5, which suits roses, peonies and most of the vegetable patch",
+		func(ph, r float64) (float64, float64) { return 6.5, r }},
+	{"enrich", "Enrich", fmt.Sprintf("works in %.0f%% of a bed's worth of compost, which helps every plant a little", gnomeSoilRich*100),
+		func(ph, r float64) (float64, float64) { return ph, math.Min(1, r+gnomeSoilRich) }},
+}
+
+// TreatmentByID finds a soil treatment.
+func TreatmentByID(id string) *Treatment {
+	for i := range gnomeTreatments {
+		if gnomeTreatments[i].ID == id {
+			return &gnomeTreatments[i]
+		}
+	}
+	return nil
+}
+
+// Treatable reports whether a bed has ground the gnomes can work: any bed but a pond.
+func (g *Garden) Treatable(idx int) bool {
+	return idx >= 0 && idx < len(g.Plots) && !g.Plots[idx].Pond
+}
+
+// TreatSoil has the gnomes work a bed's ground. It returns what changed.
+func (g *Garden) TreatSoil(idx int, id string, now time.Time) (string, error) {
+	tr := TreatmentByID(id)
+	if tr == nil {
+		return "", fmt.Errorf("the gnomes do not know that recipe")
+	}
+	if idx < 0 || idx >= len(g.Plots) {
+		return "", fmt.Errorf("no such bed")
+	}
+	p := &g.Plots[idx]
+	if p.Pond {
+		return "", fmt.Errorf("bed %d is a pond: there is no soil to stir", idx+1)
+	}
+	ph, rich := tr.Apply(p.PH, p.Richness)
+	if math.Abs(ph-p.PH) < 0.05 && math.Abs(rich-p.Richness) < 0.01 {
+		return "", fmt.Errorf("bed %d cannot go any further that way", idx+1)
+	}
+	if !g.spend(gnomeSoilCost) {
+		return "", fmt.Errorf("soil alchemy costs %s", goldLabel(gnomeSoilCost))
+	}
+	was := fmt.Sprintf("pH %.1f, %s", p.PH, richnessWord(p.Richness))
+	p.PH, p.Richness = ph, rich
+	g.GnomeCasts++
+	g.GnomeSpent += gnomeSoilCost
+	after := fmt.Sprintf("pH %.1f, %s", p.PH, richnessWord(p.Richness))
+	g.Log(now, "The gnomes worked bed %d (%s): %s to %s.", idx+1, strings.ToLower(tr.Name), was, after)
+	return was + " to " + after, nil
+}
+
+// ---- matchmaker -------------------------------------------------------------
+
+// MatchKind is how closely related two flowers are.
+type MatchKind int
+
+const (
+	MatchSame   MatchKind = iota // one species
+	MatchFamily                  // species of one botanical family
+	MatchWide                    // strangers
+	MatchNever                   // a pairing the gnomes will not make
+)
+
+// MatchCost is what the gnomes charge to match two species, and how related they are.
+func MatchCost(a, b *Species) (int, MatchKind) {
+	switch {
+	case a == nil || b == nil:
+		return 0, MatchNever
+	case (a.Kind == KindAquatic) != (b.Kind == KindAquatic):
+		return 0, MatchNever // a seed has to be sowable somewhere
+	case a.ID == b.ID:
+		return gnomeMatchSame, MatchSame
+	case a.Family == b.Family:
+		return gnomeMatchFamily, MatchFamily
+	}
+	return gnomeMatchWide, MatchWide
+}
+
+// Name is the match in a word or two.
+func (k MatchKind) Name() string {
+	return [...]string{"one species", "cousins", "strangers", "not possible"}[k]
+}
+
+// Matchable reports whether a bed holds a plant in flower, which the
+// matchmaker can use, open or shut.
+func (g *Garden) Matchable(idx int) bool {
+	if idx < 0 || idx >= len(g.Plots) {
+		return false
+	}
+	p := &g.Plots[idx]
+	return !p.Empty() && p.Species() != nil && p.Growth >= 1
+}
+
+// Matchmake sets the flower in one bed to take the pollen of the flower in
+// another, wherever they are. The next seed gathered from the first is that
+// cross. It returns what was paid.
+func (g *Garden) Matchmake(target, donor int, now time.Time) (int, error) {
+	if target == donor {
+		return 0, fmt.Errorf("a flower cannot be matched with itself")
+	}
+	if !g.Matchable(target) || !g.Matchable(donor) {
+		return 0, fmt.Errorf("both plants must be in flower")
+	}
+	t, d := &g.Plots[target], &g.Plots[donor]
+	cost, kind := MatchCost(t.Species(), d.Species())
+	if kind == MatchNever {
+		return 0, fmt.Errorf("a water plant cannot be matched with a land plant: the seed would have nowhere to go")
+	}
+	if !g.spend(cost) {
+		return 0, fmt.Errorf("matching %s costs %s", kind.Name(), goldLabel(cost))
+	}
+	pollen := d.Genes()
+	t.Pollen, t.PollenFrom = &pollen, ""
+	if d.SpeciesID != t.SpeciesID {
+		t.PollenFrom = d.SpeciesID
+	}
+	g.Crossed++
+	g.GnomeCasts++
+	g.GnomeSpent += cost
+	g.Log(now, "The gnomes matched %s (bed %d) with %s (bed %d): %s.", t.DisplayName(), target+1, d.DisplayName(), donor+1, kind.Name())
+	return cost, nil
 }

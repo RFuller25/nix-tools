@@ -134,7 +134,7 @@ func chGettingStarted() chapter {
 						gk("seed shed", "where seed is bought, kept and sown (s).", w),
 						gk("orders", "what the village wants, for gold (O, or o on a bed).", w),
 						gk("fair", "the weekly show (E, or e on a bed).", w),
-						gk("gnome shop", "magic for gold: weather, mutations and a wild seed (N).", w),
+						gk("gnome shop", "magic for gold: weather, seasons, growth, mutations, cross-species matches, soil and a wild seed (N).", w),
 						gk("layouts", "saved arrangements to stamp down (T).", w),
 						gk("almanac", "this book: the guide, every species and every visitor (a).", w),
 						gk("journal", "the log, the tally and what is worth doing next.", w),
@@ -281,7 +281,7 @@ func chGold() chapter {
 						gk("seed", "the shop price on every card: named forms start at a few gold, rarer species cost more", w),
 						gk(fmt.Sprintf("%d+", bedBaseCost), fmt.Sprintf("a new bed: %d for the first extra, %d more for each after it, to %d beds", bedBaseCost, bedStepCost, maxPlots), w),
 						gk(fmt.Sprintf("%d", pondCost), "a pond", w),
-						gk("gnomes", "magic: weather, mutations and a wild seed; see The gnome shop", w),
+						gk("gnomes", "magic: weather, seasons, growth, mutations, matches, soil and a wild seed; see The gnome shop", w),
 					)...),
 				append([]string{gh("The shed")}, keyRows(w, setShop, setMine)...),
 				gp("In the shop, enter buys one seed and sows it at once and b only buys it. In your own seeds, enter sows one seed from the highlighted packet in the selected bed. A packet is a family: each seed's genes are decided when it is sown, so sowing several from one packet gives different plants. The card shows the parents, the likely spread of each gene, and a sample of the colours the family could be. Rarer species unlock in the shop as more of your plants reach maturity.", w),
@@ -507,14 +507,18 @@ func chFair() chapter {
 func chGnomes() chapter {
 	return chapter{
 		Title: "The gnome shop",
-		Lede:  "Magic for gold: the sky, a mutation, a wild seed.",
+		Lede:  "Magic for gold: sky, season, growth, mutations, matches, soil.",
 		Build: func(m model, w int) []string {
 			return join(
-				gp("A family of gnomes keeps a stall at the bottom of the garden (N, or tab). They sell magic rather than seed, and every spell costs gold. Choose a service with enter, then whatever it needs: a sky, a mutation, a plant. esc steps back.", w),
+				gp("A family of gnomes keeps a stall at the bottom of the garden (N, or tab). They sell magic rather than seed, and every spell costs gold. Choose a service with enter, then whatever it needs: a sky, a season, a mutation or recipe, then a plant or bed. esc steps back.", w),
 				append([]string{gh("What they sell")}, join(
 					gk(fmt.Sprintf("%d gold", gnomeWeatherCost), "change the weather. Pick any of the eleven skies and it holds for the rest of today; tomorrow goes back to the calendar's. Rain waters the beds, a heatwave dries them, a frost slows everything, so choose the one the garden wants. It only changes the hours still to come, never the ones already gone, and a sky you already have is refused without charge.", w),
+					gk(fmt.Sprintf("%d gold", gnomeSeasonCost), "swap the season. Pick any season and it is that season for the rest of today: plants grow, rest and set seed by its rules (annuals outside their season slow down, perennials sleep through a borrowed winter) and the weather is drawn from its table, unless you have turned the sky as well. Tomorrow the calendar's season returns.", w),
+					gk(fmt.Sprintf("%d gold", gnomeGrowthCost), "a growth spurt. Pick a plant and it climbs exactly one stage: seed to sprout, sprout to seedling, seedling to bud, bud to full bloom. A plant partway through a stage goes to the start of the next. Reaching bloom this way counts as blooming for the herbarium, the almanac and your tally of grown plants.", w),
 					gk(fmt.Sprintf("%d gold", gnomeMutateCost), fmt.Sprintf("a random mutation. Pick a plant and one of its seven genes (colour counts as hue, saturation and lightness), sometimes two, moves by %.0f to %.0f points, or the hue by %.0f to %.0f degrees, up or down. The roll is a hash of your garden's seed and how many spells have been cast, so it is not something to re-roll by reloading.", mutationLow+5, mutationHigh+10, hueMutateLow, hueMutateHigh), w),
 					gk(fmt.Sprintf("%d gold", gnomeChosenCost), fmt.Sprintf("a chosen mutation. Pick the change first (taller, shorter, bushier, slimmer, quicker, slower, more generous, sparer, or a colour: red, orange, yellow, green, teal, blue, violet, magenta, pink, white or midnight), then the plant, which shows what it will look like before you pay. Height, shape, speed and yield move by %d; a colour sets the hue outright. Nothing is charged for a change that would do nothing.", gnomeNudge), w),
+					gk(fmt.Sprintf("%d to %d gold", gnomeMatchSame, gnomeMatchWide), fmt.Sprintf("the matchmaker. Pick a flower in bloom, then the flower whose pollen it should take, wherever they are and whatever the hour or weather: no brush, no waiting for dry air or an open bloom. The next seed gathered from the first (f) is that cross. Two of one species cost %d; two species of one botanical family (cousins) %d; two of different families %d, and set only half as much seed. A cross of two species gives seed of one parent's species or the other's at even odds, carrying a blend of both parents' genes, so a sunflower × zinnia batch comes up as sunflowers or zinnias with some of the other's colour, height and speed. A water plant cannot be matched with a land plant. If the flower takes pollen from a bee or a brush before you gather, that replaces the match.", gnomeMatchSame, gnomeMatchFamily, gnomeMatchWide), w),
+					gk(fmt.Sprintf("%d gold", gnomeSoilCost), fmt.Sprintf("soil alchemy. Pick a recipe, then a bed (planted or bare, but not a pond): more acid or more chalky moves pH by %.1f (between %.1f and %.1f), neutralise sets it to 6.5, enrich adds %.0f%% richness. The card shows how the bed's plant will like the ground before and after, and a hydrangea's flowers follow the pH from blue through mauve to pink.", gnomeSoilPH, phMin, phMax, gnomeSoilRich*100), w),
 					gk("wild seed", fmt.Sprintf("one seed a day from the teapot: some species, any but a water plant, with every gene thrown to an extreme and a vivid colour. It costs %d gold plus %d times the species' shop price, there is one a day for everyone, and it comes exactly true when sown. It goes in your shed as a packet labelled Wild, and when it flowers it is added to the almanac as a new hybrid.", gnomeSeedBase, gnomeSeedMult), w),
 				)...),
 				gp("A mutated plant is no longer part of the line it was bred in: its streak of true-breeding generations starts again, and if it is already in flower and unlike any named form it is entered in the almanac at once. The seed it sets carries the new genes, so a mutation is a way to start a new line as well as to rescue a stalled one.", w),
