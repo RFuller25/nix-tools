@@ -30,8 +30,19 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 * **Pollination.** Bees by day and moths by night cross neighbouring flowers of
   one species on their own; `x` crosses two by hand, with a brush.
 * **Cultivars.** A plant that flowers unlike any named form is written down in
-  the almanac as a new hybrid. Breed it true three generations running and it is
-  a stable line you can name.
+  the almanac as a new hybrid, and shows up with its species' varieties. Breed it
+  true three generations running and it is a stable line you can name. A cultivar
+  has a **definition**, an ideal and a tolerance for each gene (`D` on its page):
+  a plant or seedling that strays outside it is an off-type and no longer the
+  variety. Any cultivar, bred or imported, can be bought back in the shop at a much
+  higher price, and its record deleted from the almanac (`x`).
+* **Genetics.** `t` on a plant, a packet of seed or a cultivar shows how the line
+  came about: where its first generation came from, each generation's parents
+  and seedling, the mutations and drift along the way, and the arithmetic of the
+  cross.
+* **A tidy seed shed.** `v` on your own seeds files the packets in folders:
+  category, species, variety, packets. Only folders that hold seed are shown, and
+  a folder with a single thing in it is skipped.
 * **Neighbours.** The old companion-planting rules (marigolds guard tomatoes,
   mint crowds everything) plus rules from the genes: a giant shades a sun-lover,
   a bushy plant crowds a smaller one, a heavy cropper takes the water. `g` shows
@@ -171,11 +182,11 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | key | action |
 | --- | --- |
 | `↑↓ / jk` | browse |
-| `←→ / hl` | choose a variety |
+| `←→ / hl` | choose a variety: the named forms, then your own cultivars of the species |
 | `pgup / pgdn` | read a long card |
 | `home / g, end / G` | first / last |
 | `t` | show only what is happy in this season, or the whole rack |
-| `enter / p / space` | buy one seed and sow it in the selected bed |
+| `enter / p / space` | buy one seed and sow it in the selected bed (your own cultivars cost much more than named forms) |
 | `b` | buy one seed into your shed without sowing it |
 | `i` | import a friend's code: three seeds of their cultivar, and the line goes in your almanac |
 | `s` | switch to your own seeds |
@@ -184,10 +195,14 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 
 | key | action |
 | --- | --- |
-| `↑↓ / jk` | browse your packets |
+| `↑↓ / jk` | browse your packets (or folders) |
+| `←→ / hl` | in folders: close the folder, or step out to the one above / open it, or step in |
+| `v` | switch between a plain list and folders (category, species, variety, packets); a folder holding one thing is skipped |
+| `C` | in folders: close every folder, or open them all if all are closed |
+| `t` | genetics: the packet's lineage, its first generation and every mutation and drift since |
 | `pgup / pgdn` | read a long card |
 | `home / g, end / G` | first / last packet |
-| `enter / p / space` | sow one seed from the packet in the selected bed |
+| `enter / p / space` | sow one seed from the packet in the selected bed (on a folder: open or close it) |
 | `$ / S` | sell one seed from the packet / the whole packet |
 | `r / n` | give the packet a name of your own |
 | `i` | import a friend's code: three seeds of their cultivar, and the line goes in your almanac |
@@ -201,6 +216,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `c` | clear the weeds |
 | `f` | gather ripe seed |
 | `n / r` | name the plant |
+| `t` | genetics: the plant's lineage, its first generation and every mutation and drift on the way |
 | `u` | lift the plant and compost it |
 | `←→ / hl` | the previous / next bed |
 | `↑↓ / jk, pgup / pgdn` | scroll the card |
@@ -214,13 +230,33 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `enter / c` | fold or open the category the cursor is in |
 | `C` | fold every category, or open them all if they are all folded |
 | `←→ / hl, space` | step through a plant's five stages |
-| `v` | flick through a species' varieties |
-| `y` | on a species page: pick one of YOUR VARIETIES |
-| `o` | on a species page: open the picked variety's cultivar page |
+| `v` | flick through a species' varieties: the named forms, then your own cultivars of it |
+| `o` | on a species page: open the cultivar page of the variety you have flicked to |
 | `e` | share a cultivar you have bred: make a code to give a friend (on its page) |
 | `n` | name a cultivar you have bred (on a cultivar's page) |
+| `t` | genetics: how a cultivar's line came about, generation by generation (on its page) |
+| `D` | define a cultivar: the ideal for each gene and how far a plant may stray and still be the variety (on its page) |
+| `x` | delete the record of a cultivar, bred or imported (on its page; asks twice); plants and seed you hold stay |
 | `pgup / pgdn` | read a long page |
 | `home / g, end / G` | first / last entry |
+
+**Defining a cultivar (D, on its almanac page)**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk` | choose a gene |
+| `←→ / hl` | widen / narrow how far this gene may stray from the ideal |
+| `[ / ]` | move the ideal for this gene down / up |
+| `r` | put every tolerance back to the default |
+| `enter / esc / D` | done |
+
+**On the genetics screen (t)**
+
+| key | action |
+| --- | --- |
+| `↑↓ / jk, pgup / pgdn` | scroll |
+| `home / g` | back to the top |
+| `esc / t / enter / backspace` | go back |
 
 **In the journal**
 

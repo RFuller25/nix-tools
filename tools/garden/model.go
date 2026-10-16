@@ -24,6 +24,7 @@ const (
 	screenFair
 	screenShare
 	screenGnomes
+	screenLineage
 )
 
 // mode is a state layered over the garden screen that changes what the keys mean.
@@ -90,7 +91,11 @@ type model struct {
 	almanacScroll    int
 	almanacStage     int
 	almanacVariety   int
-	almanacOwn       int // the highlighted entry under a species' YOUR VARIETIES
+	defining         bool // editing a cultivar's definition in the almanac
+	defGene          int  // the gene being edited
+	confirmDel       int  // the cultivar whose deletion has been asked for once
+	lineage          lineageSubject
+	lineageBack      screen
 
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
@@ -167,6 +172,13 @@ func (m *model) refreshShop() {
 	season := m.g.Season(m.now)
 	m.shop = m.shop[:0]
 	for _, sp := range AllSpecies() {
+		if m.shopSeason && !sp.LikesSeason(season) {
+			continue
+		}
+		m.shop = append(m.shop, sp)
+	}
+	// Gnome-made crosses are not in the catalogue, but their cultivars are sold.
+	for _, sp := range m.g.crossSpeciesWithCultivars() {
 		if m.shopSeason && !sp.LikesSeason(season) {
 			continue
 		}
@@ -383,11 +395,12 @@ func (m *model) startNaming() {
 
 // startNamingPacket names the highlighted packet in the shed.
 func (m *model) startNamingPacket() {
-	order := m.g.ShedOrder()
-	if len(order) == 0 {
+	pi := m.minePacket()
+	if pi < 0 {
+		m.setStatus(subtleStyle, "Open the folder to a packet to label it.")
 		return
 	}
-	pk := m.g.Shed[order[min(m.mineCursor, len(order)-1)]]
+	pk := m.g.Shed[pi]
 	m.naming, m.namingFor = true, namePacket
 	m.input.Placeholder = "a name for this seed"
 	m.input.SetValue(pk.Label)
@@ -436,8 +449,8 @@ func (m model) handleNaming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.namingFor == namePacket {
-			if order := m.g.ShedOrder(); len(order) > 0 {
-				m.g.RenamePacket(order[min(m.mineCursor, len(order)-1)], name, m.now)
+			if pi := m.minePacket(); pi >= 0 {
+				m.g.RenamePacket(pi, name, m.now)
 			}
 			if name == "" {
 				m.setStatus(subtleStyle, "Label cleared.")
@@ -495,6 +508,8 @@ func (m model) View() string {
 		view = m.viewShare()
 	case screenGnomes:
 		view = m.viewGnomes()
+	case screenLineage:
+		view = m.viewLineage()
 	default:
 		view = m.viewGarden()
 	}

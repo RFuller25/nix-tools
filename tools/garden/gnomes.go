@@ -338,10 +338,14 @@ func rollMutation(seed, serial int64, gn Genome) (Genome, string) {
 func (g *Garden) mutate(idx int, gn Genome, how string, now time.Time) {
 	p := &g.Plots[idx]
 	sp := p.Species()
+	before := p.Genes()
 	p.Genome = gn
 	p.Variety, _ = sp.NearestVariety(gn)
 	p.Streak, p.Line, p.LineName = 0, 0, ""
 	p.Descent = "mutated by the gnomes (" + how + ")"
+	p.History = extendLineage(p.History, Step{
+		Gen: p.Gen, Kind: stepGnome, Genome: gn, Note: how, At: now, Shifts: diffShifts(before, gn, true),
+	})
 	if p.Matured && p.Growth >= 1 {
 		g.discover(p, sp, idx, now, now)
 	}
@@ -467,7 +471,7 @@ func (g *Garden) BuyWildSeed(now time.Time) (WildSeed, error) {
 	variety, _ := w.Species.NearestVariety(w.Genome)
 	g.AddPacket(Packet{
 		SpeciesID: w.Species.ID, A: w.Genome, B: w.Genome, Count: 1, Pure: true, Variety: variety,
-		Label: "Wild " + w.Species.Common, From: "the gnomes", Descent: "brewed wild by the gnomes",
+		Label: "Wild " + w.Species.Common, From: "the gnomes", Descent: "brewed wild by the gnomes", Kind: stepWild,
 	})
 	g.GnomeSeedDay = today
 	g.GnomeSpent += w.Price

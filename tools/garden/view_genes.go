@@ -36,6 +36,10 @@ func geneRows(sp *Species, gn Genome, width int) []string {
 func geneLineage(p *Plot) string {
 	var out string
 	switch {
+	case p.Line != 0 && p.LineName != "" && p.Gen > 0:
+		out = fmt.Sprintf("a ‘%s’ plant, %s generation, inside the variety's definition", p.LineName, ordinal(p.Gen))
+	case p.Line != 0 && p.LineName != "":
+		out = fmt.Sprintf("a ‘%s’ plant, inside the variety's definition", p.LineName)
 	case p.Gen == 0 && !p.IsHybrid():
 		out = "a named form, true to type"
 	case p.Gen == 0:

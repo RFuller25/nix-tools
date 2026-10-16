@@ -73,6 +73,13 @@ func Load(path string, now time.Time) (*Garden, error) {
 			p.Genome = p.Genes()
 		}
 	}
+	// A line found in this garden was grown the day it was found; lineages and
+	// the date a line first flowered were kept from a later version.
+	for i := range g.Cultivars {
+		if c := &g.Cultivars[i]; c.Grown.IsZero() && !c.Gifted {
+			c.Grown = c.Found
+		}
+	}
 	if migrating {
 		g.migrateV1(now)
 	}

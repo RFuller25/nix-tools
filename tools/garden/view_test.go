@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -248,7 +249,7 @@ func TestWindTickAnimatesWithoutChangingTheGarden(t *testing.T) {
 		}
 	}
 	got := cur.(model)
-	if got.g.Plots[0] != before {
+	if !reflect.DeepEqual(got.g.Plots[0], before) {
 		t.Error("the wind animation altered the garden's state")
 	}
 }

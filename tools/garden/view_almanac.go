@@ -222,7 +222,12 @@ func (m model) viewAlmanac() string {
 		case rowCreature:
 			keys = "↑↓ browse · enter fold · C fold all · ✓ seen in this garden · esc back"
 		case rowCultivar:
-			keys = "↑↓ browse · n rename · e share · enter fold · ◆ stable line · esc back"
+			keys = "↑↓ browse · n rename · e share · t genetics · D define · x delete · ◆ stable line · esc back"
+			if m.defining {
+				keys = m.hintLine(setDefine)
+			}
+		case rowPlant:
+			keys = "↑↓ browse · enter fold · C fold all · ←→ stage · v variety · o open yours · esc back"
 		case rowRibbon:
 			keys = "↑↓ browse · enter fold · C fold all · esc back"
 		case rowGuide:
@@ -289,7 +294,7 @@ func (m model) groupDetail(group string, listWidth, avail int) string {
 	case "guide":
 		rows = append(rows, wrapped(valueStyle, "How the garden works: every feature, with the real numbers and keys.", width-2)...)
 	case "your cultivars":
-		rows = append(rows, wrapped(valueStyle, "Hybrid lines you have bred that flowered unlike any named form. ◆ marks a stable line.", width-2)...)
+		rows = append(rows, wrapped(valueStyle, "Varieties of your own: hybrid lines you have bred that flowered unlike any named form, and lines taken in from a friend's code. They are listed with their species' varieties too. ◆ marks a stable line. t reads a line's genetics, D defines it, x deletes its record.", width-2)...)
 	case "ribbons":
 		rows = append(rows, wrapped(valueStyle, "Your results at the weekly fair, newest first.", width-2)...)
 	case "visitors":
@@ -334,11 +339,20 @@ func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 		artRows = 4
 	}
 
+	forms := m.g.varietyForms(sp)
+	sel := max(0, min(m.almanacVariety, len(forms)-1))
+	chosen := forms[sel]
+
 	stageW := 11
 	fit := max(1, (width-2)/(stageW+1))
 	var frames []string
 	for i := 0; i < StageCount && i < fit; i++ {
-		art := renderVariety(sp, m.almanacVariety, i, sp.PaletteFor(m.almanacVariety, nil), stageW, artRows, 0, nil)
+		var art []string
+		if chosen.Cultivar != nil {
+			art = renderGene(sp, chosen.Variety, chosen.Genome, i, sp.PaletteForGenome(chosen.Variety, chosen.Genome, nil), stageW, artRows, 0, nil)
+		} else {
+			art = renderVariety(sp, chosen.Variety, i, sp.PaletteFor(chosen.Variety, nil), stageW, artRows, 0, nil)
+		}
 		label := stageNames[i]
 		style := subtleStyle
 		if i == m.almanacStage {
@@ -371,36 +385,54 @@ func (m model) almanacDetail(sp *Species, listWidth, avail int) (string, bool) {
 		field("height", sp.Height, width),
 		"",
 	}
-	// The forms this species comes in, ticked once grown.
-	rows = append(rows, labelStyle.Render("VARIETIES")+subtleStyle.Render("  v to flick through"))
-	for i, v := range sp.Varieties() {
-		mark := subtleStyle.Render("· ")
-		if m.g.GrownForm(sp, i) {
-			mark = okStyle.Render("✓ ")
-		}
-		name := valueStyle.Render("‘" + v.Name + "’")
-		if i == m.almanacVariety {
-			name = titleStyle.Render("‘" + v.Name + "’")
-		}
-		rows = append(rows, mark+name)
-		for _, line := range wrapText(v.Note, max(16, width-4)) {
-			rows = append(rows, subtleStyle.Render("  "+line))
-		}
+	// The forms this species comes in, ticked once grown: the named forms and
+	// then your own cultivars, which are varieties like any other.
+	own := len(m.g.CultivarsOf(sp))
+	hint := "  v to flick through"
+	if own > 0 {
+		hint = "  v to flick through, o to open one of yours"
 	}
-	if lines := m.g.UniqueCultivarsOf(sp); len(lines) > 0 {
-		rows = append(rows, "", labelStyle.Render("YOUR VARIETIES")+subtleStyle.Render("  y to pick, o to open"))
-		for i, c := range lines {
-			mark := subtleStyle.Render("◇ ")
-			if c.Stable {
-				mark = okStyle.Render("◆ ")
+	rows = append(rows, labelStyle.Render("VARIETIES")+subtleStyle.Render(hint))
+	for i, f := range forms {
+		if f.Cultivar == nil {
+			mark := subtleStyle.Render("· ")
+			if m.g.GrownForm(sp, f.Variety) {
+				mark = okStyle.Render("✓ ")
 			}
-			name := valueStyle.Render("‘" + c.Name + "’")
-			if i == min(m.almanacOwn, len(lines)-1) {
-				mark, name = titleStyle.Render("▸ "), titleStyle.Render("‘"+c.Name+"’")
+			name := valueStyle.Render("‘" + f.Name + "’")
+			if i == sel {
+				name = titleStyle.Render("‘" + f.Name + "’")
 			}
-			rows = append(rows, mark+name+" "+swatch(c.Genome.Hex(), 2),
-				subtleStyle.Render("  "+describeGenome(c.Genome)))
+			rows = append(rows, mark+name)
+			for _, line := range wrapText(f.Note, max(16, width-4)) {
+				rows = append(rows, subtleStyle.Render("  "+line))
+			}
+			continue
 		}
+		c := f.Cultivar
+		mark := subtleStyle.Render("◇ ")
+		if c.Stable {
+			mark = okStyle.Render("◆ ")
+		}
+		name := valueStyle.Render("‘" + c.Name + "’")
+		if i == sel {
+			mark, name = titleStyle.Render("▸ "), titleStyle.Render("‘"+c.Name+"’")
+		}
+		origin := "your cultivar"
+		if c.Gifted {
+			origin = "from a friend" + fromText(c.From)
+		}
+		grown := ""
+		if !c.Grown.IsZero() {
+			grown = " · ✓ grown"
+		}
+		rows = append(rows, mark+name+" "+swatch(c.Genome.Hex(), 2),
+			subtleStyle.Render("  "+origin+" · "+describeGenome(c.Genome)+grown))
+	}
+	if chosen.Cultivar != nil {
+		rows = append(rows, "", labelStyle.Render("DEFINITION OF ‘"+strings.ToUpper(chosen.Cultivar.Name)+"’")+
+			subtleStyle.Render("  a plant must fit every band"))
+		rows = append(rows, definitionRows(chosen.Cultivar, width)...)
 	}
 	rows = append(rows, "")
 	rows = append(rows, effectLines(sp, width)...)

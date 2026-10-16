@@ -23,9 +23,10 @@ func (m model) viewShed() string {
 	return m.viewShopShelf()
 }
 
-// viewMine is the shelf of packets: what you have gathered and bought.
+// viewMine is the shelf of packets: what you have gathered and bought, as a
+// plain list or filed in folders.
 func (m model) viewMine() string {
-	order := m.g.ShedOrder()
+	rows := m.shedRows()
 	listWidth := 36
 	narrow := m.width-listWidth-6 < 30
 	if narrow {
@@ -33,8 +34,8 @@ func (m model) viewMine() string {
 	}
 	avail := max(3, m.height-5)
 
-	cursor := min(m.mineCursor, max(0, len(order)-1))
-	scroll := m.mineScroll
+	cursor := min(m.mineCursor, max(0, len(rows)-1))
+	scroll := max(0, min(m.mineScroll, max(0, len(rows)-avail)))
 	if cursor < scroll {
 		scroll = cursor
 	}
@@ -43,20 +44,38 @@ func (m model) viewMine() string {
 	}
 
 	var lines []string
-	for i := scroll; i < len(order) && i < scroll+avail; i++ {
-		pk := m.g.Shed[order[i]]
+	for i := scroll; i < len(rows) && i < scroll+avail; i++ {
+		row := rows[i]
 		marker := "  "
 		style := valueStyle
 		if i == cursor {
 			marker = titleStyle.Render("› ")
 			style = titleStyle
 		}
+		indent := strings.Repeat("  ", row.Depth)
+		if row.Kind == shedFolder {
+			arrow := "▸"
+			if row.Open {
+				arrow = "▾"
+			}
+			count := subtleStyle.Render(fmt.Sprintf(" %d×", row.Seeds))
+			title := truncate(row.Title, max(8, listWidth-12-2*row.Depth))
+			if row.Level == 0 {
+				title = strings.ToUpper(title)
+			}
+			lines = append(lines, marker+indent+labelStyle.Render(arrow+" ")+style.Render(title)+count)
+			continue
+		}
+		pk := m.g.Shed[row.Packet]
 		sw := swatch(pk.Mean().Hex(), 2)
 		count := subtleStyle.Render(fmt.Sprintf(" ×%d", pk.Count))
-		name := truncate(pk.Name(), listWidth-10)
-		lines = append(lines, marker+sw+" "+style.Render(name)+count)
+		name := pk.Name()
+		if row.Tagged {
+			name = packetTag(pk) // inside a variety folder, told apart by where it came from
+		}
+		lines = append(lines, marker+indent+sw+" "+style.Render(truncate(name, max(8, listWidth-10-2*row.Depth)))+count)
 	}
-	if len(order) == 0 {
+	if len(rows) == 0 {
 		lines = append(lines,
 			subtleStyle.Render("No seed of your own yet."),
 			subtleStyle.Render("Buy some in the shop (s),"),
@@ -65,13 +84,19 @@ func (m model) viewMine() string {
 
 	detail, clipped := "", false
 	switch {
-	case len(order) == 0 || narrow:
-		if len(order) > 0 {
-			pk := m.g.Shed[order[cursor]]
-			lines = append(lines, "", fit(subtleStyle.Render(pk.Name()+" · "+pk.Mean().ColourName()), listWidth))
+	case len(rows) == 0 || narrow:
+		if len(rows) > 0 {
+			if rows[cursor].Kind == shedFolder {
+				lines = append(lines, "", fit(subtleStyle.Render(fmt.Sprintf("%s · %d packet(s), %d seed(s)", rows[cursor].Title, rows[cursor].Packets, rows[cursor].Seeds)), listWidth))
+			} else {
+				pk := m.g.Shed[rows[cursor].Packet]
+				lines = append(lines, "", fit(subtleStyle.Render(pk.Name()+" · "+pk.Mean().ColourName()), listWidth))
+			}
 		}
+	case rows[cursor].Kind == shedFolder:
+		detail = m.folderDetail(rows[cursor], listWidth, avail)
 	default:
-		detail, clipped = m.packetDetail(m.g.Shed[order[cursor]], listWidth, avail)
+		detail, clipped = m.packetDetail(m.g.Shed[rows[cursor].Packet], listWidth, avail)
 	}
 
 	body := strings.Join(lines, "\n")
@@ -87,6 +112,31 @@ func (m model) viewMine() string {
 		return strings.Join([]string{head, m.divider(), body, m.divider(), m.input.View(), helpStyle.Render("enter to confirm · esc to cancel")}, "\n")
 	}
 	return strings.Join([]string{head, m.divider(), body, m.divider(), m.footer(keys)}, "\n")
+}
+
+// folderDetail is the card for a folder in the shed: what is inside it.
+func (m model) folderDetail(row shedRow, listWidth, avail int) string {
+	width := m.width - listWidth - 6
+	if width < 30 {
+		width = 30
+	}
+	rows := []string{
+		titleStyle.Render(row.Title),
+		subtleStyle.Render(fmt.Sprintf("a %s folder · %d packet(s) · %d seed(s)", shedLevels[min(row.Level, len(shedLevels)-1)], row.Packets, row.Seeds)),
+		"",
+		labelStyle.Render("INSIDE"),
+	}
+	for _, k := range row.Kids {
+		rows = append(rows, valueStyle.Render("  "+k))
+	}
+	rows = append(rows, "")
+	state := "enter, space or → opens it."
+	if row.Open {
+		state = "enter, space or ← closes it."
+	}
+	rows = append(rows, wrapped(subtleStyle, state+" Only folders that hold seed are shown, and a folder with just one thing in it is skipped over. v goes back to the plain list; C closes or opens every folder.", width-2)...)
+	visible, _, _ := window(rows, 0, max(1, avail-2))
+	return cardBorder.Width(width).Render(strings.Join(visible, "\n"))
 }
 
 // familyRange is the span a gene is likely to land in across a packet's
@@ -164,8 +214,17 @@ func (m model) packetDetail(pk Packet, listWidth, avail int) (string, bool) {
 		rows = append(rows, "", labelStyle.Render("A SAMPLE OF THE FAMILY")+subtleStyle.Render("  colours the seedlings might be"))
 		rows = append(rows, "  "+familySample(pk, 14))
 	}
+	if c := m.g.CultivarByID(pk.Line); c != nil {
+		rows = append(rows, "", labelStyle.Render("VARIETY")+subtleStyle.Render("  ‘"+c.Name+"’, by its definition"))
+		share := c.Fits(pk)
+		style := okStyle
+		if share < 0.5 {
+			style = warnStyle
+		}
+		rows = append(rows, "  "+style.Render(fmt.Sprintf("about %s of its seedlings would fit the variety; the rest would be off-types", percent(share))))
+	}
 	rows = append(rows, "")
-	rows = append(rows, wrapped(subtleStyle, "Each seed is rolled when it is sown, so sowing several gives different plants: keep the ones you like and sow from those.", width-2)...)
+	rows = append(rows, wrapped(subtleStyle, "Each seed is rolled when it is sown, so sowing several gives different plants: keep the ones you like and sow from those. t reads where this packet's line came from.", width-2)...)
 
 	lines := strings.Split(strings.Join(rows, "\n"), "\n")
 	visible, above, below := window(lines, m.cardScroll, max(1, avail-2))

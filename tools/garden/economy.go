@@ -20,12 +20,14 @@ const (
 	bedStepCost   = 6
 	pondCost      = 12
 
-	sellBase      = 0.45 // fraction of a seed's shop price a plain home-grown seed fetches
-	sellNovelty   = 2.0  // extra multiples for a seed unlike any named form
-	sellStable    = 0.6  // extra for a stable, named line
-	sellYield     = 0.5  // extra at Yield 100, less at 0
-	plannerPlot   = 0    // planting fee per bed when stamping a template (stamping is free)
-	maxShedLabels = 24
+	sellBase       = 0.45 // fraction of a seed's shop price a plain home-grown seed fetches
+	sellNovelty    = 2.0  // extra multiples for a seed unlike any named form
+	sellStable     = 0.6  // extra for a stable, named line
+	sellYield      = 0.5  // extra at Yield 100, less at 0
+	cultivarCost   = 6    // a cultivar's seed costs this many times its species' ordinary seed
+	cultivarStable = 0.5  // and this much more again when the line is stable
+	plannerPlot    = 0    // planting fee per bed when stamping a template (stamping is free)
+	maxShedLabels  = 24
 )
 
 // goldLabel formats an amount.

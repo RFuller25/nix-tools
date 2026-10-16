@@ -36,7 +36,11 @@ func (m model) viewShopShelf() string {
 			marker = titleStyle.Render("› ")
 		}
 
-		name := truncate(sp.Common, listWidth-10)
+		label := sp.Common
+		if n := len(m.g.CultivarsOf(sp)); n > 0 {
+			label += fmt.Sprintf(" ◆%d", n)
+		}
+		name := truncate(label, listWidth-10)
 		cost := fmt.Sprintf("%3d g", sp.SeedCost)
 		switch {
 		case !unlocked:
@@ -118,29 +122,49 @@ func (m model) shopDetail(sp *Species, listWidth, avail int) (string, bool) {
 	if avail < 26 {
 		artRows = 4
 	}
-	gn := sp.VarietyGenome(m.shopVariety)
-	art := strings.Join(renderGene(sp, m.shopVariety, gn, StageMature, sp.PaletteFor(m.shopVariety, nil),
+	forms := m.g.varietyForms(sp)
+	form := forms[min(m.shopVariety, len(forms)-1)]
+	gn := form.Genome
+	art := strings.Join(renderGene(sp, form.Variety, gn, StageMature, sp.PaletteForGenome(form.Variety, gn, nil),
 		min(width, 24), artRows, 0, nil), "\n")
 
-	forms := sp.Varieties()
-	v := sp.Variety(m.shopVariety)
 	grown := "  "
-	if m.g.GrownForm(sp, m.shopVariety) {
+	switch {
+	case form.Cultivar != nil && !form.Cultivar.Grown.IsZero():
+		grown = okStyle.Render("✓ ")
+	case form.Cultivar == nil && m.g.GrownForm(sp, form.Variety):
 		grown = okStyle.Render("✓ ")
 	}
 
+	name := valueStyle.Render("‘" + form.Name + "’")
+	if form.Cultivar != nil {
+		mark := subtleStyle.Render("◇ ")
+		if form.Cultivar.Stable {
+			mark = okStyle.Render("◆ ")
+		}
+		name = mark + name + subtleStyle.Render(" · your cultivar")
+	}
 	rows := []string{
 		titleStyle.Render(sp.Common),
 		latinStyle.Render(sp.Latin),
 		"",
 		art,
 		"",
-		grown + valueStyle.Render("‘"+v.Name+"’") +
+		grown + name +
 			subtleStyle.Render(fmt.Sprintf("  %d of %d  ←→", m.shopVariety+1, len(forms))),
 	}
-	for _, line := range wrapText(v.Note, max(16, width-2)) {
+	for _, line := range wrapText(form.Note, max(16, width-2)) {
 		rows = append(rows, subtleStyle.Render(line))
 	}
+	price := goldStyle.Render(goldLabel(form.Price)) + subtleStyle.Render(" a seed")
+	if form.Cultivar != nil {
+		extra := fmt.Sprintf(" · a cultivar costs %d× the ordinary seed", cultivarCost)
+		if form.Cultivar.Stable {
+			extra += ", and half as much again for a stable line"
+		}
+		price += subtleStyle.Render(extra)
+	}
+	rows = append(rows, "", field("price", price, width))
 	rows = append(rows, []string{
 		"",
 		field("family", sp.Family, width),
@@ -152,7 +176,11 @@ func (m model) shopDetail(sp *Species, listWidth, avail int) (string, bool) {
 		"",
 	}...)
 	rows = append(rows, labelStyle.Render("GENES")+subtleStyle.Render("  this form, as sold"))
-	rows = append(rows, geneRows(sp, sp.VarietyGenome(m.shopVariety), width)...)
+	rows = append(rows, geneRows(sp, gn, width)...)
+	if form.Cultivar != nil {
+		rows = append(rows, "", labelStyle.Render("DEFINITION")+subtleStyle.Render("  a seedling must fit this to be the variety"))
+		rows = append(rows, definitionRows(form.Cultivar, width)...)
+	}
 	rows = append(rows, "")
 	rows = append(rows, effectLines(sp, width)...)
 	if !m.g.Unlocked(sp) {

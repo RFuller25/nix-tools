@@ -396,6 +396,14 @@ func (s *Species) NearestVariety(g Genome) (idx int, gap float64) {
 // identical, which is how a stable line is made. A few seeds in a hundred
 // mutate.
 func breed(seed, serial int64, a, b Genome) Genome {
+	c, _ := breedTrace(seed, serial, a, b)
+	return c
+}
+
+// breedTrace is breed, and also says which genes were hit by a mutation (a
+// rare jump, as opposed to the everyday noise), indexed as geneNames is.
+func breedTrace(seed, serial int64, a, b Genome) (Genome, [geneCount]bool) {
+	var mutated [geneCount]bool
 	roll := func(trait int, k int64) float64 { return hashUnit(seed, serial, 0xB8EE0000+int64(trait)*8+k) }
 	// A triangular roll, which stands in for a normal one: -1 to 1, mostly near 0.
 	noise := func(trait int) float64 { return roll(trait, 0) + roll(trait, 1) - 1 }
@@ -409,6 +417,7 @@ func breed(seed, serial int64, a, b Genome) Genome {
 		if roll(trait, 4) < 0.5 {
 			size = -size
 		}
+		mutated[trait] = true
 		return size
 	}
 
@@ -451,7 +460,7 @@ func breed(seed, serial int64, a, b Genome) Genome {
 	c.Shape = linear(4, a.Shape, b.Shape)
 	c.Speed = linear(5, a.Speed, b.Speed)
 	c.Yield = linear(6, a.Yield, b.Yield)
-	return c
+	return c, mutated
 }
 
 // ---- words for the cards --------------------------------------------------

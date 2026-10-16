@@ -61,6 +61,9 @@ type Plot struct {
 	LineName string `json:"line_name,omitempty"`
 	Streak   int    `json:"streak,omitempty"`
 	Descent  string `json:"descent,omitempty"`
+	// History is the record of how this plant's line came to be, one step a
+	// generation, ending with the step that made this plant.
+	History []Step `json:"history,omitempty"`
 
 	// Pond beds hold water instead of soil. Only the aquatic species will
 	// grow in one, and nothing else will.
@@ -243,13 +246,19 @@ type Garden struct {
 	CultivarSeq int        `json:"cultivar_seq,omitempty"`
 	Templates   []Template `json:"templates,omitempty"`
 	TemplateSeq int        `json:"template_seq,omitempty"`
-	// Folded is the almanac categories the gardener has folded away.
-	Folded     map[string]bool `json:"folded,omitempty"`
-	Orders     []Order         `json:"orders,omitempty"`
-	OrderSeq   int             `json:"order_seq,omitempty"`
-	OrdersDay  int             `json:"orders_day,omitempty"`
-	OrdersDone int             `json:"orders_done,omitempty"`
-	Fair       FairState       `json:"fair"`
+	// Folded is the almanac categories the gardener has folded away. Forgot
+	// is the lines deleted from the almanac, which are not written down again.
+	Folded map[string]bool `json:"folded,omitempty"`
+	Forgot []Forgotten     `json:"forgot,omitempty"`
+	// ShedFolders shows "my seeds" as folders (category, species, variety,
+	// seed) rather than a plain list; ShedOpen is the folders left open.
+	ShedFolders bool            `json:"shed_folders,omitempty"`
+	ShedOpen    map[string]bool `json:"shed_open,omitempty"`
+	Orders      []Order         `json:"orders,omitempty"`
+	OrderSeq    int             `json:"order_seq,omitempty"`
+	OrdersDay   int             `json:"orders_day,omitempty"`
+	OrdersDone  int             `json:"orders_done,omitempty"`
+	Fair        FairState       `json:"fair"`
 	// The gnome shop: the weather the gnomes have set for a day (keyed by
 	// date), how many spells they have cast, the day the wild seed was last
 	// bought and what the gardener has spent on magic.
@@ -664,9 +673,17 @@ func (g *Garden) Gather(idx int, now time.Time) int {
 	streak, label, line := 0, "", 0
 	if partner == nil && mother.Distance(father) <= stableGap {
 		streak = p.Streak + 1
-		if p.Line != 0 {
+		// The seed stays in the line only if it would still fit its definition.
+		if c := g.CultivarByID(p.Line); c != nil && c.Admits(meanGenome(mother, father)) {
 			label, line = p.LineName, p.Line
 		}
+	}
+	kind := stepSelf
+	switch {
+	case partner != nil:
+		kind = stepMatch
+	case crossed:
+		kind = stepCross
 	}
 	descent := "selfed from " + p.DisplayName()
 	switch {
@@ -678,6 +695,7 @@ func (g *Garden) Gather(idx int, now time.Time) int {
 	g.AddPacket(Packet{
 		SpeciesID: seedSp.ID, A: mother, B: father, Count: got, Gen: p.Gen + 1,
 		Variety: variety, From: p.DisplayName(), Line: line, Label: label, Streak: streak, Descent: descent,
+		Kind: kind, History: copyLineage(p.History),
 	})
 	g.Gathered += got
 	if crossed {
@@ -842,11 +860,18 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 		if p.Pollen != nil && p.PollenFrom == "" {
 			father = *p.Pollen
 		}
-		child := breed(g.Seed, hashSerial(q, int64(idx), 0x5E1F), mother, father)
+		child, mutated := breedTrace(g.Seed, hashSerial(q, int64(idx), 0x5E1F), mother, father)
 		variety, _ := sp.NearestVariety(child)
 		streak, line, lineName := 0, 0, ""
 		if child.Distance(mother) <= stableGap && mother.Distance(father) <= stableGap {
-			streak, line, lineName = p.Streak+1, p.Line, p.LineName
+			streak = p.Streak + 1
+			if c := g.CultivarByID(p.Line); c != nil && c.Admits(child) {
+				line, lineName = p.Line, p.LineName
+			}
+		}
+		step := Step{
+			Gen: p.Gen + 1, Kind: stepVolunteer, Genome: child, Mother: &mother, Father: &father,
+			Note: "sowed itself from " + p.DisplayName(), Shifts: shiftsFor(mother, father, child, mutated), At: when,
 		}
 		*bed = Plot{
 			SpeciesID: sp.ID,
@@ -857,6 +882,7 @@ func (g *Garden) maybeSelfSeed(p *Plot, idx int, sp *Species, season Season, at 
 			Line:      line,
 			LineName:  lineName,
 			Descent:   "sown itself from " + p.DisplayName(),
+			History:   extendLineage(p.History, step),
 			PlantedAt: when,
 			Moisture:  bed.Moisture,
 			PH:        bed.PH,

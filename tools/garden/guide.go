@@ -29,6 +29,8 @@ func guideChapters() []chapter {
 		chYear(),
 		chGenetics(),
 		chBreeding(),
+		chCultivars(),
+		chLineage(),
 		chVisitors(),
 		chGold(),
 		chOrders(),
@@ -284,6 +286,12 @@ func chGold() chapter {
 						gk("gnomes", "magic: weather, seasons, growth, mutations, matches, soil and a wild seed; see The gnome shop", w),
 					)...),
 				append([]string{gh("The shed")}, keyRows(w, setShop, setMine)...),
+				append([]string{gh("Folders")}, join(
+					gp("Press v on your own seeds to file the packets in folders instead of a plain list. The folders go category (herb, flower, edible...), then species, then variety, then the packets themselves. Only folders that hold seed are shown. A folder with just one thing in it is skipped: if the herb category holds a single packet, opening herb shows the packet itself, with no species or variety folders to open first. enter or space opens a folder, left and right close and open, and C closes or opens them all. The choice and the folders you left open are kept in your save.", w),
+				)...),
+				append([]string{gh("Buying cultivars")}, join(
+					gp(fmt.Sprintf("The shop sells your cultivars too, whether you bred them or took them in from a friend's code: they follow a species' named forms when you flick through its varieties with the arrow keys. A cultivar's seed costs %d times the ordinary seed of its species, and half as much again for a stable line. It comes exactly true to the cultivar's ideal, like seed of any named form. The price is well above what the shed pays for the same seed, so buying and selling it is no way to make gold.", cultivarCost), w),
+				)...),
 				gp("In the shop, enter buys one seed and sows it at once and b only buys it. In your own seeds, enter sows one seed from the highlighted packet in the selected bed. A packet is a family: each seed's genes are decided when it is sown, so sowing several from one packet gives different plants. The card shows the parents, the likely spread of each gene, and a sample of the colours the family could be. Rarer species unlock in the shop as more of your plants reach maturity.", w),
 				gp("If you played the first version of the garden, your old seeds became gold one for one, each plant standing in a bed became a packet of its own form in your shed (with one extra seed for every ripe pod), and the beds were cleared. The ground, ponds, records and herbarium were kept, and the old file was saved beside the new one with .v1.bak on the end.", w),
 			)
@@ -420,7 +428,7 @@ func chBreeding() chapter {
 				append([]string{gh("Gathering")},
 					gp("f gathers ripe pods into a packet in your own seeds. Crossed seed is labelled with its generation. It uses up the flower's pollen. Seed from a plant of an established line stays in that line if nothing crossed it.", w)...),
 				append([]string{gh("Hybrids and cultivars")},
-					gp(fmt.Sprintf("When a plant of your own breeding comes into flower unlike every named form and every line you have found already, the garden writes it down: it goes into YOUR CULTIVARS in this almanac, with its genes, its descent and the date, and the journal says so. Seedlings that come out close to a line (within %.0f%% of it) belong to it. Select the line you like and press n on its page to name it; the name carries to the plants and the seed.", lineMatch*100), w)...),
+					gp("When a plant of your own breeding comes into flower unlike every named form and every line you have found already, the garden writes it down: it goes into YOUR CULTIVARS in this almanac, and among its species' varieties, with its genes, its descent and the date, and the journal says so. A plant or seedling belongs to a line while it fits the line's definition (see Cultivars). Select the line you like and press n on its page to name it; the name carries to the plants and the seed.", w)...),
 				append([]string{gh("Stable lines")},
 					gp(fmt.Sprintf("A line breeds true when seed from a plant of it, crossed with nothing unlike it, grows into seedlings that come out within %.0f%% of their packet's centre. Do that %d generations running and the line is stable (◆ in the almanac): its seed is worth %.0f%% more in the shed. A wide cross, or a mutation, breaks the run and it starts again; a mutation is about one seed in four.", stableGap*100, stableRuns, sellStable*100), w)...),
 				append([]string{gh("Making a line")},
@@ -528,6 +536,57 @@ func chGnomes() chapter {
 				)...),
 				gp("A mutated plant is no longer part of the line it was bred in: its streak of true-breeding generations starts again, and if it is already in flower and unlike any named form it is entered in the almanac at once. The seed it sets carries the new genes, so a mutation is a way to start a new line as well as to rescue a stalled one.", w),
 				append([]string{gh("Keys")}, keyRows(w, setGnomes)...),
+			)
+		},
+	}
+}
+
+func chCultivars() chapter {
+	return chapter{
+		Title: "Cultivars",
+		Lede:  "Varieties of your own: defining them, buying them, deleting them.",
+		Build: func(m model, w int) []string {
+			t := defaultTolerance
+			return join(
+				gp("A cultivar is a variety of your own: a hybrid line the garden found when it flowered, a seed you named, or a friend's line taken in from a code. Cultivars are listed under YOUR CULTIVARS and also with their species' named forms (press v on a species page to flick through them, and o to open one), with the same ticks, drawings and genes.", w),
+				append([]string{gh("Defining one")}, join(
+					gp("Seed wanders a little every generation, so a variety with nothing to hold it drifts into whatever the last plant happened to be. A cultivar therefore has a definition: an ideal value for each of the seven genes, and how far either side of it a plant may stray and still count as the variety. It is shown on the cultivar's page (and on its species page and its card in the shop) as a bar per gene with the allowed band filled in and the ideal marked ◆.", w),
+					gp(fmt.Sprintf("A new cultivar starts with hue ±%d°, saturation ±%d, lightness ±%d and height, shape, speed and yield each ±%d. Press D on the cultivar's page to change it: up and down choose a gene, left and right narrow or widen its band (by %d points, or %d degrees of hue), [ and ] move the ideal itself, and r puts the bands back to the defaults. A hue means nothing in a colourless plant, so white, grey and black ignore it.", t.Hue, t.Sat, t.Light, t.Height, tolStep(1), tolStep(0)), w),
+				)...),
+				append([]string{gh("Off-types")}, join(
+					gp("The definition is the one test of membership. A seed sown from a packet of the line, a seedling that sows itself, a plant that mutates or one that flowers outside the bands is an off-type: it grows as an ordinary plant, the journal says which gene took it out and by how much, and it is filed as a new hybrid if it is unlike every named form and every line. Seed gathered from a line's plants stays in the line only if it would still fit. Narrowing a definition releases the plants and seed that no longer fit it; widening one takes in flowering hybrids that now do.", w),
+					gp("A packet's card says what share of its seedlings would fit a cultivar, from a fixed sample, so you can tell whether a cross will hold the variety before you sow it.", w),
+				)...),
+				append([]string{gh("Buying")}, join(
+					gp(fmt.Sprintf("Any cultivar, bred by you or imported, can be bought back in the shop at %d times the ordinary seed price of its species, and half as much again if it is stable. See Gold and the seed shed.", cultivarCost), w),
+				)...),
+				append([]string{gh("Deleting")}, join(
+					gp("Press x on a cultivar's page, and again to confirm, to delete its record from the almanac, bred or imported. The plants growing and the seed in your shed stay, as ordinary stock no longer attached to a line, and a plant that flowers like the deleted line does not bring it back. A friend's code that made an imported line stays used, so it cannot be redeemed again.", w),
+				)...),
+				append([]string{gh("Keys")}, keyRows(w, setDefine)...),
+			)
+		},
+	}
+}
+
+func chLineage() chapter {
+	return chapter{
+		Title: "The genetics screen",
+		Lede:  "How a line came about: sources, mutations and drift.",
+		Build: func(m model, w int) []string {
+			return join(
+				gp("Press t on a plant's card, on a packet in your own seeds or on a cultivar's page in this almanac to read its genetics: not only what the genes are, but how the line got there. Every plant, packet and cultivar carries a record, one step a generation, made at the moment each seed was sown from the same roll that decided its genes.", w),
+				append([]string{gh("What it shows")}, join(
+					gk("short version", "how many generations deep the record goes, where the first generation came from, how many mutations and drifts were noted, and how far the line has wandered from the first generation (and furthest it ever got).", w),
+					gk("first generation", fmt.Sprintf("the source of the line: a named form bought from the shop, a cultivar bought from the shop, a wild seed from the gnomes, or a friend's gift. Records are kept to %d steps; if a line runs longer, the first generation is always kept.", lineageMax), w),
+					gk("the timeline", "each generation oldest first: how it came about (selfed, crossed, sown by itself, changed by the gnomes), the mother and father and the seedling between them, and the arithmetic of the cross: how alike the parents were and so how widely the seedlings could scatter.", w),
+					gk("mutations", fmt.Sprintf("a gene that jumped (⚡), against the ordinary spread; about %.0f%% of seeds mutate a gene.", mutationOdds*float64(geneCount)*100), w),
+					gk("drift", "a gene that landed well off its parents' middle without mutating, with how many times the usual spread that was.", w),
+					gk("gene by generation", "a line of marks for each gene across the generations, and the colour as a row of swatches.", w),
+					gk("against the definition", "for a cultivar's line, whether each generation fit the definition, and the first to stray.", w),
+				)...),
+				gp("A plant or packet from before lineages were recorded says so plainly and starts recording from there; nothing in the history is guessed.", w),
+				append([]string{gh("Keys")}, keyRows(w, setLineage)...),
 			)
 		},
 	}

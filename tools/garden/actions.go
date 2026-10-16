@@ -165,7 +165,14 @@ func (m *model) actSow() tea.Cmd {
 		m.setStatus(warnStyle, "Every bed is full — lift something first (u).")
 		return nil
 	}
-	if err := m.g.Plant(idx, sp, m.shopVariety, m.now); err != nil {
+	form := m.currentShopForm()
+	var err error
+	if form.Cultivar != nil {
+		err = m.g.PlantCultivar(idx, form.Cultivar.ID, m.now)
+	} else {
+		err = m.g.Plant(idx, sp, m.shopVariety, m.now)
+	}
+	if err != nil {
 		m.setStatus(errStyle, "%s", err.Error())
 		return nil
 	}
@@ -182,6 +189,16 @@ func (m *model) actBuySeed() tea.Cmd {
 		return nil
 	}
 	sp := m.shop[m.shopCursor]
+	form := m.currentShopForm()
+	if form.Cultivar != nil {
+		if err := m.g.BuyCultivar(form.Cultivar.ID, 1, m.now); err != nil {
+			m.setStatus(errStyle, "%s", err.Error())
+			return nil
+		}
+		m.dirty = true
+		m.setStatus(okStyle, "One seed of ‘%s’ in the shed. You have %s left.", form.Name, goldLabel(m.g.Gold))
+		return nil
+	}
 	if err := m.g.Buy(sp, m.shopVariety, 1, m.now); err != nil {
 		m.setStatus(errStyle, "%s", err.Error())
 		return nil
@@ -191,20 +208,21 @@ func (m *model) actBuySeed() tea.Cmd {
 	return nil
 }
 
-// minePacket is the index in the shed of the highlighted packet, or -1.
-func (m *model) minePacket() int {
-	order := m.g.ShedOrder()
-	if len(order) == 0 {
-		return -1
-	}
-	m.mineCursor = min(m.mineCursor, len(order)-1)
-	return order[m.mineCursor]
+// currentShopForm is the form highlighted in the shop: a named form or one of
+// your cultivars.
+func (m *model) currentShopForm() shopForm {
+	forms := m.g.varietyForms(m.shop[m.shopCursor])
+	m.shopVariety = max(0, min(m.shopVariety, len(forms)-1))
+	return forms[m.shopVariety]
 }
 
 // actSowMine sows a seed from the highlighted packet.
 func (m *model) actSowMine() tea.Cmd {
 	pi := m.minePacket()
 	if pi < 0 {
+		if row, ok := m.shedCur(); ok && row.Kind == shedFolder {
+			m.toggleShedFolder(nil)
+		}
 		return nil
 	}
 	idx := m.firstEmptyFrom(m.cursor)
@@ -219,9 +237,7 @@ func (m *model) actSowMine() tea.Cmd {
 	}
 	m.cursor = idx
 	m.dirty = true
-	if len(m.g.Shed) == 0 || m.mineCursor >= len(m.g.Shed) {
-		m.mineCursor = max(0, len(m.g.Shed)-1)
-	}
+	m.fixMine()
 	m.screen = screenGarden
 	m.setStatus(okStyle, "Sowed %s in bed %d.%s", m.g.Plots[idx].FullName(), idx+1, companionAside(m.g, idx, sp))
 	return m.save()
@@ -231,6 +247,7 @@ func (m *model) actSowMine() tea.Cmd {
 func (m *model) actSell(n int) tea.Cmd {
 	pi := m.minePacket()
 	if pi < 0 {
+		m.setStatus(subtleStyle, "Open the folder to a packet first.")
 		return nil
 	}
 	count := m.g.Shed[pi].Count
@@ -243,9 +260,7 @@ func (m *model) actSell(n int) tea.Cmd {
 		return nil
 	}
 	m.dirty = true
-	if m.mineCursor >= len(m.g.Shed) {
-		m.mineCursor = max(0, len(m.g.Shed)-1)
-	}
+	m.fixMine()
 	m.setStatus(goldStyle, "Sold %d seed(s) for %s.", n, goldLabel(gold))
 	return nil
 }
@@ -427,4 +442,82 @@ func (m *model) importCode(text string) {
 		where = "You already had that line, so the seed joins it."
 	}
 	m.setStatus(goldStyle, "Received %d seeds of ‘%s’%s. %s", giftSeeds, r.Cultivar.Name, fromText(r.Cultivar.From), where)
+}
+
+// actDefine widens or narrows the tolerance on the gene being defined, or (ideal)
+// moves its ideal.
+func (m *model) actDefine(ideal bool, dir int) tea.Cmd {
+	row, ok := m.almanacCur()
+	if !ok || row.Kind != rowCultivar {
+		m.defining = false
+		return nil
+	}
+	c := m.g.CultivarByID(row.Cultivar)
+	if c == nil {
+		m.defining = false
+		return nil
+	}
+	before := m.lineGrowing(c.ID)
+	if ideal {
+		m.g.SetIdeal(c.ID, m.defGene, c.Genome.geneAt(m.defGene)+dir*idealStep(m.defGene), m.now)
+	} else {
+		m.g.SetTolerance(c.ID, m.defGene, c.Tolerances().At(m.defGene)+dir*tolStep(m.defGene), m.now)
+	}
+	m.dirty = true
+	if after := m.lineGrowing(c.ID); after < before {
+		m.setStatus(warnStyle, "%d plant(s) of the line no longer fit the definition and are off-types now.", before-after)
+	} else {
+		m.status = ""
+	}
+	return nil
+}
+
+func (m *model) actDefineReset() tea.Cmd {
+	if row, ok := m.almanacCur(); ok && row.Kind == rowCultivar && m.g.ResetDefinition(row.Cultivar, m.now) {
+		m.dirty = true
+		m.setStatus(subtleStyle, "Tolerances back to the defaults.")
+	}
+	return nil
+}
+
+// lineGrowing is how many plants are growing as a member of a cultivar.
+func (m *model) lineGrowing(id int) int {
+	n := 0
+	for i := range m.g.Plots {
+		if m.g.Plots[i].Line == id {
+			n++
+		}
+	}
+	return n
+}
+
+// actDeleteCultivar deletes the record of the cultivar open in the almanac, on
+// the second press.
+func (m *model) actDeleteCultivar() tea.Cmd {
+	row, ok := m.almanacCur()
+	if !ok || row.Kind != rowCultivar {
+		m.setStatus(subtleStyle, "Open one of your cultivars (under YOUR CULTIVARS) to delete its record.")
+		return nil
+	}
+	c := m.g.CultivarByID(row.Cultivar)
+	if c == nil {
+		return nil
+	}
+	if m.confirmDel != c.ID {
+		m.confirmDel = c.ID
+		extra := ""
+		if c.Gifted {
+			extra = " The friend's code stays used, so it cannot be redeemed again."
+		}
+		m.setStatus(warnStyle, "Delete the record of ‘%s’? Plants and seed you hold stay, as ordinary stock.%s x again to delete; any other key cancels.", c.Name, extra)
+		return nil
+	}
+	m.confirmDel = 0
+	if gone, ok := m.g.DeleteCultivar(c.ID, m.now); ok {
+		m.dirty = true
+		m.refreshAlmanac()
+		m.cardScroll = 0
+		m.setStatus(okStyle, "Deleted ‘%s’ from the almanac.", gone.Name)
+	}
+	return nil
 }

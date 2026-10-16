@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -33,6 +34,69 @@ type Packet struct {
 	Streak    int    `json:"streak,omitempty"`  // generations in a row this line has bred true
 	Descent   string `json:"descent,omitempty"` // how it came about, in words
 	Line      int    `json:"line,omitempty"`    // cultivar it belongs to, if any
+	// Kind is how the seedlings come about (selfed, crossed, a gift...) and
+	// History the record of the line up to and including the mother plant.
+	Kind    StepKind `json:"kind,omitempty"`
+	History []Step   `json:"history,omitempty"`
+}
+
+// stepKind is how this packet's seedlings come about. A packet from before the
+// kind was kept is worked out from what it is.
+func (pk Packet) stepKind() StepKind {
+	if pk.Kind != "" {
+		return pk.Kind
+	}
+	switch {
+	case strings.HasPrefix(pk.From, "a gift") || strings.HasPrefix(pk.Descent, "a gift"):
+		return stepGift
+	case pk.From == "the gnomes":
+		return stepWild
+	case pk.Pure:
+		return stepShop
+	case pk.A == pk.B:
+		return stepSelf
+	}
+	return stepCross
+}
+
+// originNote is what a first generation says of where it came from.
+func (pk Packet) originNote() string {
+	switch pk.stepKind() {
+	case stepShop:
+		if sp := pk.Species(); sp != nil {
+			if vs := sp.Varieties(); len(vs) > 1 {
+				return "‘" + sp.Variety(pk.Variety).Name + "’"
+			}
+			return sp.Common
+		}
+	case stepCultivar:
+		return "the cultivar ‘" + pk.Label + "’"
+	case stepWild:
+		return "brewed wild by the gnomes"
+	}
+	return pk.Descent
+}
+
+// stepFor is the record of the generation this packet grows, for a seedling
+// with the given genes and the genes that mutated in it.
+func (pk Packet) stepFor(gn Genome, mutated [geneCount]bool, now time.Time) Step {
+	kind := pk.stepKind()
+	st := Step{Gen: pk.Gen, Kind: kind, Genome: gn, Note: pk.originNote(), At: now}
+	if !pk.Pure && !kind.Origin() {
+		a, b := pk.A, pk.B
+		st.Mother, st.Father = &a, &b
+		st.Shifts = shiftsFor(a, b, gn, mutated)
+		if kind == stepMatch {
+			st.Species = pk.SpeciesID
+		}
+	}
+	return st
+}
+
+// pendingStep is that record for the centre of the family, before any seed has
+// been sown from it.
+func (pk Packet) pendingStep(sp *Species, centre Genome) Step {
+	return pk.stepFor(centre, [geneCount]bool{}, time.Time{})
 }
 
 // Stable reports a line that has bred true for long enough to count as settled.
@@ -78,10 +142,16 @@ func (pk Packet) Name() string {
 
 // Child rolls the genes of the next seed out of the packet.
 func (pk Packet) Child(gardenSeed int64) Genome {
+	gn, _ := pk.ChildTrace(gardenSeed)
+	return gn
+}
+
+// ChildTrace is Child, and also says which of its genes mutated.
+func (pk Packet) ChildTrace(gardenSeed int64) (Genome, [geneCount]bool) {
 	if pk.Pure {
-		return pk.A
+		return pk.A, [geneCount]bool{}
 	}
-	return breed(gardenSeed, hashSerial(pk.ID, int64(pk.Used)), pk.A, pk.B)
+	return breedTrace(gardenSeed, hashSerial(pk.ID, int64(pk.Used)), pk.A, pk.B)
 }
 
 // nextPacketID hands out packet numbers, which are part of every roll.
@@ -99,7 +169,7 @@ func (g *Garden) AddPacket(pk Packet) {
 	if pk.Pure {
 		for i := range g.Shed {
 			o := &g.Shed[i]
-			if o.Pure && o.SpeciesID == pk.SpeciesID && o.A == pk.A && o.Label == pk.Label && o.Gen == pk.Gen {
+			if o.Pure && o.SpeciesID == pk.SpeciesID && o.A == pk.A && o.Label == pk.Label && o.Gen == pk.Gen && o.Line == pk.Line {
 				o.Count += pk.Count
 				return
 			}
@@ -159,7 +229,7 @@ func (g *Garden) Buy(sp *Species, variety, n int, now time.Time) error {
 		variety = 0
 	}
 	gn := sp.VarietyGenome(variety)
-	g.AddPacket(Packet{SpeciesID: sp.ID, A: gn, B: gn, Count: n, Pure: true, Variety: variety})
+	g.AddPacket(Packet{SpeciesID: sp.ID, A: gn, B: gn, Count: n, Pure: true, Variety: variety, Kind: stepShop})
 	return nil
 }
 
@@ -212,7 +282,9 @@ func (g *Garden) SowPacket(idx, packet int, now time.Time) error {
 	if err := g.checkSowable(idx, sp); err != nil {
 		return err
 	}
-	gn := pk.Child(g.Seed)
+	gn, mutated := pk.ChildTrace(g.Seed)
+	step := pk.stepFor(gn, mutated, now)
+	history := extendLineage(pk.History, step)
 	pk.Used++
 	pk.Count--
 	// A named packet that was never filed as a line (named before seed could
@@ -227,10 +299,22 @@ func (g *Garden) SowPacket(idx, packet int, now time.Time) error {
 	if gn.Distance(pk.Mean()) <= stableGap {
 		streak = pk.Streak
 	}
+	// A seedling outside its line's definition is an off-type: it grows as an
+	// ordinary plant, not as the variety.
+	if line != 0 {
+		if c := g.CultivarByID(line); c == nil || !c.Admits(gn) {
+			if c != nil {
+				descent = "an off-type of ‘" + c.Name + "’: " + c.strayWords(gn)
+				g.Log(now, "A seedling of ‘%s’ came out off-type: %s.", c.Name, c.strayWords(gn))
+			}
+			line, label, streak = 0, "", 0
+		}
+	}
 	g.sow(idx, sp, gn, gen, now)
 	g.Plots[idx].Line = line
 	g.Plots[idx].Streak = streak
 	g.Plots[idx].Descent = descent
+	g.Plots[idx].History = history
 	// Whatever the gardener called the packet is what the plant is called.
 	g.Plots[idx].LineName = label
 	if pk.Count <= 0 {
@@ -256,6 +340,10 @@ func (g *Garden) Plant(idx int, sp *Species, variety int, now time.Time) error {
 		variety = 0
 	}
 	g.sow(idx, sp, sp.VarietyGenome(variety), 0, now)
+	g.Plots[idx].History = []Step{{
+		Kind: stepShop, Genome: g.Plots[idx].Genome, At: now,
+		Note: Packet{SpeciesID: sp.ID, Variety: variety, Kind: stepShop}.originNote(),
+	}}
 	g.Log(now, "Sowed %s (%s) in bed %d.", sp.VarietyName(variety), sp.Latin, idx+1)
 	return nil
 }

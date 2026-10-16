@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -28,6 +29,14 @@ type Cultivar struct {
 	// Gifted lines came from a friend's code; From is who made them.
 	Gifted bool   `json:"gifted,omitempty"`
 	From   string `json:"from,omitempty"`
+	// Tol is the definition: how far each gene may stray from Genome (the
+	// ideal) before a plant is no longer this cultivar. Zero means the default.
+	Tol Tolerance `json:"tol,omitzero"`
+	// History is how the line came to be, one step a generation.
+	History []Step `json:"history,omitempty"`
+	// Grown is when a plant of the line first flowered here; a found line was
+	// grown the day it was found, a gift is not until one of its seeds flowers.
+	Grown time.Time `json:"grown,omitzero"`
 }
 
 func (c Cultivar) SpeciesRef() *Species { return SpeciesByID(c.Species) }
@@ -37,16 +46,17 @@ func describeGenome(g Genome) string {
 	return g.ColourName() + ", " + g.HeightWord()
 }
 
-// cultivarFor finds the discovered line a genome belongs to, if any.
+// cultivarFor finds the line a genome belongs to, if any: one whose definition
+// admits it, the closest if several do.
 func (g *Garden) cultivarFor(sp *Species, gn Genome) *Cultivar {
 	var best *Cultivar
-	bestD := lineMatch
+	bestD := math.MaxFloat64
 	for i := range g.Cultivars {
 		c := &g.Cultivars[i]
-		if c.Species != sp.ID {
+		if c.Species != sp.ID || !c.Admits(gn) {
 			continue
 		}
-		if d := c.Genome.Distance(gn); d <= bestD {
+		if d := c.Genome.Distance(gn); d < bestD {
 			best, bestD = c, d
 		}
 	}
@@ -74,11 +84,20 @@ func (g *Garden) discover(p *Plot, sp *Species, idx int, at, now time.Time) {
 	}
 
 	c := g.CultivarByID(p.Line)
+	if c != nil && !c.Admits(gn) {
+		// It has drifted out of its definition: an off-type, not the variety.
+		g.Log(when, "%s in bed %d has drifted out of ‘%s’: %s.", p.DisplayName(), idx+1, c.Name, c.strayWords(gn))
+		p.Line, p.LineName, p.Streak = 0, "", 0
+		c = nil
+	}
 	if c == nil {
 		if !p.IsHybrid() {
 			return
 		}
 		c = g.cultivarFor(sp, gn)
+	}
+	if c == nil && g.forgotten(sp, gn) {
+		return // a line the gardener deleted; it is not written down again
 	}
 	if c == nil {
 		n := 1
@@ -92,12 +111,17 @@ func (g *Garden) discover(p *Plot, sp *Species, idx int, at, now time.Time) {
 		g.Cultivars = append(g.Cultivars, Cultivar{
 			ID: g.CultivarSeq, Name: fmt.Sprintf("%s hybrid No. %d", sp.Common, n), Species: sp.ID,
 			Genome: gn, Gen: p.Gen, Descent: p.Descent, Found: when, Variety: variety,
+			History: copyLineage(p.History), Grown: when,
 		})
 		c = &g.Cultivars[len(g.Cultivars)-1]
 		g.Log(when, "A new hybrid flowered in bed %d: %s, %s. It is in the almanac as ‘%s’.",
 			idx+1, describeGenome(gn), sp.Common, c.Name)
 	}
 	p.Line, p.LineName = c.ID, c.Name
+	if c.Grown.IsZero() {
+		c.Grown = when
+		g.Log(when, "‘%s’ has flowered in your garden for the first time.", c.Name)
+	}
 	if p.Stable() && !c.Stable {
 		c.Stable = true
 		g.Log(when, "‘%s’ has bred true for %d generations: it is now a stable line.", c.Name, stableRuns)
@@ -125,10 +149,12 @@ func (g *Garden) nameSeedLine(packet int, label string, now time.Time) {
 		if gap <= hybridGap {
 			return
 		}
+		g.unforget(sp, gn)
 		g.CultivarSeq++
 		g.Cultivars = append(g.Cultivars, Cultivar{
 			ID: g.CultivarSeq, Name: label, Species: sp.ID, Genome: gn, Gen: pk.Gen,
 			Descent: pk.Descent, Found: now, Variety: variety, Named: true, Stable: pk.Stable(),
+			History: extendLineage(pk.History, pk.pendingStep(sp, gn)),
 		})
 		c = &g.Cultivars[len(g.Cultivars)-1]
 		g.Log(now, "Named a new hybrid seed ‘%s’: it is in the almanac.", label)

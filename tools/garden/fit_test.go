@@ -28,11 +28,12 @@ func TestEveryScreenFitsTheTerminal(t *testing.T) {
 		"garden": screenGarden, "shed": screenShop, "info": screenInfo,
 		"almanac": screenAlmanac, "journal": screenJournal, "help": screenHelp,
 		"layouts": screenTemplates, "orders": screenOrders, "fair": screenFair, "gnomes": screenGnomes,
+		"genetics": screenLineage,
 	}
 
 	for _, size := range sizes {
 		for name, s := range screens {
-			for _, variant := range []string{"", "mine", "cultivar", "ribbon", "plan"} {
+			for _, variant := range []string{"", "mine", "folders", "shopcultivar", "cultivar", "defining", "ribbon", "plan"} {
 				m := demoModel(t, size[0], size[1])
 				m.screen = s
 				switch variant {
@@ -41,9 +42,31 @@ func TestEveryScreenFitsTheTerminal(t *testing.T) {
 						continue
 					}
 					m.shelf = shelfMine
-				case "cultivar", "ribbon":
+				case "folders":
+					if s != screenShop {
+						continue
+					}
+					m.shelf, m.g.ShedFolders = shelfMine, true
+					m.toggleAllShedFolders()
+					m.mineCursor = 2
+				case "shopcultivar":
+					if s != screenShop {
+						continue
+					}
+					for i, sp := range m.shop {
+						if sp.ID == "zinnia" {
+							m.shopCursor = i
+						}
+					}
+					m.shopVariety = len(SpeciesByID("zinnia").Varieties())
+				case "cultivar", "ribbon", "defining":
 					if s != screenAlmanac {
 						continue
+					}
+					m.defining = variant == "defining"
+					variant := variant
+					if variant == "defining" {
+						variant = "cultivar"
 					}
 					for i, r := range m.almanac {
 						if (variant == "cultivar" && r.Kind == rowCultivar) || (variant == "ribbon" && r.Kind == rowRibbon) {
@@ -55,6 +78,21 @@ func TestEveryScreenFitsTheTerminal(t *testing.T) {
 						continue
 					}
 					m.startPlan()
+				}
+				if s == screenLineage {
+					switch variant {
+					case "":
+						sub, _ := m.g.plantLineage(&m.g.Plots[0])
+						m.lineage = sub
+					case "cultivar":
+						sub, _ := m.g.cultivarLineage(&m.g.Cultivars[0])
+						m.lineage = sub
+					case "mine":
+						sub, _ := m.g.packetLineage(m.g.Shed[0])
+						m.lineage = sub
+					default:
+						continue
+					}
 				}
 				m.ensureVisible()
 				view := m.View()

@@ -35,6 +35,8 @@ const (
 	setAlmanac keySet = "almanac"
 	setJournal keySet = "journal"
 	setHelp    keySet = "help"
+	setLineage keySet = "genetics"
+	setDefine  keySet = "define"
 )
 
 // anyKey matches whatever was pressed, so a screen can close on any key that
@@ -69,10 +71,12 @@ var setTitles = map[keySet]string{
 	setAlmanac: "in the almanac",
 	setJournal: "in the journal",
 	setHelp:    "on this screen",
+	setLineage: "on the genetics screen (t)",
+	setDefine:  "defining a cultivar (D, on its almanac page)",
 }
 
 // setOrder is the order sets are listed in.
-var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setGnomes, setShare, setShop, setMine, setInfo, setAlmanac, setJournal, setHelp, setGlobal}
+var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setGnomes, setShare, setShop, setMine, setInfo, setAlmanac, setDefine, setLineage, setJournal, setHelp, setGlobal}
 
 var (
 	bindingsOnce sync.Once
@@ -97,6 +101,9 @@ func bindingsIn(set keySet) []binding {
 
 // activeSets are the sets live right now, most specific first.
 func (m model) activeSets() []keySet {
+	if m.defining && m.screen == screenAlmanac {
+		return []keySet{setDefine, setGlobal}
+	}
 	if m.pollinating {
 		return []keySet{setPollen, setGlobal}
 	}
@@ -138,6 +145,8 @@ func (m model) screenSet() keySet {
 		return setShare
 	case screenGnomes:
 		return setGnomes
+	case screenLineage:
+		return setLineage
 	}
 	return setGarden
 }
@@ -223,11 +232,17 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNaming(msg)
 	}
 	var cmd tea.Cmd
+	if m.confirmDel != 0 && keyOf(msg) != "x" {
+		m.confirmDel, m.status = 0, ""
+	}
 	if b := m.lookup(keyOf(msg)); b != nil && b.Do != nil {
 		cmd = b.Do(&m)
 	}
 	m.ensureVisible()
 	m.fixAlmanac()
+	if m.screen == screenShop && m.shelf == shelfMine {
+		m.fixMine()
+	}
 	return m, cmd
 }
 
@@ -417,16 +432,16 @@ func buildBindings() []binding {
 		}
 		return nil
 	})
-	add(setShop, k("left", "h"), "←→ / hl", "choose a variety", "←→ variety", func(m *model) tea.Cmd {
+	add(setShop, k("left", "h"), "←→ / hl", "choose a variety: the named forms, then your own cultivars of the species", "←→ variety", func(m *model) tea.Cmd {
 		if len(m.shop) > 0 {
-			forms := len(m.shop[m.shopCursor].Varieties())
+			forms := len(m.g.varietyForms(m.shop[m.shopCursor]))
 			m.shopVariety = (m.shopVariety + forms - 1) % forms
 		}
 		return nil
 	})
 	add(setShop, k("right", "l"), "", "", "", func(m *model) tea.Cmd {
 		if len(m.shop) > 0 {
-			m.shopVariety = (m.shopVariety + 1) % len(m.shop[m.shopCursor].Varieties())
+			m.shopVariety = (m.shopVariety + 1) % len(m.g.varietyForms(m.shop[m.shopCursor]))
 		}
 		return nil
 	})
@@ -450,13 +465,13 @@ func buildBindings() []binding {
 		}
 		return nil
 	})
-	add(setShop, k("enter", "p", " "), "enter / p / space", "buy one seed and sow it in the selected bed", "enter buy & sow", func(m *model) tea.Cmd { return m.actSow() })
+	add(setShop, k("enter", "p", " "), "enter / p / space", "buy one seed and sow it in the selected bed (your own cultivars cost much more than named forms)", "enter buy & sow", func(m *model) tea.Cmd { return m.actSow() })
 	add(setShop, k("b"), "b", "buy one seed into your shed without sowing it", "b buy", func(m *model) tea.Cmd { return m.actBuySeed() })
 	add(setShop, k("i"), "i", "import a friend's code: three seeds of their cultivar, and the line goes in your almanac", "i import", func(m *model) tea.Cmd { m.startImport(); return nil })
 	add(setShop, k("s"), "s", "switch to your own seeds", "s my seeds", func(m *model) tea.Cmd { return m.actShelf(shelfMine) })
 
 	// ---- the seed shed: my seeds ---------------------------------------
-	add(setMine, k("up", "k"), "↑↓ / jk", "browse your packets", "↑↓ browse", func(m *model) tea.Cmd {
+	add(setMine, k("up", "k"), "↑↓ / jk", "browse your packets (or folders)", "↑↓ browse", func(m *model) tea.Cmd {
 		if m.mineCursor > 0 {
 			m.mineCursor--
 			m.cardScroll = 0
@@ -464,10 +479,58 @@ func buildBindings() []binding {
 		return nil
 	})
 	add(setMine, k("down", "j"), "", "", "", func(m *model) tea.Cmd {
-		if m.mineCursor < len(m.g.Shed)-1 {
+		if m.mineCursor < len(m.shedRows())-1 {
 			m.mineCursor++
 			m.cardScroll = 0
 		}
+		return nil
+	})
+	add(setMine, k("left", "h"), "←→ / hl", "in folders: close the folder, or step out to the one above / open it, or step in", "", func(m *model) tea.Cmd {
+		if !m.g.ShedFolders {
+			return nil
+		}
+		if row, ok := m.shedCur(); ok && row.Kind == shedFolder && row.Open {
+			no := false
+			m.toggleShedFolder(&no)
+		} else {
+			m.shedParent()
+			m.cardScroll = 0
+		}
+		return nil
+	})
+	add(setMine, k("right", "l"), "", "", "", func(m *model) tea.Cmd {
+		if !m.g.ShedFolders {
+			return nil
+		}
+		if row, ok := m.shedCur(); ok && row.Kind == shedFolder {
+			if !row.Open {
+				yes := true
+				m.toggleShedFolder(&yes)
+			} else if m.mineCursor < len(m.shedRows())-1 {
+				m.mineCursor++
+				m.cardScroll = 0
+			}
+		}
+		return nil
+	})
+	add(setMine, k("v"), "v", "switch between a plain list and folders (category, species, variety, packets); a folder holding one thing is skipped", "v folders", func(m *model) tea.Cmd {
+		m.toggleShedFolders()
+		return nil
+	})
+	add(setMine, k("C"), "C", "in folders: close every folder, or open them all if all are closed", "", func(m *model) tea.Cmd {
+		if m.g.ShedFolders {
+			m.toggleAllShedFolders()
+		}
+		return nil
+	})
+	add(setMine, k("t"), "t", "genetics: the packet's lineage, its first generation and every mutation and drift since", "t genetics", func(m *model) tea.Cmd {
+		pi := m.minePacket()
+		if pi < 0 {
+			m.setStatus(subtleStyle, "Open the folder to a packet to read its genetics.")
+			return nil
+		}
+		sub, ok := m.g.packetLineage(m.g.Shed[pi])
+		m.openLineage(sub, ok)
 		return nil
 	})
 	add(setMine, k("pgup"), "pgup / pgdn", "read a long card", "", func(m *model) tea.Cmd { scrollBy(m, -6); return nil })
@@ -477,10 +540,10 @@ func buildBindings() []binding {
 		return nil
 	})
 	add(setMine, k("end", "G"), "", "", "", func(m *model) tea.Cmd {
-		m.mineCursor, m.cardScroll = max(0, len(m.g.Shed)-1), 0
+		m.mineCursor, m.cardScroll = max(0, len(m.shedRows())-1), 0
 		return nil
 	})
-	add(setMine, k("enter", "p", " "), "enter / p / space", "sow one seed from the packet in the selected bed", "enter sow", func(m *model) tea.Cmd { return m.actSowMine() })
+	add(setMine, k("enter", "p", " "), "enter / p / space", "sow one seed from the packet in the selected bed (on a folder: open or close it)", "enter sow", func(m *model) tea.Cmd { return m.actSowMine() })
 	add(setMine, k("$"), "$ / S", "sell one seed from the packet / the whole packet", "$ sell", func(m *model) tea.Cmd { return m.actSell(1) })
 	add(setMine, k("S"), "", "", "", func(m *model) tea.Cmd { return m.actSell(0) })
 	add(setMine, k("r", "n"), "r / n", "give the packet a name of your own", "r label", func(m *model) tea.Cmd {
@@ -516,6 +579,11 @@ func buildBindings() []binding {
 		m.startNaming()
 		return nil
 	})
+	add(setInfo, k("t"), "t", "genetics: the plant's lineage, its first generation and every mutation and drift on the way", "t genetics", func(m *model) tea.Cmd {
+		sub, ok := m.g.plantLineage(m.plot())
+		m.openLineage(sub, ok)
+		return nil
+	})
 	add(setInfo, k("u"), "u", "lift the plant and compost it", "u lift", func(m *model) tea.Cmd { return m.actLift(true) })
 	add(setInfo, k("left", "h"), "←→ / hl", "the previous / next bed", "←→ other beds", func(m *model) tea.Cmd {
 		m.cursor = (m.cursor + len(m.g.Plots) - 1) % len(m.g.Plots)
@@ -537,14 +605,14 @@ func buildBindings() []binding {
 	add(setAlmanac, k("up", "k"), "↑↓ / jk", "browse the guide, species and visitors; category headings are rows too", "↑↓ browse", func(m *model) tea.Cmd {
 		if m.almanacCursor > 0 {
 			m.almanacCursor--
-			m.cardScroll, m.almanacVariety, m.almanacOwn = 0, 0, 0
+			m.cardScroll, m.almanacVariety = 0, 0
 		}
 		return nil
 	})
 	add(setAlmanac, k("down", "j"), "", "", "", func(m *model) tea.Cmd {
 		if m.almanacCursor < len(m.almanacVisible())-1 {
 			m.almanacCursor++
-			m.cardScroll, m.almanacVariety, m.almanacOwn = 0, 0, 0
+			m.cardScroll, m.almanacVariety = 0, 0
 		}
 		return nil
 	})
@@ -570,21 +638,13 @@ func buildBindings() []binding {
 		m.almanacStage = (m.almanacStage + 1) % StageCount
 		return nil
 	})
-	add(setAlmanac, k("v"), "v", "flick through a species' varieties", "v variety", func(m *model) tea.Cmd {
+	add(setAlmanac, k("v"), "v", "flick through a species' varieties: the named forms, then your own cultivars of it", "v variety", func(m *model) tea.Cmd {
 		if row, ok := m.almanacCur(); ok && row.IsPlant() {
-			m.almanacVariety = (m.almanacVariety + 1) % len(row.Species.Varieties())
+			m.almanacVariety = (m.almanacVariety + 1) % len(m.g.varietyForms(row.Species))
 		}
 		return nil
 	})
-	add(setAlmanac, k("y"), "y", "on a species page: pick one of YOUR VARIETIES", "", func(m *model) tea.Cmd {
-		if row, ok := m.almanacCur(); ok && row.IsPlant() {
-			if n := len(m.g.UniqueCultivarsOf(row.Species)); n > 0 {
-				m.almanacOwn = (m.almanacOwn + 1) % n
-			}
-		}
-		return nil
-	})
-	add(setAlmanac, k("o"), "o", "on a species page: open the picked variety's cultivar page", "", func(m *model) tea.Cmd {
+	add(setAlmanac, k("o"), "o", "on a species page: open the cultivar page of the variety you have flicked to", "", func(m *model) tea.Cmd {
 		m.openOwnVariety()
 		return nil
 	})
@@ -593,6 +653,30 @@ func buildBindings() []binding {
 		m.startNamingCultivar()
 		return nil
 	})
+	add(setAlmanac, k("t"), "t", "genetics: how a cultivar's line came about, generation by generation (on its page)", "", func(m *model) tea.Cmd {
+		row, ok := m.almanacCur()
+		if !ok || row.Kind != rowCultivar {
+			m.setStatus(subtleStyle, "Open one of your cultivars (under YOUR CULTIVARS) to read its genetics.")
+			return nil
+		}
+		if c := m.g.CultivarByID(row.Cultivar); c != nil {
+			sub, ok := m.g.cultivarLineage(c)
+			m.openLineage(sub, ok)
+		}
+		return nil
+	})
+	add(setAlmanac, k("D"), "D", "define a cultivar: the ideal for each gene and how far a plant may stray and still be the variety (on its page)", "", func(m *model) tea.Cmd {
+		row, ok := m.almanacCur()
+		if !ok || row.Kind != rowCultivar || m.g.CultivarByID(row.Cultivar) == nil {
+			m.setStatus(subtleStyle, "Open one of your cultivars (under YOUR CULTIVARS) to define it.")
+			return nil
+		}
+		m.defining, m.defGene = true, 0
+		m.cardScroll = 0
+		m.setStatus(okStyle, "Defining ‘%s’: ←→ tolerance, [ ] ideal, ↑↓ gene, enter when done.", m.g.CultivarByID(row.Cultivar).Name)
+		return nil
+	})
+	add(setAlmanac, k("x"), "x", "delete the record of a cultivar, bred or imported (on its page; asks twice); plants and seed you hold stay", "", func(m *model) tea.Cmd { return m.actDeleteCultivar() })
 	add(setAlmanac, k("pgup"), "pgup / pgdn", "read a long page", "", func(m *model) tea.Cmd { scrollBy(m, -6); return nil })
 	add(setAlmanac, k("pgdown"), "", "", "", func(m *model) tea.Cmd { scrollBy(m, 6); return nil })
 	add(setAlmanac, k("home", "g"), "home / g, end / G", "first / last entry", "", func(m *model) tea.Cmd {
@@ -617,6 +701,37 @@ func buildBindings() []binding {
 	// ---- the share screen -----------------------------------------------
 	add(setShare, k(anyKey), "any key", "back to the almanac", "", func(m *model) tea.Cmd {
 		m.screen = screenAlmanac
+		return nil
+	})
+
+	// ---- the genetics screen --------------------------------------------
+	add(setLineage, k("up", "k"), "↑↓ / jk, pgup / pgdn", "scroll", "↑↓ scroll", func(m *model) tea.Cmd { scrollBy(m, -1); return nil })
+	add(setLineage, k("down", "j"), "", "", "", func(m *model) tea.Cmd { scrollBy(m, 1); return nil })
+	add(setLineage, k("pgup"), "", "", "", func(m *model) tea.Cmd { scrollBy(m, -10); return nil })
+	add(setLineage, k("pgdown"), "", "", "", func(m *model) tea.Cmd { scrollBy(m, 10); return nil })
+	add(setLineage, k("home", "g"), "home / g", "back to the top", "", func(m *model) tea.Cmd { m.cardScroll = 0; return nil })
+	add(setLineage, k("esc", "t", "enter", "backspace"), "esc / t / enter / backspace", "go back", "esc back", func(m *model) tea.Cmd {
+		m.screen, m.cardScroll = m.lineageBack, 0
+		return nil
+	})
+
+	// ---- defining a cultivar --------------------------------------------
+	add(setDefine, k("up", "k"), "↑↓ / jk", "choose a gene", "↑↓ gene", func(m *model) tea.Cmd {
+		m.defGene = (m.defGene + geneCount - 1) % geneCount
+		return nil
+	})
+	add(setDefine, k("down", "j"), "", "", "", func(m *model) tea.Cmd {
+		m.defGene = (m.defGene + 1) % geneCount
+		return nil
+	})
+	add(setDefine, k("right", "l"), "←→ / hl", "widen / narrow how far this gene may stray from the ideal", "←→ tolerance", func(m *model) tea.Cmd { return m.actDefine(false, +1) })
+	add(setDefine, k("left", "h"), "", "", "", func(m *model) tea.Cmd { return m.actDefine(false, -1) })
+	add(setDefine, k("]"), "[ / ]", "move the ideal for this gene down / up", "[ ] ideal", func(m *model) tea.Cmd { return m.actDefine(true, +1) })
+	add(setDefine, k("["), "", "", "", func(m *model) tea.Cmd { return m.actDefine(true, -1) })
+	add(setDefine, k("r"), "r", "put every tolerance back to the default", "r reset", func(m *model) tea.Cmd { return m.actDefineReset() })
+	add(setDefine, k("enter", "esc", "D"), "enter / esc / D", "done", "enter done", func(m *model) tea.Cmd {
+		m.defining = false
+		m.setStatus(okStyle, "Definition kept.")
 		return nil
 	})
 

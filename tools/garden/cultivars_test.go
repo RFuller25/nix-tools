@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -172,7 +173,7 @@ func TestEverythingBredSurvivesASave(t *testing.T) {
 	if p.Genome != oddCosmos() || p.Pollen == nil || *p.Pollen != donor || p.Line != g.Plots[0].Line || p.LineName != g.Plots[0].LineName {
 		t.Errorf("a plant's genes did not survive: %+v", p)
 	}
-	if len(back.Cultivars) != 1 || back.Cultivars[0] != g.Cultivars[0] {
+	if len(back.Cultivars) != 1 || !reflect.DeepEqual(back.Cultivars[0], g.Cultivars[0]) {
 		t.Error("cultivars did not survive")
 	}
 	g.Gather(0, now)

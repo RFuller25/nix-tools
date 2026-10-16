@@ -250,11 +250,16 @@ func (g *Garden) Redeem(text string, now time.Time) (Redemption, error) {
 		line = existing
 	} else {
 		g.CultivarSeq++
+		g.unforget(sp, c.Genome)
 		variety, _ := sp.NearestVariety(c.Genome)
 		g.Cultivars = append(g.Cultivars, Cultivar{
 			ID: g.CultivarSeq, Name: c.Name, Species: sp.ID, Genome: c.Genome, Gen: c.Gen,
 			Descent: "a gift" + fromText(c.From), Found: now, Stable: c.Stable, Named: true,
 			Variety: variety, From: c.From, Gifted: true,
+			History: []Step{{
+				Gen: c.Gen, Kind: stepGift, Genome: c.Genome, At: now,
+				Note: "a gift" + fromText(c.From) + ", whose line had been bred to its " + ordinal(max(1, c.Gen)) + " generation",
+			}},
 		})
 		line = &g.Cultivars[len(g.Cultivars)-1]
 		newLine = true
@@ -270,7 +275,7 @@ func (g *Garden) Redeem(text string, now time.Time) (Redemption, error) {
 	pk := Packet{
 		SpeciesID: sp.ID, A: c.Genome, B: c.Genome, Count: giftSeeds, Gen: c.Gen,
 		Variety: line.Variety, Label: line.Name, From: "a gift" + fromText(c.From), Descent: "a gift" + fromText(c.From),
-		Streak: streak, Line: line.ID,
+		Streak: streak, Line: line.ID, Kind: stepGift,
 	}
 	g.AddPacket(pk)
 	g.Redeemed = append(g.Redeemed, id)
