@@ -44,6 +44,7 @@ var soilPrefs = map[string]soilPref{
 	"sundew":        soilAcid,
 	"blackpine":     soilAcid,
 	"potato":        soilAcid,
+	"hakone":        soilAcid,
 
 	// Chalk and lime: the Mediterranean herbs and a few border plants.
 	"lavender":   soilChalk,
@@ -55,6 +56,14 @@ var soilPrefs = map[string]soilPref{
 	"clematis":   soilChalk,
 	"delphinium": soilChalk,
 	"iris":       soilChalk,
+
+	// The brassicas want lime: clubroot, their worst disease, thrives in acid soil.
+	"cabbage":        soilChalk,
+	"kale":           soilChalk,
+	"broccoli":       soilChalk,
+	"brusselssprout": soilChalk,
+	"cauliflower":    soilChalk,
+	"kohlrabi":       soilChalk,
 
 	// Fussy about neither extreme, but they do want the middle ground.
 	"peony":      soilNeutral,

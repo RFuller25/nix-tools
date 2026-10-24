@@ -8,6 +8,7 @@ func init() {
 	for _, table := range []map[string][]Variety{
 		flowerVarieties, bulbVarieties, herbVarieties,
 		edibleVarieties, treeVarieties, wildVarieties,
+		pondVarieties, grassVarieties, brassicaVarieties,
 	} {
 		for id, vs := range table {
 			varieties[id] = vs

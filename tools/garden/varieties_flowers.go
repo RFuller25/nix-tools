@@ -52,6 +52,7 @@ var flowerVarieties = map[string][]Variety{
 		{Name: "Magnus", Note: "deep purple, petals held flat rather than drooping", Bloom: "133"},
 		{Name: "White Swan", Note: "white rays around an orange cone", Bloom: "255", Accent: "208"},
 		{Name: "Green Jewel", Note: "green rays, dwarf and scented", Bloom: "150"},
+		{Name: "Powwow Wild Berry", Note: "deep rose-purple, compact and free-flowering", Bloom: "126"},
 	},
 	"rudbeckia": {
 		{Name: "Prairie Sun", Note: "gold petals, light tips, a green eye", Bloom: "220", Accent: "149"},
@@ -67,21 +68,25 @@ var flowerVarieties = map[string][]Variety{
 		{Name: "Black Knight", Note: "darkest violet, black-eyed", Bloom: "57", Accent: "233"},
 		{Name: "Galahad", Note: "pure white with a white eye", Bloom: "255"},
 		{Name: "Summer Skies", Note: "pale sky blue, the classic border spire", Bloom: "111"},
+		{Name: "Blue Bird", Note: "clear mid-blue with a white bee, shorter and sturdier", Bloom: "75", Accent: "255"},
 	},
 	"peony": {
 		{Name: "Sarah Bernhardt", Note: "vast double blush-pink, scented", Bloom: "218"},
 		{Name: "Festiva Maxima", Note: "white, flecked crimson at the heart", Bloom: "255", Accent: "160"},
 		{Name: "Karl Rosenfield", Note: "deep ruby red, upright stems", Bloom: "124"},
+		{Name: "Coral Charm", Note: "semi-double blooms opening coral and fading to peach", Bloom: "209"},
 	},
 	"rose": {
 		{Name: "Officinalis", Note: "the apothecary's rose itself, semi-double crimson", Bloom: "161"},
 		{Name: "Versicolor", Note: "Rosa Mundi — every petal striped pink on white", Bloom: "211", Accent: "255"},
 		{Name: "Complicata", Note: "single, clear pink, a white eye, enormous hips", Bloom: "218", Accent: "196"},
+		{Name: "Mutabilis", Note: "single blooms opening buff-yellow, then pink, then crimson", Bloom: "216", Accent: "161"},
 	},
 	"dahlia": {
 		{Name: "Café au Lait", Note: "dinner-plate blooms in creamy blush", Bloom: "223"},
 		{Name: "Bishop of Llandaff", Note: "single scarlet over near-black foliage", Bloom: "196", Leaf: "52"},
 		{Name: "Thomas Edison", Note: "deep velvet purple, formal decorative", Bloom: "91"},
+		{Name: "Bishop of York", Note: "single yellow flowers over dark bronze foliage", Bloom: "220", Leaf: "52"},
 	},
 	"chrysanthemum": {
 		{Name: "Clara Curtis", Note: "a simple pink daisy, hardy and late", Bloom: "211"},
@@ -95,8 +100,8 @@ var flowerVarieties = map[string][]Variety{
 	},
 	"mothorchid": {
 		{Name: "the white species", Note: "plain white, the wild Phalaenopsis amabilis", Bloom: "255"},
-		{Name: "a pink-lipped form", Note: "white petals, a deep pink lip", Bloom: "254", Accent: "205"},
-		{Name: "a striped form", Note: "candy-striped through every petal", Bloom: "218", Accent: "161"},
+		{Name: "Sogo Yukidian", Note: "white petals, a deep pink lip", Bloom: "254", Accent: "205"},
+		{Name: "Stuartiana", Note: "Phalaenopsis stuartiana, white and speckled, spotted through every petal", Bloom: "218", Accent: "161"},
 	},
 	"eveningprimrose": {
 		{Name: "the wild plant", Note: "lemon yellow, opening at dusk", Bloom: "227"},
@@ -105,10 +110,12 @@ var flowerVarieties = map[string][]Variety{
 	},
 	"nightstock": {
 		{Name: "the wild plant", Note: "dowdy lilac by day, extraordinary at dusk", Bloom: "183"},
-		{Name: "Starlight Scentsation", Note: "a seed mix from white through rose to purple", Bloom: "218"},
+		{Name: "Starlight Sensation", Note: "a seed mix from white through rose to purple", Bloom: "218"},
+		{Name: "Evening Scented", Note: "the sold form of the wild stock, larger and as scented", Bloom: "255"},
 	},
 	"moonflower": {
 		{Name: "the species", Note: "hand-sized white trumpets, opening in minutes", Bloom: "255"},
-		{Name: "a pink-throated form", Note: "white with a blush of pink down the throat", Bloom: "254", Accent: "218"},
+		{Name: "Giant White", Note: "bigger flowers than the wild plant, white with a blush down the throat", Bloom: "254", Accent: "218"},
+		{Name: "Lunar White", Note: "pure white trumpets, opening slower, scented all night", Bloom: "255"},
 	},
 }

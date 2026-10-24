@@ -323,7 +323,7 @@ will grow.
 
 ## Species
 
-88 real species in 264 varieties, each with its Latin binomial, family, origin,
+110 real species in 355 varieties, each with its Latin binomial, family, origin,
 flowering time, sun and water needs, height, a gardener's note and a
 description, from sweet basil to the sacred lotus by way of the Venus flytrap
 and a bonsai black pine. Each variety is a real cultivar or colour form, and

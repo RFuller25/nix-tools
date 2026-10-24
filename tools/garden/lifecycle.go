@@ -38,10 +38,13 @@ var lives = map[string]LifeKind{
 	"snapdragon": Annual, "sunflower": Annual, "sweetcorn": Annual,
 	"sweetpea": Annual, "tomato": Annual, "zinnia": Annual,
 	"moonflower": Annual, "nightstock": Annual,
+	"broccoli": Annual, "cauliflower": Annual, "pakchoi": Annual, "rocket": Annual,
+	"giantwaterlily": Annual,
 
 	// Biennials: leaves the first year, flowers the second.
 	"beetroot": Biennial, "carrot": Biennial, "foxglove": Biennial, "parsley": Biennial,
-	"eveningprimrose": Biennial,
+	"eveningprimrose": Biennial, "cabbage": Biennial, "kale": Biennial,
+	"brusselssprout": Biennial, "kohlrabi": Biennial, "turnip": Biennial,
 
 	// Herbaceous perennials, including the bulbs and the tender things we
 	// keep going year to year.
@@ -59,6 +62,10 @@ var lives = map[string]LifeKind{
 	"snowdrop": Perennial, "strawberry": Perennial, "stringofpearls": Perennial,
 	"sundew": Perennial, "tigerlily": Perennial, "tulip": Perennial,
 	"venusflytrap": Perennial, "waterlily": Perennial,
+	"watercress": Perennial, "yellowflag": Perennial, "marshmarigold": Perennial,
+	"pickerelweed": Perennial, "papyrus": Perennial, "horseradish": Perennial,
+	"bluefescue": Perennial, "featherreed": Perennial, "hakone": Perennial,
+	"switchgrass": Perennial, "silvergrass": Perennial, "pampas": Perennial,
 
 	// Woody: shrubs, trees and the climbers that build a trunk.
 	"apple": Woody, "blackpine": Woody, "cherryblossom": Woody, "clematis": Woody,
@@ -75,6 +82,7 @@ var evergreens = map[string]bool{
 	"echeveria": true, "haircapmoss": true, "jade": true, "lavender": true,
 	"mothorchid": true, "olive": true, "pricklypear": true, "rosemary": true,
 	"sage": true, "sempervivum": true, "stringofpearls": true, "thyme": true,
+	"bluefescue": true, "pampas": true,
 }
 
 // selfSeeders scatter their own seed about and come up wherever there is a
@@ -84,7 +92,7 @@ var selfSeeders = map[string]bool{
 	"foxglove": true, "lupine": true, "dill": true, "lemonbalm": true,
 	"marigold": true, "snapdragon": true, "sunflower": true, "parsley": true,
 	"chives": true, "lettuce": true, "sweetpea": true, "morningglory": true,
-	"eveningprimrose": true, "nightstock": true,
+	"eveningprimrose": true, "nightstock": true, "rocket": true, "yellowflag": true,
 }
 
 // Life is what kind of life the species leads.

@@ -66,6 +66,22 @@ var companions = []companion{
 		note: "the aromatic herb draws pollinators in and confuses what would eat it",
 	},
 	{
+		who: isFamily("Brassicaceae"), from: isID("dill", "chamomile"), delta: 0.08,
+		note: "dill and chamomile draw the hoverflies and wasps that eat cabbage caterpillars",
+	},
+	{
+		who: isFamily("Brassicaceae"), from: isID("chives", "garlic", "allium"), delta: 0.06,
+		note: "the onion smell hides the crop from the cabbage root fly",
+	},
+	{
+		who: isFamily("Brassicaceae"), from: isID("strawberry", "tomato"), delta: -0.06,
+		note: "strawberries and tomatoes crowd and rival brassicas for the same food",
+	},
+	{
+		who: isFamily("Asteraceae"), from: isID("switchgrass", "featherreed", "silvergrass"), delta: 0.04,
+		note: "prairie partners: daisies and tall grasses grow up together in the wild",
+	},
+	{
 		who: anyPlant(), from: isID("mint"), delta: -0.10,
 		note: "mint's runners crowd out whatever is next to it",
 	},

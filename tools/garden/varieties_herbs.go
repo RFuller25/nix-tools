@@ -54,6 +54,7 @@ var herbVarieties = map[string][]Variety{
 	"chamomile": {
 		{Name: "the wild plant", Note: "single daisies, the tea chamomile", Bloom: "255"},
 		{Name: "Bodegold", Note: "larger heads, more oil, easier to pick", Bloom: "254", Accent: "227"},
+		{Name: "Zloty Lan", Note: "a Polish tea chamomile with big heads and a strong scent", Bloom: "255", Accent: "220"},
 	},
 	"chives": {
 		{Name: "the common chive", Note: "mauve pompoms, fine hollow leaves", Bloom: "176"},
