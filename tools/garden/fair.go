@@ -183,7 +183,7 @@ func (g *Garden) settleFair(now time.Time) {
 		return
 	}
 	cat := g.FairFor(e.Week)
-	score := FairScore(cat, sp, e.Genome, e.Health)
+	score := FairScore(cat, sp, e.Genome, e.Health) * g.boost(boostFair)
 
 	bar := math.Min(fairBarMax, float64(g.Fair.Wins)*fairBarPerWin)
 	place := 1

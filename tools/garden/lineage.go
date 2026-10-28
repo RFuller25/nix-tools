@@ -40,12 +40,13 @@ const (
 	stepVolunteer StepKind = "volunteer" // sowed itself in a neighbouring bed
 	stepGnome     StepKind = "gnome"     // changed in place by the gnomes
 	stepMatch     StepKind = "match"     // a gnome-matched cross of two species
+	stepLab       StepKind = "lab"       // copied exactly at the gene lab
 )
 
 // Origin reports whether the kind starts a line, rather than continuing one.
 func (k StepKind) Origin() bool {
 	switch k {
-	case stepShop, stepCultivar, stepWild, stepGift:
+	case stepShop, stepCultivar, stepWild, stepGift, stepLab:
 		return true
 	}
 	return false
@@ -308,6 +309,8 @@ func kindWords(k StepKind) string {
 		return "changed by the gnomes"
 	case stepMatch:
 		return "matched by the gnomes"
+	case stepLab:
+		return "copied at the gene lab"
 	}
 	return "unrecorded"
 }
@@ -317,6 +320,8 @@ func kindWords(k StepKind) string {
 // with how unlike they are, plus a rare mutation".
 func howItWorks(s Step) string {
 	switch s.Kind {
+	case stepLab:
+		return "The gene lab copies a plant gene for gene, so seed of this kind comes exactly true to the plant it was taken from."
 	case stepShop, stepCultivar, stepWild:
 		return "Seed of this kind comes exactly true, so the plant is the form itself."
 	case stepGift:

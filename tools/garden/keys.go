@@ -31,6 +31,7 @@ const (
 	setFair    keySet = "fair"
 	setShare   keySet = "share"
 	setGnomes  keySet = "gnomes"
+	setVillage keySet = "village"
 	setInfo    keySet = "card"
 	setAlmanac keySet = "almanac"
 	setJournal keySet = "journal"
@@ -67,6 +68,7 @@ var setTitles = map[keySet]string{
 	setFair:    "at the fair",
 	setShare:   "on the share screen",
 	setGnomes:  "at the gnome shop (N)",
+	setVillage: "in the village (H)",
 	setInfo:    "on a plant's card",
 	setAlmanac: "in the almanac",
 	setJournal: "in the journal",
@@ -76,7 +78,7 @@ var setTitles = map[keySet]string{
 }
 
 // setOrder is the order sets are listed in.
-var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setGnomes, setShare, setShop, setMine, setInfo, setAlmanac, setDefine, setLineage, setJournal, setHelp, setGlobal}
+var setOrder = []keySet{setGarden, setPollen, setPlan, setStamp, setSelect, setTpl, setOrders, setFair, setGnomes, setVillage, setShare, setShop, setMine, setInfo, setAlmanac, setDefine, setLineage, setJournal, setHelp, setGlobal}
 
 var (
 	bindingsOnce sync.Once
@@ -145,6 +147,8 @@ func (m model) screenSet() keySet {
 		return setShare
 	case screenGnomes:
 		return setGnomes
+	case screenVillage:
+		return setVillage
 	case screenLineage:
 		return setLineage
 	}
@@ -287,7 +291,7 @@ func buildBindings() []binding {
 		}
 		return nil
 	})
-	add(setGlobal, k("tab"), "tab", "cycle garden → shed → orders → fair → gnomes → almanac → journal", "tab screens", func(m *model) tea.Cmd {
+	add(setGlobal, k("tab"), "tab", "cycle garden → shed → orders → fair → gnomes → village → almanac → journal", "tab screens", func(m *model) tea.Cmd {
 		m.screen = nextScreen(m.screen)
 		if m.screen == screenShop {
 			m.refreshShop()

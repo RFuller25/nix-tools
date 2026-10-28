@@ -259,6 +259,19 @@ type Garden struct {
 	OrdersWeek  int             `json:"orders_week,omitempty"`
 	OrdersDone  int             `json:"orders_done,omitempty"`
 	Fair        FairState       `json:"fair"`
+	// The village: hired help and their wages, scenery, the gene lab, keepsakes
+	// from commissions, and the colours and bed borders in use.
+	Helpers     []Helper        `json:"helpers,omitempty"`
+	WagesWeek   int             `json:"wages_week,omitempty"`
+	WagesPaid   int             `json:"wages_paid,omitempty"`
+	Scenery     map[string]bool `json:"scenery,omitempty"`
+	LabUses     int             `json:"lab_uses,omitempty"`
+	Keepsakes   []Keepsake      `json:"keepsakes,omitempty"`
+	KeepsakeSeq int             `json:"keepsake_seq,omitempty"`
+	Themes      map[string]bool `json:"themes,omitempty"`
+	Theme       string          `json:"theme,omitempty"`
+	Borders     map[string]bool `json:"borders,omitempty"`
+	Border      string          `json:"border,omitempty"`
 	// The gnome shop: the weather the gnomes have set for a day (keyed by
 	// date), how many spells they have cast, the day the wild seed was last
 	// bought and what the gardener has spent on magic.
@@ -509,6 +522,8 @@ func (g *Garden) Advance(now time.Time) {
 }
 
 func (g *Garden) stepAll(at time.Time, dt float64, now time.Time) {
+	g.settleWages(at)
+	g.helpersAct(at)
 	w := g.WeatherAt(at)
 	season := g.SeasonAt(at)
 	for i := range g.Plots {
@@ -522,7 +537,7 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 		p.Weeds = 0
 	} else {
 		// Weeds creep in everywhere, planted or not, and rest over winter.
-		weedRate := baseWeedPerHour
+		weedRate := baseWeedPerHour * g.boost(boostWeeds)
 		if season == Winter {
 			weedRate *= 0.45
 		}
@@ -535,7 +550,7 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 		thirst = p.Genes().ThirstFactor()
 	}
 	if !p.Pond {
-		p.Moisture = clamp01(p.Moisture - baseDryPerHour*w.Dryness*thirst*dt + w.Rainfall*dt)
+		p.Moisture = clamp01(p.Moisture - baseDryPerHour*g.boost(boostWater)*w.Dryness*thirst*dt + w.Rainfall*dt)
 	}
 	if p.Empty() || sp == nil {
 		return
@@ -555,7 +570,7 @@ func (g *Garden) step(p *Plot, idx int, w Weather, season Season, dt float64, at
 	}
 
 	feed(p, dt)
-	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season) * g.companionFactor(idx, sp) * gn.GrowthFactor()
+	rate := (1.0 / sp.Hours) * growthFactor(p, sp, w, season) * g.companionFactor(idx, sp) * gn.GrowthFactor() * g.boost(boostGrowth)
 	p.Growth = math.Min(1.0, p.Growth+rate*dt)
 	if p.Growth >= 1.0 && !p.Matured {
 		g.bloom(p, idx, sp, at, now)

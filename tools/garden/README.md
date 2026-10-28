@@ -62,6 +62,13 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
   soil (25), and buy one wild, wildly mutated seed a day. Little gnomes wander
   the stall, throw sparks and hop for joy when you buy. Every spell is
   deterministic, so a garden replays the same.
+* **The village** (`H`). Somewhere to spend gold once the beds are full: hired
+  help (a water-carrier, a weeder and a seed-gatherer, on a weekly wage), scenery
+  (a beehive, bird bath, water butt, pergola, fountain and some that are only
+  lovely), a gene lab (forecast a cross, copy a plant gene for gene, purify a
+  packet so it breeds true), commissions (turn a plant into a potpourri jar, a
+  pressed-flower frame or a dried wreath for your shelf), and colour themes and
+  bed borders to dress the garden in.
 * **Orders and a fair.** Three orders a week, easy, a stretch and hard, ask for a plant with a
   height or a colour; the harder the order the more it pays. Fill one and the plant is used up. Once a week the
   fair judges one plant of yours against a field that rises as you win.
@@ -100,6 +107,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `T` | layouts: the built-in ones and your own, to stamp down anywhere |
 | `o` | fill an order with the plant in this bed, if it fits one: the plant is used up and you are paid |
 | `O` | the order board |
+| `H` | the village: hired help, scenery, the gene lab, commissions, colours and borders |
 | `e` | enter the plant in this bed in this week's show |
 | `E` | the fair: this week's class, your entry and your ribbons |
 | `N` | the gnome shop: weather, seasons, growth, mutations, matches, soil and a wild seed (tab reaches it too) |
@@ -170,6 +178,16 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `↑↓ / jk` | browse the stall |
 | `enter / space` | buy the highlighted service, or choose it and go on: a sky, season, mutation or recipe, then the plant or bed to work it on (a match asks for two flowers) |
 | `esc` | step back; from the front of the stall, back to the garden |
+
+**In the village (H)**
+
+| key | action |
+| --- | --- |
+| `←→ / hl` | change tab: hired help, scenery, gene lab, commissions, colours and borders |
+| `↑↓ / jk` | choose |
+| `enter / space` | buy, hire or use the highlighted thing; for the lab and commissions, then choose the plant or packet |
+| `x` | let the highlighted helper go (on the hired help tab) |
+| `esc` | back out of a choice; from the list, back to the garden |
 
 **On the share screen**
 
@@ -281,7 +299,7 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
 | `m` | calming music on or off |
 | `q` | back to the garden; from the garden, quit (it saves itself) |
 | `?` | this help, from anywhere; again to close it |
-| `tab` | cycle garden → shed → orders → fair → gnomes → almanac → journal |
+| `tab` | cycle garden → shed → orders → fair → gnomes → village → almanac → journal |
 | `esc` | back to the garden |
 
 <!-- keys:end -->

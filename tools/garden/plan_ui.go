@@ -89,6 +89,34 @@ func planBindings() []binding {
 	})
 	add(setOrders, k("enter", "o", " "), "enter / o / space", "deliver the first of your plants that fits the order; it is used up and you are paid", "enter deliver", func(m *model) tcmd { return m.actDeliverOrder() })
 
+	// ---- the village ----------------------------------------------------
+	add(setGarden, k("H"), "H", "the village: hired help, scenery, the gene lab, commissions, colours and borders", "", func(m *model) tcmd {
+		m.openVillage()
+		return nil
+	})
+	add(setVillage, k("left", "h"), "←→ / hl", "change tab: hired help, scenery, gene lab, commissions, colours and borders", "←→ tab", func(m *model) tcmd {
+		m.villageMove(-1)
+		return nil
+	})
+	add(setVillage, k("right", "l"), "", "", "", func(m *model) tcmd {
+		m.villageMove(1)
+		return nil
+	})
+	add(setVillage, k("up", "k"), "↑↓ / jk", "choose", "↑↓ choose", func(m *model) tcmd {
+		m.villageStep(-1)
+		return nil
+	})
+	add(setVillage, k("down", "j"), "", "", "", func(m *model) tcmd {
+		m.villageStep(1)
+		return nil
+	})
+	add(setVillage, k("enter", " "), "enter / space", "buy, hire or use the highlighted thing; for the lab and commissions, then choose the plant or packet", "enter buy", func(m *model) tcmd { return m.actVillageEnter() })
+	add(setVillage, k("x"), "x", "let the highlighted helper go (on the hired help tab)", "x let go", func(m *model) tcmd { return m.actVillageDismiss() })
+	add(setVillage, k("esc"), "esc", "back out of a choice; from the list, back to the garden", "esc back", func(m *model) tcmd {
+		m.villageBack()
+		return nil
+	})
+
 	// ---- the fair -------------------------------------------------------
 	add(setGarden, k("e"), "e", "enter the plant in this bed in this week's show", "e show", func(m *model) tcmd { return m.actEnterHere() })
 	add(setGarden, k("E"), "E", "the fair: this week's class, your entry and your ribbons", "", func(m *model) tcmd {

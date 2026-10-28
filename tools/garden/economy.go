@@ -7,7 +7,9 @@ import (
 
 // The economy. Gold buys seed, ground and ponds; it is earned by selling the
 // seed your own plants make, by weeding, by the daily stipend, by orders and by
-// the fair. Nothing in the garden ever takes gold away: it can only be spent.
+// the fair. Gold is only ever taken when you spend it, apart from the weekly
+// wages of any help you have hired (see village.go), and a helper you cannot
+// pay simply stays home.
 //
 // Every price and rate is here, and the almanac's guide quotes these
 // constants, so retuning the economy is one edit.

@@ -36,6 +36,7 @@ func guideChapters() []chapter {
 		chOrders(),
 		chFair(),
 		chGnomes(),
+		chVillage(),
 		chSharing(),
 		chWorthDoing(),
 		chKeys(),
@@ -144,7 +145,7 @@ func chGettingStarted() chapter {
 						gk("help", "the key list (?).", w),
 					)...),
 				gp("In this almanac every category (the guide, your cultivars, each kind of plant, the visitors) has a heading you can stand on: enter folds it away and opens it again, and C folds or opens them all. Folds are remembered in your garden's save.", w),
-				gp("tab cycles garden → shed → orders → fair → almanac → journal. esc or q returns to the garden; q in the garden quits, and the garden saves itself.", w),
+				gp("tab cycles garden → shed → orders → fair → gnomes → village → almanac → journal. esc or q returns to the garden; q in the garden quits, and the garden saves itself.", w),
 				gp("Every screen is built to the window it is given and never drawn larger than the terminal. The garden scrolls both ways rather than reflowing; the card, help and almanac scroll with the arrows or pgup/pgdn.", w),
 			)
 		},
@@ -276,7 +277,7 @@ func chGold() chapter {
 						gk(fmt.Sprintf("+%d", weedingReward), "for clearing a properly overgrown bed (weeds over 45%)", w),
 						gk("sell seed", fmt.Sprintf("seed from your own plants, on the my seeds shelf ($ sells one, S the packet). A plain seed fetches about %.0f%% of its shop price; one that is unlike any named form fetches up to %.0fx more, a seed from a stable line %.0f%% more, and a high yield gene up to %.0f%% more.", sellBase*100, 1+sellNovelty, sellStable*100, sellYield*100), w),
 						gk("tasks", "the suggestions in the journal pay gold", w),
-						gk("orders, fair", "see their chapters", w),
+						gk("orders, fair, village", "see their chapters", w),
 					)...),
 				append([]string{gh("Where it goes")},
 					join(
@@ -482,6 +483,61 @@ func chOrders() chapter {
 				gp(fmt.Sprintf("A colour order is filled by any shade within about %.0f%% of the one shown, judged on hue mostly, so a coral is fine when coral is asked for and not when scarlet is.", colourMatch*100), w),
 				gp("To fill one the plant must be in flower and fit every condition. Press o on that bed, or enter on the order board (which delivers the first of your plants that fits). The plant is removed from its bed and used up by the order: it is not composted, so the bed gets no richness back. You are paid at once.", w),
 				append([]string{gh("Keys")}, keyRows(w, setOrders)...),
+			)
+		},
+	}
+}
+
+func chVillage() chapter {
+	return chapter{
+		Title: "The village",
+		Lede:  "Somewhere to spend what the garden earns.",
+		Build: func(m model, w int) []string {
+			var helpers, scenery, borders, themes []string
+			for _, d := range helperDefs {
+				helpers = append(helpers, gk(d.Name, fmt.Sprintf("%s %s to hire, then %s a week.", d.Blurb, goldLabel(d.Hire), goldLabel(d.Wage)), w)...)
+			}
+			for _, d := range sceneryDefs {
+				scenery = append(scenery, gk(d.Glyph+" "+d.Name, fmt.Sprintf("%s %s.", d.Blurb, goldLabel(d.Price)), w)...)
+			}
+			for _, d := range themeDefs {
+				themes = append(themes, d.Name+" ("+priceNote(m.g, d.Price)+")")
+			}
+			for _, d := range borderDefs {
+				borders = append(borders, d.Name+" ("+priceNote(m.g, d.Price)+")")
+			}
+			return join(
+				gp("Press H in the garden, or tab to it. The village has five stalls and none of them is needed to play: they are for gold you have no better use for. Left and right change stall; enter buys.", w),
+				append([]string{gh("Hired help")}, join(
+					gp(fmt.Sprintf("Wages are paid each Monday. Anyone you cannot pay stays at home that week, and nothing is lost. x on the stall lets someone go, and there is no refund of the fee."), w),
+					helpers,
+				)...),
+				append([]string{gh("Scenery")}, join(
+					gp("One of each. Some only look lovely. The rest change the garden a little for as long as they stand there.", w),
+					scenery,
+				)...),
+				append([]string{gh("The gene lab")}, join(
+					gk("Forecast a cross", fmt.Sprintf("%s. Two flowers of one species in bloom; the lab shows %d seedlings you might get from crossing them, rolled by the same rule as the real thing.", goldLabel(labForecastCost), labForecastKids), w),
+					gk("Copy a plant", fmt.Sprintf("%s plus %d times what the shed would pay for a seed of it, so an unusual plant costs more. You get %d seeds that come exactly true, and the plant is left where it stands.", goldLabel(labCloneBase), labCloneMult, labCloneSeeds), w),
+					gk("Purify a packet", fmt.Sprintf("%s plus %d times the worth of every seed in the packet. The packet's seed is settled on its middle gene, so what you sow from it comes true.", goldLabel(labPurifyBase), labPurifyMult), w),
+				)...),
+				append([]string{gh("Commissions")}, join(
+					gp("A craftsperson makes a plant in bloom into a keepsake for your shelf. The plant is used up, as for an order, and the bed keeps its soil. The fee is a base price plus a multiple of the plant's shop seed price.", w),
+					func() []string {
+						var out []string
+						for _, d := range commissionDefs {
+							out = append(out, gk(d.Name, fmt.Sprintf("%s: %s %s plus %d times the seed price.", d.Maker, d.Blurb, goldLabel(d.Base), d.Mult), w)...)
+						}
+						return out
+					}(),
+				)...),
+				append([]string{gh("Colours and borders")}, join(
+					gp("Colours repaint the titles, headings and the selected bed. A border is the frame drawn round every bed. Buy once, then switch between what you own for nothing.", w),
+					gp("Colours: "+strings.Join(themes, ", ")+".", w),
+					gp("Borders: "+strings.Join(borders, ", ")+".", w),
+					gp("Hired help working, scenery standing, and keepsakes made all carry in the save, so a garden left alone is still looked after.", w),
+				)...),
+				append([]string{gh("Keys")}, keyRows(w, setVillage)...),
 			)
 		},
 	}

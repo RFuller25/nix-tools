@@ -90,6 +90,9 @@ func (m model) header() string {
 		seedStyle.Render(fmt.Sprintf("✦ %d seeds", m.g.SeedsInShed())),
 		subtleStyle.Render(fmt.Sprintf("%d grown", m.g.Matured)),
 	}
+	if s := m.g.SceneryStrip(); s != "" {
+		bits = append(bits, subtleStyle.Render(s))
+	}
 	sep := subtleStyle.Render("  ·  ")
 
 	for len(bits) > 0 {
@@ -290,7 +293,7 @@ func (m model) renderCell(idx int) string {
 		if idx == m.cursor {
 			border = selBorder
 		}
-		return border.Render(strings.Join(lines, "\n"))
+		return border.Border(m.g.bedShape()).Render(strings.Join(lines, "\n"))
 	}
 	if sp := p.Species(); sp != nil {
 		// Taller plants catch more of the gust than a seedling does.
@@ -355,7 +358,7 @@ func (m model) renderCell(idx int) string {
 	case m.pollinating && m.isDonor(m.pollenTarget, idx):
 		border = donorBorder
 	}
-	return border.Render(strings.Join(lines, "\n"))
+	return border.Border(m.g.bedShape()).Render(strings.Join(lines, "\n"))
 }
 
 // statStrip packs growth, thirst, weeds and ripe pods into 13 columns.

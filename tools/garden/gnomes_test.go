@@ -359,8 +359,12 @@ func TestTheStallIsReachableByKeyAndByTab(t *testing.T) {
 		t.Errorf("tab from the fair went to screen %d", got)
 	}
 	m.screen = screenGnomes
-	if got := press(t, m, "tab").screen; got != screenAlmanac {
+	if got := press(t, m, "tab").screen; got != screenVillage {
 		t.Errorf("tab from the stall went to screen %d", got)
+	}
+	m.screen = screenVillage
+	if got := press(t, m, "tab").screen; got != screenAlmanac {
+		t.Errorf("tab from the village went to screen %d", got)
 	}
 	if got := press(t, m, "esc").screen; got != screenGarden {
 		t.Errorf("esc from the stall went to screen %d", got)

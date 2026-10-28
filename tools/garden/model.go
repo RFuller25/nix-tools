@@ -25,6 +25,7 @@ const (
 	screenShare
 	screenGnomes
 	screenLineage
+	screenVillage
 )
 
 // mode is a state layered over the garden screen that changes what the keys mean.
@@ -100,31 +101,37 @@ type model struct {
 	journalScroll int
 	cardScroll    int // scrolling inside the info card and the help screen
 
-	overlay      bool // colour the beds by how well they get on with their neighbours
-	mode         mode // plan, stamp or select, layered over the garden
-	ghosts       map[int]ghost
-	plan         *Garden // the garden as it would be if the ghosts were sown
-	planPick     int     // the highlighted seed in the plan palette
-	planFilter   string  // what the plan palette is narrowed to
-	selAnchor    int     // where a layout selection began
-	stampTpl     Template
-	stampSkipped []string
-	tplCursor    int
-	ordersCursor int
-	fairCursor   int
-	shareCode    string // the code on the share screen
-	shareName    string
-	gnomeStage   gnomeStage   // how far into a purchase at the gnome stall
-	gnomeService GnomeService // the service being bought
-	gnomeCursor  int          // the highlighted row of the stall
-	gnomeOption  int          // the sky or mutation chosen, while a plant is picked
-	crowd        gnomeCrowd   // the gnomes wandering about the stall
-	gnomeMother  int          // the first flower of a match, while the second is picked
-	pollinating  bool         // choosing a donor for pollenTarget
-	pollenTarget int
-	naming       bool
-	namingFor    nameTarget
-	input        textinput.Model
+	overlay           bool // colour the beds by how well they get on with their neighbours
+	mode              mode // plan, stamp or select, layered over the garden
+	ghosts            map[int]ghost
+	plan              *Garden // the garden as it would be if the ghosts were sown
+	planPick          int     // the highlighted seed in the plan palette
+	planFilter        string  // what the plan palette is narrowed to
+	selAnchor         int     // where a layout selection began
+	stampTpl          Template
+	stampSkipped      []string
+	tplCursor         int
+	ordersCursor      int
+	fairCursor        int
+	shareCode         string // the code on the share screen
+	shareName         string
+	gnomeStage        gnomeStage   // how far into a purchase at the gnome stall
+	gnomeService      GnomeService // the service being bought
+	gnomeCursor       int          // the highlighted row of the stall
+	gnomeOption       int          // the sky or mutation chosen, while a plant is picked
+	crowd             gnomeCrowd   // the gnomes wandering about the stall
+	villageTab        villageTab   // the village: which tab is open
+	villageCursor     int          // the highlighted thing for sale
+	villageStage      villageStage // choosing what to buy, or what to use it on
+	villagePickCursor int          // the highlighted bed or packet
+	villageFirst      int          // the first flower of a forecast
+	villageResult     []string     // the last forecast
+	gnomeMother       int          // the first flower of a match, while the second is picked
+	pollinating       bool         // choosing a donor for pollenTarget
+	pollenTarget      int
+	naming            bool
+	namingFor         nameTarget
+	input             textinput.Model
 
 	audio   *Audio
 	wind    windState
@@ -158,6 +165,7 @@ func newModel(g *Garden, path string, now time.Time) model {
 		width:            80,
 		height:           30,
 	}
+	applyTheme(g.Theme)
 	m.refreshShop()
 	m.almanacCursor = 1 // the first chapter of the guide, not its heading
 	return m
@@ -346,6 +354,8 @@ func nextScreen(s screen) screen {
 	case screenFair:
 		return screenGnomes
 	case screenGnomes:
+		return screenVillage
+	case screenVillage:
 		return screenAlmanac
 	case screenAlmanac:
 		return screenJournal
@@ -510,6 +520,8 @@ func (m model) View() string {
 		view = m.viewGnomes()
 	case screenLineage:
 		view = m.viewLineage()
+	case screenVillage:
+		view = m.viewVillage()
 	default:
 		view = m.viewGarden()
 	}

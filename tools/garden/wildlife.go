@@ -189,7 +189,7 @@ func (w *wildlife) candidates(g *Garden, now time.Time, weather Weather) []chanc
 
 	var out []chanceOf
 	add := func(what creature, chance float64, row int) {
-		out = append(out, chanceOf{what, chance, row})
+		out = append(out, chanceOf{what, chance * g.boost(boostVisitors), row})
 	}
 
 	flowering, nectar, seedHeads, night := -1, -1, -1, -1

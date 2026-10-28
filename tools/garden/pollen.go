@@ -76,6 +76,7 @@ func (g *Garden) maybePollinate(p *Plot, idx int, sp *Species, w Weather, season
 	if base <= 0 {
 		return
 	}
+	base *= g.boost(boostPollen)
 	var mates []int
 	for _, n := range g.Neighbours(idx) {
 		o := &g.Plots[n]
