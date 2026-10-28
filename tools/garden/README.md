@@ -62,8 +62,8 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
   soil (25), and buy one wild, wildly mutated seed a day. Little gnomes wander
   the stall, throw sparks and hop for joy when you buy. Every spell is
   deterministic, so a garden replays the same.
-* **Orders and a fair.** Three orders a day ask for a plant with a height or a
-  colour; fill one and the plant is used up and you are paid. Once a week the
+* **Orders and a fair.** Three orders a week, easy, a stretch and hard, ask for a plant with a
+  height or a colour; the harder the order the more it pays. Fill one and the plant is used up. Once a week the
   fair judges one plant of yours against a field that rises as you win.
 * **Weather, light and the year.** Weather and seasons come from the calendar and
   your garden's seed, so they are the same every time the missing hours are

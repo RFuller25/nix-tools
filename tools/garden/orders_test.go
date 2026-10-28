@@ -12,9 +12,9 @@ func ordersGarden() (*Garden, time.Time) {
 	return g, now
 }
 
-func TestThreeOrdersAreHandedOutEachDay(t *testing.T) {
+func TestThreeOrdersAreHandedOutEachWeek(t *testing.T) {
 	g, now := ordersGarden()
-	if len(g.Orders) != ordersPerDay {
+	if len(g.Orders) != ordersPerWeek {
 		t.Fatalf("%d orders on the first day", len(g.Orders))
 	}
 	for i, o := range g.Orders {
@@ -28,23 +28,32 @@ func TestThreeOrdersAreHandedOutEachDay(t *testing.T) {
 	if len(g.Orders[2].Wants) != 2 || g.Orders[2].Bonus == "" {
 		t.Error("the hard order asks for two things and throws in seed")
 	}
-	// Nothing new until tomorrow.
-	g.Advance(now.Add(time.Hour))
-	if len(g.Orders) != ordersPerDay {
-		t.Errorf("%d orders after an hour", len(g.Orders))
+	given := g.Orders[0].Given
+	seen := map[string]bool{}
+	for _, o := range g.Orders {
+		if seen[o.Species] {
+			t.Errorf("two orders in a week ask for %s", o.Species)
+		}
+		seen[o.Species] = true
 	}
-	g.Advance(now.Add(25 * time.Hour))
-	if len(g.Orders) != 2*ordersPerDay {
-		t.Errorf("%d orders the next day, want %d", len(g.Orders), 2*ordersPerDay)
+	// Nothing new for the rest of the week (15 June 2026 is a Monday).
+	g.Advance(now.Add(6 * 24 * time.Hour))
+	if len(g.Orders) != ordersPerWeek || !g.Orders[0].Given.Equal(given) {
+		t.Errorf("%d orders late in the week", len(g.Orders))
+	}
+	// Next Monday the old board comes down and a new one goes up.
+	g.Advance(now.Add(7 * 24 * time.Hour))
+	if len(g.Orders) != ordersPerWeek || !g.Orders[0].Given.After(given) {
+		t.Errorf("%d orders the next week, want %d fresh ones", len(g.Orders), ordersPerWeek)
 	}
 }
 
 func TestOrdersLapseQuietly(t *testing.T) {
 	g, now := ordersGarden()
 	gold := g.Gold
-	g.Advance(now.Add((orderLifeDays*24 + 2) * time.Hour))
+	g.Advance(now.Add(8 * 24 * time.Hour))
 	for _, o := range g.Orders {
-		if !o.Expires.After(now.Add(orderLifeDays * 24 * time.Hour)) {
+		if !o.Expires.After(now.Add(7 * 24 * time.Hour)) {
 			t.Errorf("an old order is still up: %+v", o.Given)
 		}
 	}
@@ -78,10 +87,10 @@ func TestOrdersCanBeFilled(t *testing.T) {
 	for seed := int64(1); seed <= 40; seed++ {
 		g := newTestGarden(now)
 		g.Seed = seed
-		for day := 0; day < 5; day++ {
-			g.OrdersDay = 0
+		for week := 0; week < 5; week++ {
+			g.OrdersWeek = 0
 			g.Orders = nil
-			g.refreshOrders(now.Add(time.Duration(day) * 24 * time.Hour))
+			g.refreshOrders(now.Add(time.Duration(week) * 7 * 24 * time.Hour))
 			for _, o := range g.Orders {
 				sp := o.SpeciesRef()
 				if o.Tier == 0 {
@@ -211,5 +220,58 @@ func TestOrderKeyFlow(t *testing.T) {
 	cur = keyPress(cur, "enter")
 	if g.Gold <= before || !g.Plots[0].Empty() {
 		t.Errorf("enter did not deliver: gold %d→%d, bed %q", before, g.Gold, g.Plots[0].SpeciesID)
+	}
+}
+
+// Harder tiers pay more, and an order that reaches further pays more than a
+// gentler one of the same tier.
+func TestHarderOrdersPayMore(t *testing.T) {
+	now := time.Date(2026, 6, 15, 9, 0, 0, 0, time.UTC)
+	var easy, mid, hard, n int
+	for seed := int64(1); seed <= 60; seed++ {
+		g := newTestGarden(now)
+		g.Seed = seed
+		g.refreshOrders(now)
+		if len(g.Orders) != ordersPerWeek {
+			t.Fatalf("seed %d: %d orders", seed, len(g.Orders))
+		}
+		easy += g.Orders[0].Reward
+		mid += g.Orders[1].Reward
+		hard += g.Orders[2].Reward
+		n++
+		for _, o := range g.Orders {
+			sp := o.SpeciesRef()
+			pts := 0
+			for _, c := range o.Wants {
+				pts += c.difficulty(sp)
+			}
+			if o.Tier > 0 && pts == 0 {
+				t.Errorf("seed %d: a tier %d %s order is no harder than the shelf: %+v", seed, o.Tier, sp.ID, o.Wants)
+			}
+			if o.Reward <= sp.SeedCost || o.Client == "" {
+				t.Errorf("seed %d: %s order pays %d for a %d gold seed, client %q", seed, sp.ID, o.Reward, sp.SeedCost, o.Client)
+			}
+		}
+	}
+	if !(easy < mid && mid < hard) || hard < 3*easy {
+		t.Errorf("average pay %d / %d / %d does not climb with difficulty", easy/n, mid/n, hard/n)
+	}
+}
+
+func TestOrdersAreDifferentEachWeek(t *testing.T) {
+	now := time.Date(2026, 6, 15, 9, 0, 0, 0, time.UTC)
+	g := newTestGarden(now)
+	same := 0
+	var last []Order
+	for w := 0; w < 12; w++ {
+		g.Orders = nil
+		g.refreshOrders(now.Add(time.Duration(w) * 7 * 24 * time.Hour))
+		if last != nil && g.Orders[1].Species == last[1].Species && g.Orders[1].Reward == last[1].Reward {
+			same++
+		}
+		last = append([]Order(nil), g.Orders...)
+	}
+	if same > 3 {
+		t.Errorf("the middle order repeated %d weeks of 11", same)
 	}
 }

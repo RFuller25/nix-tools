@@ -471,13 +471,14 @@ func chOrders() chapter {
 		Lede:  "The village wants particular plants.",
 		Build: func(m model, w int) []string {
 			return join(
-				gp(fmt.Sprintf("Each day %d orders are posted on the order board (tab, or O in the garden), and each stays up for %d days before it quietly lapses. There is no penalty for letting one lapse and no timer to beat. An order names a species and one or two conditions: a height, a bushiness, a speed, a yield, or a colour to match.", ordersPerDay, orderLifeDays), w),
+				gp(fmt.Sprintf("Once a week, on Monday, %d orders are posted on the order board (tab, or O in the garden), each from a different villager and for a different species. They stay up until the next board goes up. There is no penalty for letting one lapse and no timer to beat. An order names a species and one or two conditions: a height, a bushiness, a speed, a yield, or a colour to match.", ordersPerWeek), w),
 				append([]string{gh("The three tiers")},
 					join(
 						gk("★ easy", fmt.Sprintf("something a named form from the shop already is. Pays %d gold plus %d times the seed's shop price.", orderEasyBase, orderEasyMult), w),
-						gk("★★ a stretch", fmt.Sprintf("something a little past what the shop sells, so it takes a generation or two of breeding. Pays %d plus %d times the price.", orderMidBase, orderMidMult), w),
-						gk("★★★ hard", fmt.Sprintf("two things at once, one past the shelf and a colour the shelf does not have. Pays %d plus %d times the price, and two seeds of another species thrown in.", orderHardBase, orderHardMult), w),
+						gk("★★ a stretch", fmt.Sprintf("a gene %d to %d points past the best the shop sells, sometimes with a second easy condition, so it takes a few generations of breeding. Pays %d plus %d times the price.", stretchMin, stretchMax, orderMidBase, orderMidMult), w),
+						gk("★★★ hard", fmt.Sprintf("a gene %d to %d points past the shelf, together with a colour the shelf does not have or a second gene past it. Pays %d plus %d times the price, and two seeds of another species thrown in.", hardMin, hardMax, orderHardBase, orderHardMult), w),
 					)...),
+				gp(fmt.Sprintf("Every order also pays %d gold for each point of difficulty: a gene point past the shelf, or a point of colour distance from the nearest named form. Two orders of the same tier can pay quite differently, and the hardest ones are worth the wait.", orderPointPay), w),
 				gp(fmt.Sprintf("A colour order is filled by any shade within about %.0f%% of the one shown, judged on hue mostly, so a coral is fine when coral is asked for and not when scarlet is.", colourMatch*100), w),
 				gp("To fill one the plant must be in flower and fit every condition. Press o on that bed, or enter on the order board (which delivers the first of your plants that fits). The plant is removed from its bed and used up by the order: it is not composted, so the bed gets no richness back. You are paid at once.", w),
 				append([]string{gh("Keys")}, keyRows(w, setOrders)...),

@@ -256,7 +256,7 @@ type Garden struct {
 	ShedOpen    map[string]bool `json:"shed_open,omitempty"`
 	Orders      []Order         `json:"orders,omitempty"`
 	OrderSeq    int             `json:"order_seq,omitempty"`
-	OrdersDay   int             `json:"orders_day,omitempty"`
+	OrdersWeek  int             `json:"orders_week,omitempty"`
 	OrdersDone  int             `json:"orders_done,omitempty"`
 	Fair        FairState       `json:"fair"`
 	// The gnome shop: the weather the gnomes have set for a day (keyed by

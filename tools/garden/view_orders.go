@@ -38,7 +38,7 @@ func (m model) viewOrders() string {
 			seedStyle.Render(pad(stars, 3))+goldStyle.Render(fmt.Sprintf(" %dg", o.Reward)))
 	}
 	if len(orders) == 0 {
-		lines = append(lines, subtleStyle.Render("No orders on the board."), subtleStyle.Render("New ones are posted each day."))
+		lines = append(lines, subtleStyle.Render("No orders on the board."), subtleStyle.Render("A new board goes up each Monday."))
 	}
 	if len(lines) > avail {
 		lines = lines[:avail]
@@ -76,6 +76,7 @@ func (m model) orderDetail(o Order, width, avail int) string {
 	rows := []string{
 		titleStyle.Render(sp.Common) + subtleStyle.Render("  ·  "+o.TierName()),
 		latinStyle.Render(sp.Latin),
+		subtleStyle.Render("asked for by " + o.Client),
 		"",
 		labelStyle.Render("WANTED"),
 	}
@@ -92,7 +93,7 @@ func (m model) orderDetail(o Order, width, avail int) string {
 	if b := SpeciesByID(o.Bonus); b != nil {
 		rows = append(rows, valueStyle.Render("and two ")+okStyle.Render(b.Common)+valueStyle.Render(" seeds"))
 	}
-	rows = append(rows, subtleStyle.Render("lapses "+o.Expires.Format("Mon 2 Jan")+", with no penalty"), "")
+	rows = append(rows, subtleStyle.Render("lapses "+o.Expires.Format("Mon 2 Jan")+", when the next board goes up, with no penalty"), "")
 
 	beds := m.g.QualifyingBeds(o)
 	if len(beds) > 0 {
