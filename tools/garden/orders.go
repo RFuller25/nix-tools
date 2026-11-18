@@ -13,10 +13,15 @@ import (
 // are paid. An order nobody fills lapses when the next week's board goes up;
 // there is no penalty and no timer to beat.
 //
-// The three are of rising difficulty. The first is easy (a named form from the
-// shop already fits), the second wants something past the shop shelf, and the
-// third wants two things at once, one of them well past the shelf. They are
-// always for three different species. Pay is a flat sum for the tier, a
+// The three are of rising difficulty, measured in days of real breeding (a
+// generation takes a day or so, and keeping the best of each batch moves a
+// gene about four points). The first is easy: a named form from the shop
+// already fits. The second is one gene a little past the shelf, which a few
+// days of saving seed from the best plant reaches from a fresh packet. The
+// third wants two things at once: a gene well past the shelf together with
+// either a second gene past it or a colour that only a cross between two shop
+// forms gives, about a week of cross-pollinating and selecting (or less with a
+// gnome's help). They are always for three different species. Pay is a flat sum for the tier, a
 // multiple of the seed's price, and a bonus for how far past the shelf the
 // order reaches, so a harder request is worth far more than an easy one.
 
@@ -34,9 +39,13 @@ const (
 	orderPointPay = 2 // gold per point of difficulty (a gene point past the shelf, or a point of colour distance)
 
 	// How far past the best the shop sells a stretch order asks, as a range
-	// the generator picks from; a hard order asks for more.
-	stretchMin, stretchMax = 10, 20
-	hardMin, hardMax       = 18, 30
+	// the generator picks from; a hard order asks for more, and then for a
+	// second gene a little past the shelf too (or a crossed colour).
+	stretchMin, stretchMax = 5, 10
+	hardMin, hardMax       = 14, 20
+	hardSecondMin          = 4
+	hardSecondMax          = 8
+	blendGap               = 0.3 // how unlike two forms' colours must be for a hard order to ask for their cross
 )
 
 // Condition is one thing an order asks of a plant.
@@ -207,10 +216,17 @@ func (g *Garden) makeOrder(week, slot int, pool []*Species, taken map[string]boo
 
 	beyond := func(trait Trait, by uint8, salt int64) Condition {
 		lo, hi := traitSpan(sp, trait)
-		if pick(salt) < 0.5 {
-			return Condition{Trait: trait, Value: uint8(math.Min(92, float64(hi)+float64(by)))}
+		up := Condition{Trait: trait, Value: uint8(math.Min(92, float64(hi)+float64(by)))}
+		down := Condition{Trait: trait, AtMost: true, Value: uint8(math.Max(8, float64(lo)-float64(by)))}
+		if pick(salt) >= 0.5 {
+			up, down = down, up
 		}
-		return Condition{Trait: trait, AtMost: true, Value: uint8(math.Max(8, float64(lo)-float64(by)))}
+		// When the shelf already reaches the end of the scale one way, ask
+		// the other way, so the order is never one the shop already fills.
+		if up.difficulty(sp) < down.difficulty(sp) && up.difficulty(sp) < int(by)/2 {
+			return down
+		}
+		return up
 	}
 	span := func(lo, hi int, salt int64) uint8 { return uint8(lo + int(pick(salt)*float64(hi-lo+1))%(hi-lo+1)) }
 	colourOf := func(gn Genome) Condition {
@@ -233,27 +249,19 @@ func (g *Garden) makeOrder(week, slot int, pool []*Species, taken map[string]boo
 		}
 		tierBase, tierMult = orderEasyBase, orderEasyMult
 	case 1:
-		// Past the shelf in one gene, and often a second the shelf can manage.
+		// One gene a little past the shelf: a few days of keeping the best
+		// plant's own seed, from a fresh shop packet.
 		o.Wants = []Condition{beyond(t, span(stretchMin, stretchMax, 5), 10)}
-		if pick(11) < 0.4 {
-			if form.value(t2) >= 50 {
-				o.Wants = append(o.Wants, Condition{Trait: t2, Value: form.value(t2) - 4})
-			} else {
-				o.Wants = append(o.Wants, Condition{Trait: t2, AtMost: true, Value: form.value(t2) + 4})
-			}
-		}
 		tierBase, tierMult = orderMidBase, orderMidMult
 	default:
-		// Well past the shelf in one gene, plus either a colour the shelf does
-		// not have or a second gene a little past it.
+		// A gene well past the shelf, plus either the colour a cross of two
+		// unlike shop forms gives or a second gene a little past the shelf.
+		// About a week of crossing and selecting, or a gnome's nudge.
 		o.Wants = []Condition{beyond(t, span(hardMin, hardMax, 5), 10)}
-		if pick(11) < 0.6 {
-			odd := form
-			odd.Hue = uint16(math.Mod(float64(form.Hue)+90+120*pick(6), 360))
-			odd.Sat = uint8(math.Max(float64(form.Sat), 55))
-			o.Wants = append(o.Wants, colourOf(odd))
+		if blend, ok := blendColour(sp, vi, pick(6)); ok && pick(11) < 0.6 {
+			o.Wants = append(o.Wants, colourOf(blend))
 		} else {
-			o.Wants = append(o.Wants, beyond(t2, span(6, 12, 12), 13))
+			o.Wants = append(o.Wants, beyond(t2, span(hardSecondMin, hardSecondMax, 12), 13))
 		}
 		tierBase, tierMult = orderHardBase, orderHardMult
 		others := g.orderPool()
@@ -265,6 +273,28 @@ func (g *Garden) makeOrder(week, slot int, pool []*Species, taken map[string]boo
 	}
 	o.Reward = tierMult*base + tierBase + orderPointPay*points
 	return o
+}
+
+// blendColour is the colour a cross of form vi with another, quite unlike
+// form of the same species gives: a shade the shelf does not sell but that one
+// cross-pollination reaches. It reports false when the species has no form
+// unlike enough.
+func blendColour(sp *Species, vi int, roll float64) (Genome, bool) {
+	a := sp.VarietyGenome(vi)
+	var mates []int
+	for j := range sp.Varieties() {
+		if j != vi && colourDistance(a.RGB(), sp.VarietyGenome(j).RGB()) >= blendGap {
+			mates = append(mates, j)
+		}
+	}
+	for k := range mates {
+		mix := meanGenome(a, sp.VarietyGenome(mates[(int(roll*float64(len(mates)))+k)%len(mates)]))
+		// Only worth asking for if it is not already on the shelf.
+		if (Condition{Trait: TraitColour, Colour: mix.Hex()}).difficulty(sp) > 0 {
+			return mix, true
+		}
+	}
+	return Genome{}, false
 }
 
 func indexOfTrait(t Trait) int {

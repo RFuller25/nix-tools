@@ -476,8 +476,8 @@ func chOrders() chapter {
 				append([]string{gh("The three tiers")},
 					join(
 						gk("★ easy", fmt.Sprintf("something a named form from the shop already is. Pays %d gold plus %d times the seed's shop price.", orderEasyBase, orderEasyMult), w),
-						gk("★★ a stretch", fmt.Sprintf("a gene %d to %d points past the best the shop sells, sometimes with a second easy condition, so it takes a few generations of breeding. Pays %d plus %d times the price.", stretchMin, stretchMax, orderMidBase, orderMidMult), w),
-						gk("★★★ hard", fmt.Sprintf("a gene %d to %d points past the shelf, together with a colour the shelf does not have or a second gene past it. Pays %d plus %d times the price, and two seeds of another species thrown in.", hardMin, hardMax, orderHardBase, orderHardMult), w),
+						gk("★★ a stretch", fmt.Sprintf("one gene %d to %d points past the best the shop sells. Buy a packet, grow it, and keep sowing seed from the best plant: a few days does it. Pays %d plus %d times the price.", stretchMin, stretchMax, orderMidBase, orderMidMult), w),
+						gk("★★★ hard", fmt.Sprintf("a gene %d to %d points past the shelf, together with either a second gene %d to %d past it or a colour only a cross between two of the shop's forms gives. About a week of cross-pollinating and selecting, or less with a gnome's help. Pays %d plus %d times the price, and two seeds of another species thrown in.", hardMin, hardMax, hardSecondMin, hardSecondMax, orderHardBase, orderHardMult), w),
 					)...),
 				gp(fmt.Sprintf("Every order also pays %d gold for each point of difficulty: a gene point past the shelf, or a point of colour distance from the nearest named form. Two orders of the same tier can pay quite differently, and the hardest ones are worth the wait.", orderPointPay), w),
 				gp(fmt.Sprintf("A colour order is filled by any shade within about %.0f%% of the one shown, judged on hue mostly, so a coral is fine when coral is asked for and not when scarlet is.", colourMatch*100), w),

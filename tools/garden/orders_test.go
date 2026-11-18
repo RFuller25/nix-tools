@@ -275,3 +275,51 @@ func TestOrdersAreDifferentEachWeek(t *testing.T) {
 		t.Errorf("the middle order repeated %d weeks of 11", same)
 	}
 }
+
+// A stretch order is one gene a few days of selection past the shelf; a hard
+// one is two things, each reachable by crossing and selecting for about a week.
+func TestOrderTiersMatchTheirBreedingTime(t *testing.T) {
+	now := time.Date(2026, 6, 15, 9, 0, 0, 0, time.UTC)
+	blends := 0
+	for seed := int64(1); seed <= 60; seed++ {
+		g := newTestGarden(now)
+		g.Seed = seed
+		g.refreshOrders(now)
+		mid, hard := g.Orders[1], g.Orders[2]
+		sp := mid.SpeciesRef()
+		if len(mid.Wants) != 1 {
+			t.Fatalf("seed %d: a stretch order asks for %d things", seed, len(mid.Wants))
+		}
+		if d := mid.Wants[0].difficulty(sp); d < 1 || d > stretchMax {
+			t.Errorf("seed %d: stretch order is %d points past the shelf", seed, d)
+		}
+		hsp := hard.SpeciesRef()
+		if len(hard.Wants) != 2 {
+			t.Fatalf("seed %d: a hard order asks for %d things", seed, len(hard.Wants))
+		}
+		if d := hard.Wants[0].difficulty(hsp); d < 1 || d > hardMax {
+			t.Errorf("seed %d: hard order's main gene is %d points past the shelf", seed, d)
+		}
+		second := hard.Wants[1]
+		if second.Trait != TraitColour {
+			if d := second.difficulty(hsp); d > hardSecondMax {
+				t.Errorf("seed %d: hard order's second gene is %d points past the shelf", seed, d)
+			}
+			continue
+		}
+		// The colour is what a cross of two shop forms gives.
+		blends++
+		ok := false
+		for i := range hsp.Varieties() {
+			for j := range hsp.Varieties() {
+				ok = ok || second.Met(meanGenome(hsp.VarietyGenome(i), hsp.VarietyGenome(j)))
+			}
+		}
+		if !ok {
+			t.Errorf("seed %d: no cross of two %s forms gives %s", seed, hsp.ID, second.Colour)
+		}
+	}
+	if blends == 0 {
+		t.Error("no hard order ever asked for a crossed colour")
+	}
+}

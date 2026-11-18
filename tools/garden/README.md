@@ -70,7 +70,9 @@ Everything below is also in the game: open the **almanac** (`a`) and read the
   pressed-flower frame or a dried wreath for your shelf), and colour themes and
   bed borders to dress the garden in.
 * **Orders and a fair.** Three orders a week, easy, a stretch and hard, ask for a plant with a
-  height or a colour; the harder the order the more it pays. Fill one and the plant is used up. Once a week the
+  height or a colour. The easy one a shop form already fills; the stretch is one gene a few days of
+  saving the best plant's seed will reach from a fresh packet; the hard one wants two things at once,
+  about a week of cross-pollinating and selecting, or a gnome's help. The harder the order the more it pays. Fill one and the plant is used up. Once a week the
   fair judges one plant of yours against a field that rises as you win.
 * **Weather, light and the year.** Weather and seasons come from the calendar and
   your garden's seed, so they are the same every time the missing hours are
