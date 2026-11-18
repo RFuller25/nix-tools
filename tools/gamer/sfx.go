@@ -168,3 +168,39 @@ func sfxBoom() []voice {
 		glide(waveSaw, 180, 35, 0.7, 0.2),
 	}
 }
+
+// ── bricks ─────────────────────────────────────────────────────────────────
+
+func sfxBounce() []voice { return []voice{blip(waveSquare, note(67), 0.03, 0.12)} }
+
+// sfxBrick is pitched by the row, so the top of the wall rings highest.
+func sfxBrick(row int) []voice {
+	n := 84 - 2*float64(row)
+	return []voice{
+		blip(waveSquare, note(n), 0.05, 0.16),
+		blip(waveNoise, 900, 0.025, 0.05),
+	}
+}
+
+func sfxLifeLost() []voice {
+	return []voice{glide(waveTriangle, note(64), note(52), 0.35, 0.2)}
+}
+
+// ── echo ───────────────────────────────────────────────────────────────────
+
+// sfxPad is one pad's note, held about as long as the pad is lit.
+func sfxPad(n, seconds float64) []voice {
+	return []voice{{
+		wave: waveTriangle, freq: note(n), gain: 0.22,
+		env: envelope{attack: 0.008, decay: 0.05, sustain: 0.8, hold: seconds * 0.7, release: seconds * 0.3},
+	}, at(blip(waveSquare, note(n+12), 0.04, 0.06), 0)}
+}
+
+// ── pegs ───────────────────────────────────────────────────────────────────
+
+func sfxJump() []voice {
+	return []voice{
+		blip(waveTriangle, note(72), 0.04, 0.16),
+		at(blip(waveNoise, 300, 0.03, 0.06), 0.06),
+	}
+}

@@ -6,7 +6,7 @@ Bubbletea TUI utilities, packaged as a Nix flake.
 | --- | --- |
 | [`talc`](tools/talc) | calculator with units, alternative time systems and answer history |
 | [`garden`](tools/garden) | a little garden you plant, tend and come back to |
-| [`gamer`](tools/gamer) | Tetris, 2048, Snake, Hue and Minesweeper in one menu |
+| [`gamer`](tools/gamer) | Tetris, 2048, Snake, Hue, Minesweeper, Bricks, Echo and Pegs in one menu |
 | [`ledger`](tools/ledger) | a betting board for friends, played with Betting Bucks |
 
 ## Running

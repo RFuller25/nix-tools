@@ -20,8 +20,8 @@ func testModel(t *testing.T) *model {
 
 func TestMenuListsEveryGame(t *testing.T) {
 	m := testModel(t)
-	if len(m.games) != 5 {
-		t.Fatalf("the arcade holds %d games, want 5", len(m.games))
+	if len(m.games) != 8 {
+		t.Fatalf("the arcade holds %d games, want 8", len(m.games))
 	}
 	ids := map[string]bool{}
 	view := m.View()
@@ -37,7 +37,7 @@ func TestMenuListsEveryGame(t *testing.T) {
 			t.Errorf("%s is missing from the menu", g.Name())
 		}
 	}
-	for _, want := range []string{"tetris", "2048", "snake", "hue", "mines"} {
+	for _, want := range []string{"tetris", "2048", "snake", "hue", "mines", "bricks", "echo", "pegs"} {
 		if !ids[want] {
 			t.Errorf("no game with id %q", want)
 		}
@@ -277,6 +277,8 @@ func TestGamesPlayThroughTheAudioTheyAreGiven(t *testing.T) {
 				v.Update(snakeTickMsg{v.gen})
 			case *tetris:
 				v.Update(tetrisTickMsg{v.gen})
+			case *echo:
+				v.Update(echoTickMsg{v.gen})
 			}
 		}
 		if rec.count() == 0 {

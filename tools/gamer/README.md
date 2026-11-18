@@ -1,6 +1,6 @@
 # gamer
 
-Five small games for a terminal, in one menu.
+Eight small games for a terminal, in one menu.
 
 ```sh
 nix run .#gamer          # or: go run ./tools/gamer
@@ -14,6 +14,9 @@ gamer --play tetris      # skip the menu
 | **Snake** | eat, grow, do not bite yourself | points |
 | **Hue** | put the scrambled shades of a colour gradient back in order | fewest moves |
 | **Minesweeper** | clear the field without standing on a mine | fastest time |
+| **Bricks** | bounce a ball off a paddle and knock the wall down | points |
+| **Echo** | watch four pads light up in turn, then play the sequence back | longest sequence |
+| **Pegs** | jump pegs over each other on the cross-shaped board until one is left | fewest pegs left |
 
 Menu: `↑↓` to choose, `enter` to play, `q` to quit. In a game, `esc` returns to
 the menu and `r` starts a fresh round. `m` mutes and unmutes from anywhere. Each
@@ -39,6 +42,23 @@ game prints its own keys along the bottom.
 * **Minesweeper** — 16×14 with 40 mines. The first square you open is always
   safe, along with everything touching it. `f` flags; `space` on a revealed
   number opens the rest of its neighbours once the flags add up.
+
+* **Bricks** — a six-row wall, three balls. Where the ball meets the paddle sets
+  the angle it leaves at: the middle sends it straight up, the edges send it
+  off at a slant. Higher rows are worth more, and each cleared wall is rebuilt
+  with a quicker ball and points multiplied by the wall number. `shift+←→`
+  jumps the paddle to an edge.
+* **Echo** — each round the sequence grows by one and is played back, a little
+  quicker each time, with every pad sounding its own note. Play it back with
+  the arrows (or `1`–`4`); one wrong pad ends the game and shows which it
+  should have been. Keys pressed while the game is still showing are ignored.
+  It works muted too, by eye alone.
+* **Pegs** — traditional peg solitaire on the 33-hole board, centre hole empty.
+  `space` on a peg that has only one jump makes it; with a choice, it picks the
+  peg up and an arrow says which way to jump (the holes it could land in are
+  marked). `space` on an empty hole fills it if exactly one peg can. `u` takes
+  back a jump, as many as you like, even after the board is stuck. A finished
+  board is recorded once, by pegs left; one peg in the centre hole is perfect.
 
 ## Sound
 
@@ -66,5 +86,6 @@ RENDER_DIR=/tmp go test ./tools/gamer -run TestRenderDemos
 
 Best score and games played per game, in
 `$XDG_DATA_HOME/gamer/scores.json` (or `~/.local/share/gamer/scores.json`).
-Override with `--scores <path>` or `GAMER_SCORES`. Writes are atomic. Hue and
-Minesweeper are scored the other way round: fewer moves and fewer seconds win.
+Override with `--scores <path>` or `GAMER_SCORES`. Writes are atomic. Hue,
+Minesweeper and Pegs are scored the other way round: fewer moves, fewer
+seconds and fewer pegs win.

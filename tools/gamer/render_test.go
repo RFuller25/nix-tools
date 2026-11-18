@@ -52,7 +52,8 @@ func TestRenderDemos(t *testing.T) {
 		sfxMove(), sfxSelect(), sfxShift(), sfxRotate(), sfxLock(), sfxHardDrop(),
 		sfxLines(1), sfxLines(4), sfxLevelUp(), sfxHold(), sfxSlide(), sfxMerge(8),
 		sfxMerge(1024), sfxEat(), sfxPick(), sfxSwap(), sfxReveal(), sfxFlag(),
-		sfxBoom(), sfxGameOver(), sfxWin(),
+		sfxBoom(), sfxBounce(), sfxBrick(0), sfxBrick(5), sfxLifeLost(), sfxPad(64, 0.4),
+		sfxPad(76, 0.4), sfxJump(), sfxGameOver(), sfxWin(),
 	}
 	out := make([]float64, 0, sampleRate*len(effects))
 	block := make([]float64, sampleRate)

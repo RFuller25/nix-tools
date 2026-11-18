@@ -9,13 +9,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "0.1.0"
+const version = "0.3.0"
 
 func main() {
 	var (
 		scoreFile   = flag.String("scores", "", "path to the score file (default: $XDG_DATA_HOME/gamer/scores.json)")
 		showVersion = flag.Bool("version", false, "print version and exit")
-		startWith   = flag.String("play", "", "jump straight into a game: tetris, 2048, snake, hue, mines")
+		startWith   = flag.String("play", "", "jump straight into a game: tetris, 2048, snake, hue, mines, bricks, echo, pegs")
 		mute        = flag.Bool("mute", false, "start with the sound off")
 	)
 	flag.Parse()

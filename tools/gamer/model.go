@@ -43,6 +43,9 @@ func newModel(scores *Scores, path string, now time.Time) model {
 			newSnake(now.UnixNano()),
 			newHue(now.UnixNano()),
 			newMines(now.UnixNano()),
+			newBricks(now.UnixNano()),
+			newEcho(now.UnixNano()),
+			newPegs(),
 		},
 		scores:    scores,
 		path:      path,
@@ -231,7 +234,7 @@ func (m *model) View() string {
 func (m *model) menuView() string {
 	var b strings.Builder
 	b.WriteString(titleStyle.Render("▰ gamer"))
-	b.WriteString(subtleStyle.Render("   five small games for a terminal"))
+	b.WriteString(subtleStyle.Render("   eight small games for a terminal"))
 	b.WriteString("\n" + dividerStyle.Render(strings.Repeat("─", max(1, min(m.width, 72)))) + "\n\n")
 
 	for i, g := range m.games {
@@ -250,7 +253,10 @@ func (m *model) menuView() string {
 			detail = "    " + labelStyle.Render("best ") + accentStyle.Render(fmt.Sprintf("%d", best)) +
 				subtleStyle.Render(" "+g.ScoreLabel()+fmt.Sprintf("  ·  %d played", m.scores.Played[g.ID()]))
 		}
-		b.WriteString(detail + "\n\n")
+		b.WriteString(detail + "\n")
+		if m.height >= 3*len(m.games)+8 {
+			b.WriteString("\n") // room to breathe between entries
+		}
 	}
 
 	if m.status != "" {
