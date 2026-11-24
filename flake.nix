@@ -50,7 +50,7 @@
             src = ./tools/penguin;
             # Placeholder: run `nix build .#penguin` once and paste in the hash
             # nix reports.
-            vendorHash = pkgs.lib.fakeHash;
+            vendorHash = "sha256-uwBJAqN4sIepiiJf9lCDumLqfKJEowQO2tOiSWD3Fig=";
           };
 
           default = self.packages.${system}.talc;
