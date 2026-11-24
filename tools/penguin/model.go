@@ -15,7 +15,7 @@ const (
 	maxH     = 60
 	minW     = 60
 	minH     = 20
-	helpText = "space pause  ·  r restart  ·  q quit"
+	helpText = "space pause  ·  r restart  ·  m mute  ·  q quit"
 )
 
 type tickMsg time.Time
@@ -32,13 +32,18 @@ type model struct {
 	sceneH     int
 	showHelp   bool
 	helpUntilT float64
+	audio      *Audio
 }
 
 func newModel(p termenv.Profile) model {
-	return model{profile: p, showHelp: true, helpUntilT: 6}
+	a := NewAudio(sampleRate)
+	return model{profile: p, showHelp: true, helpUntilT: 6, audio: a}
 }
 
-func (m model) Init() tea.Cmd { return tick() }
+func (m model) Init() tea.Cmd {
+	m.audio.SetMusic(theme(sampleRate))
+	return tick()
+}
 
 func tick() tea.Cmd {
 	return tea.Tick(time.Second/fps, func(t time.Time) tea.Msg { return tickMsg(t) })
@@ -64,7 +69,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
+			m.audio.Close()
 			return m, tea.Quit
+		case "m":
+			m.audio.SetMuted(!m.audio.Muted())
 		case " ", "p":
 			m.paused = !m.paused
 			m.last = time.Time{}

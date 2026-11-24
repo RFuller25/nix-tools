@@ -7,9 +7,7 @@ import (
 
 // The film, in seconds.
 const (
-	loopLen  = 48.0
 	fadeIn   = 2.4
-	fadeOut  = 2.8
 	tTurn0   = 5.0  // he has stood looking back at the colony; now he turns
 	tTurn1   = 8.6  // and faces the mountains
 	tWalk0   = 8.2  // first step
@@ -84,9 +82,8 @@ func newScene(w, h int) *scene {
 
 func dawnAt(t float64) float64 { return 0.35 + 0.65*smoothstep(0, 40, t) }
 
-func fadeAt(t float64) float64 {
-	return smoothstep(0, fadeIn, t) * smoothstep(0, fadeOut, loopLen-t)
-}
+// fadeAt brings the film up from black; it never fades out again.
+func fadeAt(t float64) float64 { return smoothstep(0, fadeIn, t) }
 
 // walker is the penguin who leaves.
 type walkPath struct {
@@ -155,10 +152,11 @@ func (s *scene) walker(t float64) *pengu {
 		pg.yaw = yawWalk
 	}
 	// walking animation, with a gentle fade to a stand at the very end
-	end := 1 - smoothstep(tWalkEnd-0.6, tWalkEnd, t)
 	if t >= tWalk0 {
-		pg.walk = smoothstep(tWalk0, tWalk0+1.4, t) * end
-		pg.phase = 2 * math.Pi * w / strideW
+		// he never stops: after the last of the distance is covered the
+		// waddle goes on, a speck at the foot of the mountains
+		pg.walk = smoothstep(tWalk0, tWalk0+1.4, t)
+		pg.phase = 2 * math.Pi * (w/strideW + cadence*math.Max(0, t-tWalkEnd))
 		pg.headYaw += 0.05 * math.Sin(pg.phase)
 		pg.yaw += 0.03 * math.Sin(pg.phase*0.5)
 	}
@@ -167,7 +165,6 @@ func (s *scene) walker(t float64) *pengu {
 
 // draw composes one frame of the film.
 func (s *scene) draw(t float64) *canvas {
-	t = math.Mod(t, loopLen)
 	cv := newCanvas(s.w, s.h)
 	dawn := dawnAt(t)
 	s.drawSky(cv, t, dawn)
@@ -274,7 +271,7 @@ func (s *scene) drawFlakes(cv *canvas, t float64) {
 }
 
 func (s *scene) drawCaption(cv *canvas, t float64) {
-	a := smoothstep(36.5, 40.5, t) * smoothstep(0, 2.0, loopLen-fadeOut-t)
+	a := smoothstep(36.5, 40.5, t)
 	if a < 0.02 {
 		return
 	}

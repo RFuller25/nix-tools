@@ -213,6 +213,15 @@ func (cv *canvas) drawPenguin(p *pengu, st *stage, t float64) {
 	if rows < 2.4 {
 		minCov = 0.11
 	}
+	if p.walk > 0.5 && rows < 2.0 {
+		// too far away to be anything but two symbols trading places
+		ch := 'i'
+		if math.Sin(p.phase) > 0 {
+			ch = 'j'
+		}
+		cv.ink(int(p.x), int(float64(st.hz)+p.d-0.5), ch, hex("#17131f"))
+		return
+	}
 	drawn := 0
 	for r := r0; r <= r1; r++ {
 		for c := c0; c <= c1; c++ {

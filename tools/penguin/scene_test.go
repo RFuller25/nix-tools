@@ -20,15 +20,6 @@ func TestFramesRenderAtManySizes(t *testing.T) {
 	}
 }
 
-func TestLoopWraps(t *testing.T) {
-	sc := newScene(80, 24)
-	a := sc.draw(3).render(termenv.Ascii)
-	b := sc.draw(3 + loopLen).render(termenv.Ascii)
-	if a != b {
-		t.Fatal("loop does not wrap")
-	}
-}
-
 func TestWalkerShrinksTowardHorizon(t *testing.T) {
 	sc := newScene(120, 40)
 	prev := 1e9
@@ -44,9 +35,9 @@ func TestWalkerShrinksTowardHorizon(t *testing.T) {
 	}
 }
 
-func TestFadeBookends(t *testing.T) {
-	if fadeAt(0) != 0 || fadeAt(loopLen) != 0 || fadeAt(loopLen/2) < 0.99 {
-		t.Fatal("fade should start and end black")
+func TestFadeInOnly(t *testing.T) {
+	if fadeAt(0) != 0 || fadeAt(1e6) < 0.99 {
+		t.Fatal("fade should start black and stay up")
 	}
 }
 
@@ -56,5 +47,32 @@ func TestTo256(t *testing.T) {
 	}
 	if got := to256(255, 0, 0); got != 196 {
 		t.Fatalf("red = %d", got)
+	}
+}
+
+func TestWalkerFlitsForever(t *testing.T) {
+	sc := newScene(120, 40)
+	a := sc.draw(3600).render(termenv.Ascii)
+	b := sc.draw(3600.4).render(termenv.Ascii)
+	if !strings.ContainsAny(a, "ij") || a == b {
+		t.Fatal("the distant walker should keep flitting between two glyphs")
+	}
+}
+
+func TestThemeMakesSound(t *testing.T) {
+	m := newMixer(sampleRate)
+	m.setSequencer(theme(sampleRate))
+	buf := make([]float64, 4096)
+	loud := false
+	for i := 0; i < 200 && !loud; i++ {
+		m.fill(buf)
+		for _, v := range buf {
+			if v > 0.01 || v < -0.01 {
+				loud = true
+			}
+		}
+	}
+	if !loud {
+		t.Fatal("silent theme")
 	}
 }
