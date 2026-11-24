@@ -5,4 +5,5 @@ use (
 	./tools/gamer
 	./tools/talc
 	./tools/ledger
+	./tools/penguin
 )

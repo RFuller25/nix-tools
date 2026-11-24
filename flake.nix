@@ -44,6 +44,15 @@
             vendorHash = "sha256-HsV9tFxW9vLAFHgVFrBopSqgdN/wAN1ss734rPQMbNM=";
           };
 
+          penguin = pkgs.buildGoModule {
+            pname = "penguin";
+            version = "0.1.0";
+            src = ./tools/penguin;
+            # Placeholder: run `nix build .#penguin` once and paste in the hash
+            # nix reports.
+            vendorHash = pkgs.lib.fakeHash;
+          };
+
           default = self.packages.${system}.talc;
         };
 
@@ -66,6 +75,11 @@
           ledger = {
             type = "app";
             program = "${self.packages.${system}.ledger}/bin/ledger";
+          };
+
+          penguin = {
+            type = "app";
+            program = "${self.packages.${system}.penguin}/bin/penguin";
           };
 
           default = self.apps.${system}.talc;
