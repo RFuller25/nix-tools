@@ -15,7 +15,7 @@ import (
 // G-F-E (and the same over B); part 2 climbs E-E-E-C and settles on A. The
 // last four bars are a riff on part 1.
 const (
-	bpm       = 140
+	bpm       = 84
 	eighthsPB = 8 // eighth-notes per bar
 )
 
@@ -110,26 +110,31 @@ func theme(rate int) *sequencer {
 			var out []voice
 			if e, ok := bassAt[i]; ok {
 				out = append(out, voice{
-					wave: waveTriangle, freq: note(e.midi), gain: 0.34,
-					env: envelope{attack: 0.004, decay: 0.05, sustain: 0.75, hold: hold(e.dur, 0.9), release: 0.05},
+					wave: waveTriangle, freq: note(e.midi), gain: 0.70,
+					env: envelope{attack: 0.004, decay: 0.08, sustain: 0.85, hold: hold(e.dur, 0.9), release: 0.06},
+				})
+				// a short square pluck on top gives the bass its bite
+				out = append(out, voice{
+					wave: waveSquare, freq: note(e.midi), gain: 0.07,
+					env: envelope{attack: 0.002, decay: 0.07, sustain: 0, hold: 0, release: 0.02},
 				})
 			}
 			if e, ok := leadAt[i]; ok {
 				v := voice{
-					wave: waveSquare, freq: note(e.midi), gain: 0.09,
-					env: envelope{attack: 0.006, decay: 0.06, sustain: 0.6, hold: hold(e.dur, 0.85), release: 0.08},
+					wave: waveSquare, freq: note(e.midi), gain: 0.050,
+					env: envelope{attack: 0.018, decay: 0.12, sustain: 0.45, hold: hold(e.dur, 0.85), release: 0.14},
 				}
 				out = append(out, v)
 				// a faint echo three sixteenths behind
 				echo := v
-				echo.gain = 0.03
+				echo.gain = 0.016
 				echo.start = int64(float64(eighth) * 0.75)
 				out = append(out, echo)
 			}
 			// a hat on the off-beats once the tune is under way
 			if i >= 2*eighthsPB && i%2 == 1 {
 				out = append(out, voice{
-					wave: waveNoise, freq: 1, gain: 0.05,
+					wave: waveNoise, freq: 1, gain: 0.03,
 					env: envelope{attack: 0.001, decay: 0.03, sustain: 0, hold: 0, release: 0.02},
 				})
 			}
