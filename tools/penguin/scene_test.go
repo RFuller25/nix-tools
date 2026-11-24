@@ -76,3 +76,15 @@ func TestThemeMakesSound(t *testing.T) {
 		t.Fatal("silent theme")
 	}
 }
+
+func TestScoreLinesAgree(t *testing.T) {
+	bs, ls := score()
+	_, nb := parseLine(bs)
+	_, nl := parseLine(ls)
+	if nb != nl || nb != 16*eighthsPB {
+		t.Fatalf("bass %d lead %d eighths, want %d each", nb, nl, 16*eighthsPB)
+	}
+	if noteNumber("C5") != 72 || noteNumber("F#4") != 66 || noteNumber("Bb3") != 58 {
+		t.Fatal("note names")
+	}
+}

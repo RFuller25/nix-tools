@@ -20,6 +20,6 @@ Keys: `space` pause, `r` restart (the only way it begins again), `m` mute, `←`
 at least 60x21 with truecolor (falls back to 256 colours, or plain glyphs under
 `NO_COLOR`).
 
-Sound is an original 8-bit piece, synthesised in-process and piped to whichever
+Sound is an 8-bit tune, a 16-bar loop, synthesised in-process and piped to whichever
 player is on `PATH` (`pw-play`, `paplay`, `aplay`, `ffplay`, sox `play`); set
-`PENGUIN_AUDIO=off` to disable it. The score lives in `music.go`.
+`PENGUIN_AUDIO=off` to disable it. The score is written as note names in `music.go`.
