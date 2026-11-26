@@ -46,7 +46,7 @@
 
           penguin = pkgs.buildGoModule {
             pname = "penguin";
-            version = "0.1.0";
+            version = "0.3.0";
             src = ./tools/penguin;
             # Placeholder: run `nix build .#penguin` once and paste in the hash
             # nix reports.

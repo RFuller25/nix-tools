@@ -15,7 +15,7 @@ const (
 	maxH     = 60
 	minW     = 60
 	minH     = 20
-	helpText = "space pause  ·  r restart  ·  m mute  ·  q quit"
+	helpText = "space pause  ·  r restart  ·  tab next scene  ·  m mute  ·  q quit"
 )
 
 type tickMsg time.Time
@@ -24,7 +24,8 @@ type model struct {
 	profile    termenv.Profile
 	termW      int
 	termH      int
-	sc         *scene
+	sc         film
+	film       int
 	t          float64 // film time in seconds
 	last       time.Time
 	paused     bool
@@ -35,9 +36,9 @@ type model struct {
 	audio      *Audio
 }
 
-func newModel(p termenv.Profile) model {
+func newModel(p termenv.Profile, film int) model {
 	a := NewAudio(sampleRate)
-	return model{profile: p, showHelp: true, helpUntilT: 6, audio: a}
+	return model{profile: p, showHelp: true, helpUntilT: 6, audio: a, film: film}
 }
 
 func (m model) Init() tea.Cmd {
@@ -57,7 +58,7 @@ func (m *model) resize(w, h int) {
 		return
 	}
 	if m.sc == nil || sw != m.sceneW || sh != m.sceneH {
-		m.sc = newScene(sw, sh)
+		m.sc = filmList[m.film].make(sw, sh)
 		m.sceneW, m.sceneH = sw, sh
 	}
 }
@@ -71,6 +72,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "esc", "ctrl+c":
 			m.audio.Close()
 			return m, tea.Quit
+		case "tab", "n":
+			m.film = (m.film + 1) % len(filmList)
+			m.sc, m.t = nil, 0
+			m.resize(m.termW, m.termH)
+		case "shift+tab", "N":
+			m.film = (m.film + len(filmList) - 1) % len(filmList)
+			m.sc, m.t = nil, 0
+			m.resize(m.termW, m.termH)
 		case "m":
 			m.audio.SetMuted(!m.audio.Muted())
 		case " ", "p":
@@ -121,7 +130,7 @@ func (m model) View() string {
 	}
 	help := ""
 	if m.showHelp && m.t < m.helpUntilT || m.paused {
-		help = helpText
+		help = filmList[m.film].name + "  ·  " + helpText
 		if m.paused {
 			help = "paused  ·  " + helpText
 		}

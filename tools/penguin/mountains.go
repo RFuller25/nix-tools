@@ -86,6 +86,21 @@ var (
 func sigmoid(x float64) float64 { return 1 / (1 + math.Exp(-x)) }
 
 func (s *scene) drawLayer(cv *canvas, l *layer, dawn float64) {
+	drawRange(cv, l, s.hz, penguinPal, dawn)
+}
+
+// mtnPal colours a range of mountains.
+type mtnPal struct {
+	rockLit, rockSh, snowLit, snowSh, haze, fog, rim col
+	glowX                                            float64
+	calm                                             bool // soft slopes: no hatching or arête lines
+}
+
+var penguinPal = &mtnPal{rockLit, rockSh, snowLit, snowSh, hazeCol, baseFog, rimWhite, glowX, false}
+
+// drawRange paints one layer of mountains above the horizon row hzi.
+func drawRange(cv *canvas, l *layer, hzi int, pal *mtnPal, dawn float64) {
+	s := struct{ w, hz int }{cv.w, hzi}
 	W, hz := float64(s.w), float64(s.hz)
 	k := 0.50 + 0.50*dawn
 	for c := 0; c < s.w; c++ {
@@ -138,15 +153,15 @@ func (s *scene) drawLayer(cv *canvas, l *layer, dawn float64) {
 				sn *= 1 - 0.55*smoothstep(0.55, 0.9, f2.n)*(1-rel)
 			}
 
-			pool := math.Exp(-math.Pow((cx/W-glowX)/0.22, 2))
+			pool := math.Exp(-math.Pow((cx/W-pal.glowX)/0.22, 2))
 			lit = clamp01(lit + 0.22*pool*(1-pow(rel, 1.3)))
 
-			rock := mix(rockSh, rockLit, lit)
-			snow := mix(snowSh, snowLit, lit)
+			rock := mix(pal.rockSh, pal.rockLit, lit)
+			snow := mix(pal.snowSh, pal.snowLit, lit)
 			c0 := mix(rock, snow, sn).mul(k)
 			fog := l.haze + 0.40*pow(1-rel, 2.6)
-			c0 = mix(c0, hazeCol.mul(0.5+0.5*dawn), clamp01(fog*0.85))
-			c0 = mix(c0, baseFog.mul(0.6+0.4*dawn), 0.60*pow(1-clamp01(alt/5), 2))
+			c0 = mix(c0, pal.haze.mul(0.5+0.5*dawn), clamp01(fog*0.85))
+			c0 = mix(c0, pal.fog.mul(0.6+0.4*dawn), 0.60*pow(1-clamp01(alt/5), 2))
 
 			if r == r0 {
 				// The ridge line itself is inked against the sky.
@@ -162,7 +177,7 @@ func (s *scene) drawLayer(cv *canvas, l *layer, dawn float64) {
 				if l.top[c] >= l.top[max(c-1, 0)] && l.top[c] >= l.top[min(c+1, s.w-1)] && math.Abs(slope) < 1.0 {
 					ch = '^'
 				}
-				rim := mix(c0, rimWhite.mul(k), 0.60*(0.35+0.65*lit))
+				rim := mix(c0, pal.rim.mul(k), 0.60*(0.35+0.65*lit))
 				cv.ink(c, r, ch, rim)
 				continue
 			}
@@ -177,7 +192,14 @@ func (s *scene) drawLayer(cv *canvas, l *layer, dawn float64) {
 				}
 			} else {
 				ch, fg, bg = shadeCell(c0, 0.80, jit)
+				if pal.calm {
+					ch, fg, bg = shadeCell(c0, 0.16, jit-0.04)
+					if strings.IndexRune("#%@*=+", ch) >= 0 {
+						ch = ':'
+					}
+				}
 				switch {
+				case pal.calm:
 				case edge > 0.55 && lit > 0.50 && pk.h > 0.2:
 					// an arête catching the light
 					ch = '|'
@@ -186,7 +208,7 @@ func (s *scene) drawLayer(cv *canvas, l *layer, dawn float64) {
 					} else if p > 0.22 {
 						ch = '\\'
 					}
-					fg = mix(c0, rimWhite.mul(k), 0.60).clamp()
+					fg = mix(c0, pal.rim.mul(k), 0.60).clamp()
 				case lit < 0.40 && pk.h > 0.2:
 					// engraved hatching in the shade
 					dir := 1

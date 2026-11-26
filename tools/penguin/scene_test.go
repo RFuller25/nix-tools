@@ -88,3 +88,34 @@ func TestScoreLinesAgree(t *testing.T) {
 		t.Fatal("note names")
 	}
 }
+
+func TestEveryFilmRendersAtEverySize(t *testing.T) {
+	for _, fi := range filmList {
+		for _, sz := range [][2]int{{60, 20}, {80, 24}, {120, 40}, {200, 60}} {
+			f := fi.make(sz[0], sz[1])
+			for _, ft := range []float64{0, 1.5, 7, 33, 120, 3600.7} {
+				out := f.draw(ft).render(termenv.TrueColor)
+				if n := strings.Count(out, "\n") + 1; n != sz[1] {
+					t.Fatalf("%s %v t=%v: %d rows", fi.name, sz, ft, n)
+				}
+			}
+		}
+	}
+}
+
+func TestFilmsKeepMoving(t *testing.T) {
+	for _, fi := range filmList {
+		f := fi.make(100, 32)
+		a := f.draw(60).render(termenv.TrueColor)
+		b := f.draw(60.5).render(termenv.TrueColor)
+		if a == b {
+			t.Fatalf("%s is frozen between t=60 and t=60.5", fi.name)
+		}
+	}
+}
+
+func TestFilmLookup(t *testing.T) {
+	if filmIndex("Torii ") < 0 || filmIndex("nope") >= 0 || len(filmList) != 7 {
+		t.Fatal("scene registry")
+	}
+}

@@ -11,12 +11,30 @@ mountains (alpenglow, hatched shadows, inked arêtes), sastrugi ice, and
 penguins that are small ray-traced 3D models shaded into glyphs, so the walker
 can turn, waddle and shrink continuously with perspective.
 
+## Scenes
+
+Pick one with `-scene` (default `penguin`); `-list` shows them all. In the
+player, `tab` / `shift+tab` flip to the next or previous scene.
+
+| scene | what you get |
+| --- | --- |
+| `penguin` | the walk into the mountains, with the soundtrack |
+| `torii` | a vermilion torii in still water at dusk, Fuji, cherry blossom and falling petals |
+| `aurora` | a winter range under the northern lights, mirrored in a frozen lake, a cabin with smoke |
+| `river` | a wide river in perspective, sun glitter, drifting leaves and a canoe |
+| `lighthouse` | a storm at night: rain, lightning, spray, and a turning beam |
+| `campfire` | a fire in a pine forest, embers rising, the Milky Way, a shooting star |
+| `deepsea` | jellyfish drifting through light shafts, swaying kelp, fish, marine snow |
+
+Every scene runs forever; only `r` starts one over.
+
 ```sh
 go run ./tools/penguin        # or: nix run .#penguin
+go run ./tools/penguin -scene aurora
 go run ./tools/penguin -frame 20 -w 120 -h 40   # print one frame
 ```
 
-Keys: `space` pause, `r` restart (the only way it begins again), `m` mute, `←`/`→` seek 5s, `q` quit. Wants a terminal of
+Keys: `tab` next scene, `space` pause, `r` restart (the only way it begins again), `m` mute, `←`/`→` seek 5s, `q` quit. Wants a terminal of
 at least 60x21 with truecolor (falls back to 256 colours, or plain glyphs under
 `NO_COLOR`).
 

@@ -7,7 +7,7 @@ Bubbletea TUI utilities, packaged as a Nix flake.
 | [`talc`](tools/talc) | calculator with units, alternative time systems and answer history |
 | [`garden`](tools/garden) | a little garden you plant, tend and come back to |
 | [`gamer`](tools/gamer) | Tetris, 2048, Snake, Hue, Minesweeper, Bricks, Echo and Pegs in one menu |
-| [`penguin`](tools/penguin) | a looping colour-ASCII penguin walking into the mountains |
+| [`penguin`](tools/penguin) | colour-ASCII scenes that run forever: a penguin walking into the mountains, a torii in blossom, the northern lights, a river and more |
 | [`ledger`](tools/ledger) | a betting board for friends, played with Betting Bucks |
 
 ## Running
